@@ -1,7 +1,7 @@
-name = "satuso-api"
-main = "src/index.ts"
+name = "satuso-web"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
 
 # D1 Database (Free tier: 5GB storage)
 [[d1_databases]]
@@ -17,13 +17,3 @@ id = "2b17b8ef6d414b8ab0a2806f0eb743bc"
 # Environment variables
 [vars]
 ENVIRONMENT = "production"
-
-# Secrets (set via `wrangler secret put`):
-# - CLERK_SECRET_KEY: Your Clerk secret key
-# - CLERK_PUBLISHABLE_KEY: Your Clerk publishable key
-# - GROQ_API_KEY: Groq API key for AI features (optional)
-
-# Local development
-[dev]
-port = 8787
-local_protocol = "http"

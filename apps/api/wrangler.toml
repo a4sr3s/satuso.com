@@ -1,0 +1,54 @@
+name = "satuso-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "crm-db"
+database_id = "placeholder-change-after-creation"
+
+# KV Namespace for sessions and cache
+[[kv_namespaces]]
+binding = "KV"
+id = "placeholder-change-after-creation"
+
+# R2 Bucket for file storage
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "satuso-files"
+
+# Queue for background jobs
+[[queues.producers]]
+binding = "QUEUE"
+queue = "satuso-jobs"
+
+[[queues.consumers]]
+queue = "satuso-jobs"
+max_batch_size = 10
+max_batch_timeout = 30
+
+# Vectorize for semantic search
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "satuso-embeddings"
+
+# Workers AI
+[ai]
+binding = "AI"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+
+# Secrets (set via `wrangler secret put`):
+# - CLERK_SECRET_KEY: Your Clerk secret key
+# - CLERK_PUBLISHABLE_KEY: Your Clerk publishable key
+# - JWT_SECRET: Legacy JWT secret (can be removed after migration)
+# - GROQ_API_KEY: Groq API key for AI features
+
+# Local development
+[dev]
+port = 8787
+local_protocol = "http"

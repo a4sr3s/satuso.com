@@ -1,0 +1,135 @@
+---
+import ScrollReveal from "./ScrollReveal.tsx";
+import { Icon } from "astro-icon/components";
+import { SITE } from "../config/site.mjs";
+---
+
+<section id="pricing" class="max-w-6xl mx-auto px-4 py-20">
+  <ScrollReveal client:idle delay={0.1}>
+    <h2 class="text-3xl font-bold text-gray-900 text-center mb-3">
+      Straightforward Pricing
+    </h2>
+    <p class="text-lg text-gray-600 text-center mb-12 max-w-2xl mx-auto">
+      One plan, everything included. No per-seat surprises.
+    </p>
+  </ScrollReveal>
+
+  <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+    <!-- Standard Plan -->
+    <ScrollReveal client:idle delay={0.2} scale={true}>
+      <div class="relative bg-white rounded-2xl border-2 border-gray-900 p-8 shadow-lg">
+        <div class="absolute -top-3 left-6">
+          <span class="bg-gray-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
+            Most Popular
+          </span>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Standard</h3>
+          <p class="text-gray-600 text-sm">Everything you need to close more deals</p>
+        </div>
+
+        <div class="mb-6">
+          <div class="flex items-baseline gap-1">
+            <span class="text-5xl font-bold text-gray-900">$29</span>
+            <span class="text-gray-600">/month</span>
+          </div>
+          <p class="text-sm text-gray-500 mt-1">Up to 5 users included</p>
+        </div>
+
+        <ul class="space-y-3 mb-8">
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Unlimited deals & contacts</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Visual pipeline management</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>AI-powered insights</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>SPIN selling methodology</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Custom workboards</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Analytics dashboard</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Email support</span>
+          </li>
+        </ul>
+
+        <a
+          href={`${SITE.appUrl}/login`}
+          class="block w-full text-center px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-colors font-semibold"
+        >
+          Get Started
+        </a>
+      </div>
+    </ScrollReveal>
+
+    <!-- Enterprise Plan -->
+    <ScrollReveal client:idle delay={0.3} scale={true}>
+      <div class="bg-gray-50 rounded-2xl border border-gray-200 p-8">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Enterprise</h3>
+          <p class="text-gray-600 text-sm">For larger teams with custom needs</p>
+        </div>
+
+        <div class="mb-6">
+          <div class="flex items-baseline gap-1">
+            <span class="text-4xl font-bold text-gray-900">Custom</span>
+          </div>
+          <p class="text-sm text-gray-500 mt-1">Tailored to your team size</p>
+        </div>
+
+        <ul class="space-y-3 mb-8">
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Everything in Standard</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Unlimited users</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Priority support</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Custom integrations</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>Dedicated account manager</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>SSO & advanced security</span>
+          </li>
+          <li class="flex items-center gap-3 text-sm text-gray-700">
+            <Icon name="tabler:check" class="w-5 h-5 text-green-500 flex-shrink-0" />
+            <span>SLA guarantee</span>
+          </li>
+        </ul>
+
+        <a
+          href="mailto:sales@satuso.com"
+          class="block w-full text-center px-6 py-3 bg-white text-gray-900 border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors font-semibold"
+        >
+          Contact Sales
+        </a>
+      </div>
+    </ScrollReveal>
+  </div>
+</section>

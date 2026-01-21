@@ -1,0 +1,107 @@
+---
+import ScrollReveal from "./ScrollReveal.tsx";
+import { Icon } from "astro-icon/components";
+---
+
+<section id="features" class="max-w-6xl mx-auto px-4 py-20">
+  <ScrollReveal client:idle delay={0.1}>
+    <h2 class="text-3xl font-bold text-gray-900 text-center mb-3">
+      Everything You Need to Close More Deals
+    </h2>
+    <p class="text-lg text-gray-600 text-center mb-10 max-w-2xl mx-auto">
+      Powerful tools that help you stay organized and follow up on time.
+    </p>
+  </ScrollReveal>
+  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <ScrollReveal client:idle delay={0.2} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:brain" class="w-5 h-5 text-blue-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">AI-Powered Insights</h3>
+        <p class="text-sm text-gray-600">
+          Intelligent recommendations and deal scoring. Know which deals to prioritize.
+        </p>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal client:idle delay={0.3} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:message-circle" class="w-5 h-5 text-purple-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">SPIN Selling</h3>
+        <p class="text-sm text-gray-600">
+          Built-in SPIN methodology. Track Situation, Problem, Implication, and Need-Payoff.
+        </p>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal client:idle delay={0.4} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:layout-kanban" class="w-5 h-5 text-green-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">Visual Pipeline</h3>
+        <p class="text-sm text-gray-600">
+          Drag-and-drop Kanban boards. See your entire funnel at a glance.
+        </p>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal client:idle delay={0.5} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:users" class="w-5 h-5 text-orange-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">Deal Teams</h3>
+        <p class="text-sm text-gray-600">
+          Collaborate on complex deals. Assign resources and staff to opportunities.
+        </p>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal client:idle delay={0.6} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:table" class="w-5 h-5 text-red-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">Custom Workboards</h3>
+        <p class="text-sm text-gray-600">
+          Create custom views for contacts, companies, and deals.
+        </p>
+      </div>
+    </ScrollReveal>
+    <ScrollReveal client:idle delay={0.7} scale={true} className="h-full">
+      <div
+        class="h-full p-5 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+      >
+        <div
+          class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mb-3"
+        >
+          <Icon name="tabler:chart-bar" class="w-5 h-5 text-indigo-600" aria-hidden="true" />
+        </div>
+        <h3 class="text-base font-semibold text-gray-900 mb-1">Analytics Dashboard</h3>
+        <p class="text-sm text-gray-600">
+          Track pipeline value, conversion rates, and team performance.
+        </p>
+      </div>
+    </ScrollReveal>
+  </div>
+</section>

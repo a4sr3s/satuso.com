@@ -21,10 +21,11 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
   const { maxRequests, windowMs, keyPrefix } = { ...DEFAULT_CONFIG, ...config };
 
   return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
-    // Skip rate limiting in development
-    if (c.env.ENVIRONMENT === 'development') {
-      return next();
-    }
+    // In development, use much higher limits but don't skip entirely
+    // This ensures rate limiting logic is still tested
+    // ENVIRONMENT is set via wrangler.toml and cannot be manipulated by clients
+    const isDev = c.env.ENVIRONMENT === 'development';
+    const effectiveMaxRequests = isDev ? maxRequests * 10 : maxRequests;
 
     // Get identifier - prefer user ID if authenticated, fallback to IP
     const userId = c.get('userId');
@@ -42,7 +43,7 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
       // Filter to only requests within the current window
       const requests = data?.requests?.filter((t: number) => t > windowStart) || [];
 
-      if (requests.length >= maxRequests) {
+      if (requests.length >= effectiveMaxRequests) {
         // Calculate retry-after time
         const oldestRequest = Math.min(...requests);
         const retryAfter = Math.ceil((oldestRequest + windowMs - now) / 1000);
@@ -55,7 +56,7 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
           429,
           {
             'Retry-After': retryAfter.toString(),
-            'X-RateLimit-Limit': maxRequests.toString(),
+            'X-RateLimit-Limit': effectiveMaxRequests.toString(),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': Math.ceil((oldestRequest + windowMs) / 1000).toString(),
           }
@@ -69,8 +70,8 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
       });
 
       // Add rate limit headers
-      c.header('X-RateLimit-Limit', maxRequests.toString());
-      c.header('X-RateLimit-Remaining', (maxRequests - requests.length).toString());
+      c.header('X-RateLimit-Limit', effectiveMaxRequests.toString());
+      c.header('X-RateLimit-Remaining', (effectiveMaxRequests - requests.length).toString());
 
       return next();
     } catch (error) {

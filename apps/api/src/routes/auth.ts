@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types';
 import { registerSchema, loginSchema } from '../schemas';
-import { hashPassword, verifyPassword } from '../utils/password';
+import { hashPassword, verifyPassword, isLegacyHash } from '../utils/password';
 import { strictRateLimiter } from '../middleware/rate-limit';
 
 const auth = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -101,6 +101,14 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
   const isValid = await verifyPassword(password, user.password_hash);
   if (!isValid) {
     return c.json({ success: false, error: 'Invalid credentials' }, 401);
+  }
+
+  // Auto-upgrade legacy SHA-256 hashes to PBKDF2 on successful login
+  if (isLegacyHash(user.password_hash)) {
+    const upgradedHash = await hashPassword(password);
+    await c.env.DB.prepare(
+      'UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?'
+    ).bind(upgradedHash, new Date().toISOString(), user.id).run();
   }
 
   // Validate JWT_SECRET is configured

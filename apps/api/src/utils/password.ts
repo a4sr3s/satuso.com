@@ -72,6 +72,15 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
+ * Check if a stored hash uses legacy SHA-256 format and needs upgrade
+ */
+export function isLegacyHash(storedHash: string): boolean {
+  const parts = storedHash.split('$');
+  // Legacy hash is a single 64-char hex string (SHA-256)
+  return parts.length === 1 && storedHash.length === 64;
+}
+
+/**
  * Verify a password against a stored hash
  */
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {

@@ -6,6 +6,8 @@ import type { Env, Variables } from '../types';
 import { hashPassword } from '../utils/password';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { strictRateLimiter } from '../middleware/rate-limit';
+import { passwordSchema } from '../schemas';
+import { generateInviteToken } from '../utils/crypto';
 
 const organizations = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -27,7 +29,7 @@ const inviteSchema = z.object({
 const acceptInviteSchema = z.object({
   token: z.string(),
   name: z.string().min(2),
-  password: z.string().min(8),
+  password: passwordSchema,
 });
 
 const updateOrgSchema = z.object({
@@ -166,9 +168,9 @@ organizations.post('/invite', zValidator('json', inviteSchema), async (c) => {
     return c.json({ success: false, error: 'An invite is already pending for this email' }, 400);
   }
 
-  // Create invite
+  // Create invite with cryptographically secure token
   const inviteId = nanoid();
-  const inviteToken = nanoid(32);
+  const inviteToken = generateInviteToken();
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
 

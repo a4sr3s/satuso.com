@@ -11,11 +11,13 @@ export interface Env {
 
 export interface Variables {
   userId: string;
+  orgId?: string;
   user: {
     id: string;
     email: string;
     name: string;
     role: string;
     organization_id?: string;
+    org_id?: string;
   };
 }

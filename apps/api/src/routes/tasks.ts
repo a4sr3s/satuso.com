@@ -16,6 +16,7 @@ tasks.get('/', async (c) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const userId = c.get('userId');
   const user = c.get('user');
+  const orgId = c.get('orgId');
 
   // Apply row-level access control
   const accessFilter = getAccessFilter(user, 't.owner_id');
@@ -35,6 +36,12 @@ tasks.get('/', async (c) => {
     WHERE 1=1${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND t.org_id = ?`;
+    params.push(orgId);
+  }
 
   // Filter by owner (default to current user for "my" tasks)
   if (ownerId) {
@@ -155,13 +162,14 @@ tasks.get('/:id', async (c) => {
 tasks.post('/', zValidator('json', createTaskSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
 
   const id = nanoid();
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO tasks (id, subject, content, deal_id, contact_id, owner_id, due_date, priority, completed, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (id, subject, content, deal_id, contact_id, owner_id, due_date, priority, completed, org_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.subject,
@@ -172,6 +180,7 @@ tasks.post('/', zValidator('json', createTaskSchema), async (c) => {
     body.due_date || null,
     body.priority || 'medium',
     0,
+    orgId || null,
     now,
     now
   ).run();

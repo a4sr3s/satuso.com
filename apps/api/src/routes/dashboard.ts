@@ -9,6 +9,7 @@ dashboard.use('*', clerkAuthMiddleware);
 // Get dashboard metrics
 dashboard.get('/metrics', async (c) => {
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
   const today = new Date().toISOString().split('T')[0];
 
   // Get current month start
@@ -17,65 +18,70 @@ dashboard.get('/metrics', async (c) => {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();
 
+  // Build org filter
+  const orgFilter = orgId ? ' AND org_id = ?' : '';
+  const orgParams = orgId ? [orgId] : [];
+
   // Total revenue this month
   const revenueThisMonth = await c.env.DB.prepare(`
     SELECT COALESCE(SUM(value), 0) as total
     FROM deals
-    WHERE stage = 'closed_won' AND updated_at >= ?
-  `).bind(monthStart).first<{ total: number }>();
+    WHERE stage = 'closed_won' AND updated_at >= ?${orgFilter}
+  `).bind(monthStart, ...orgParams).first<{ total: number }>();
 
   const revenueLastMonth = await c.env.DB.prepare(`
     SELECT COALESCE(SUM(value), 0) as total
     FROM deals
-    WHERE stage = 'closed_won' AND updated_at >= ? AND updated_at < ?
-  `).bind(lastMonthStart, monthStart).first<{ total: number }>();
+    WHERE stage = 'closed_won' AND updated_at >= ? AND updated_at < ?${orgFilter}
+  `).bind(lastMonthStart, monthStart, ...orgParams).first<{ total: number }>();
 
   // Active deals
   const activeDeals = await c.env.DB.prepare(`
     SELECT COUNT(*) as count
     FROM deals
-    WHERE stage NOT IN ('closed_won', 'closed_lost')
-  `).first<{ count: number }>();
+    WHERE stage NOT IN ('closed_won', 'closed_lost')${orgFilter}
+  `).bind(...orgParams).first<{ count: number }>();
 
   const lastMonthActiveDeals = await c.env.DB.prepare(`
     SELECT COUNT(*) as count
     FROM deals
-    WHERE stage NOT IN ('closed_won', 'closed_lost') AND created_at < ?
-  `).bind(monthStart).first<{ count: number }>();
+    WHERE stage NOT IN ('closed_won', 'closed_lost') AND created_at < ?${orgFilter}
+  `).bind(monthStart, ...orgParams).first<{ count: number }>();
 
   // Conversion rate (closed won / total closed)
   const closedWon = await c.env.DB.prepare(`
-    SELECT COUNT(*) as count FROM deals WHERE stage = 'closed_won' AND updated_at >= ?
-  `).bind(monthStart).first<{ count: number }>();
+    SELECT COUNT(*) as count FROM deals WHERE stage = 'closed_won' AND updated_at >= ?${orgFilter}
+  `).bind(monthStart, ...orgParams).first<{ count: number }>();
 
   const totalClosed = await c.env.DB.prepare(`
-    SELECT COUNT(*) as count FROM deals WHERE stage IN ('closed_won', 'closed_lost') AND updated_at >= ?
-  `).bind(monthStart).first<{ count: number }>();
+    SELECT COUNT(*) as count FROM deals WHERE stage IN ('closed_won', 'closed_lost') AND updated_at >= ?${orgFilter}
+  `).bind(monthStart, ...orgParams).first<{ count: number }>();
 
   const lastMonthClosedWon = await c.env.DB.prepare(`
-    SELECT COUNT(*) as count FROM deals WHERE stage = 'closed_won' AND updated_at >= ? AND updated_at < ?
-  `).bind(lastMonthStart, monthStart).first<{ count: number }>();
+    SELECT COUNT(*) as count FROM deals WHERE stage = 'closed_won' AND updated_at >= ? AND updated_at < ?${orgFilter}
+  `).bind(lastMonthStart, monthStart, ...orgParams).first<{ count: number }>();
 
   const lastMonthTotalClosed = await c.env.DB.prepare(`
-    SELECT COUNT(*) as count FROM deals WHERE stage IN ('closed_won', 'closed_lost') AND updated_at >= ? AND updated_at < ?
-  `).bind(lastMonthStart, monthStart).first<{ count: number }>();
+    SELECT COUNT(*) as count FROM deals WHERE stage IN ('closed_won', 'closed_lost') AND updated_at >= ? AND updated_at < ?${orgFilter}
+  `).bind(lastMonthStart, monthStart, ...orgParams).first<{ count: number }>();
 
   const conversionRate = totalClosed?.count ? ((closedWon?.count || 0) / totalClosed.count) * 100 : 0;
   const lastMonthConversionRate = lastMonthTotalClosed?.count ? ((lastMonthClosedWon?.count || 0) / lastMonthTotalClosed.count) * 100 : 0;
 
   // Tasks due today
+  const taskOrgFilter = orgId ? ' AND org_id = ?' : '';
   const tasksDueToday = await c.env.DB.prepare(`
-    SELECT COUNT(*) as count FROM tasks WHERE due_date = ? AND completed = 0 AND owner_id = ?
-  `).bind(today, userId).first<{ count: number }>();
+    SELECT COUNT(*) as count FROM tasks WHERE due_date = ? AND completed = 0 AND owner_id = ?${taskOrgFilter}
+  `).bind(today, userId, ...orgParams).first<{ count: number }>();
 
   // Get sparkline data (last 7 days revenue) - single query instead of N+1
   const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const sparklineResults = await c.env.DB.prepare(`
     SELECT DATE(updated_at) as day, COALESCE(SUM(value), 0) as total
     FROM deals
-    WHERE stage = 'closed_won' AND DATE(updated_at) >= ?
+    WHERE stage = 'closed_won' AND DATE(updated_at) >= ?${orgFilter}
     GROUP BY DATE(updated_at)
-  `).bind(sevenDaysAgo).all<{ day: string; total: number }>();
+  `).bind(sevenDaysAgo, ...orgParams).all<{ day: string; total: number }>();
 
   // Map results to array for last 7 days
   const revenueByDay = new Map(sparklineResults.results.map(r => [r.day, r.total]));
@@ -132,6 +138,10 @@ dashboard.get('/metrics', async (c) => {
 // Get recent activity
 dashboard.get('/activity', async (c) => {
   const { limit = '10' } = c.req.query();
+  const orgId = c.get('orgId');
+
+  const orgFilter = orgId ? ' WHERE a.org_id = ?' : '';
+  const orgParams = orgId ? [orgId] : [];
 
   const activities = await c.env.DB.prepare(`
     SELECT
@@ -145,24 +155,29 @@ dashboard.get('/activity', async (c) => {
     LEFT JOIN contacts c ON a.contact_id = c.id
     LEFT JOIN companies co ON a.company_id = co.id
     LEFT JOIN users u ON a.owner_id = u.id
+    ${orgFilter}
     ORDER BY a.created_at DESC
     LIMIT ?
-  `).bind(parseInt(limit)).all();
+  `).bind(...orgParams, parseInt(limit)).all();
 
   return c.json({ success: true, data: activities.results });
 });
 
 // Get pipeline summary
 dashboard.get('/pipeline', async (c) => {
+  const orgId = c.get('orgId');
+  const orgFilter = orgId ? ' AND org_id = ?' : '';
+  const orgParams = orgId ? [orgId] : [];
+
   const pipeline = await c.env.DB.prepare(`
     SELECT
       stage,
       COUNT(*) as count,
       COALESCE(SUM(value), 0) as total_value
     FROM deals
-    WHERE stage NOT IN ('closed_won', 'closed_lost')
+    WHERE stage NOT IN ('closed_won', 'closed_lost')${orgFilter}
     GROUP BY stage
-  `).all();
+  `).bind(...orgParams).all();
 
   const stageOrder = ['lead', 'qualified', 'proposal', 'negotiation'];
   const result = stageOrder.map(stage => {
@@ -179,6 +194,10 @@ dashboard.get('/pipeline', async (c) => {
 
 // Get at-risk deals
 dashboard.get('/at-risk', async (c) => {
+  const orgId = c.get('orgId');
+  const orgFilter = orgId ? ' AND d.org_id = ?' : '';
+  const orgParams = orgId ? [orgId] : [];
+
   // Deals with no activity in 14+ days or low SPIN progress
   const atRiskDeals = await c.env.DB.prepare(`
     SELECT
@@ -190,7 +209,7 @@ dashboard.get('/at-risk', async (c) => {
     FROM deals d
     LEFT JOIN contacts c ON d.contact_id = c.id
     LEFT JOIN companies co ON d.company_id = co.id
-    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+    WHERE d.stage NOT IN ('closed_won', 'closed_lost')${orgFilter}
     AND (
       (SELECT MAX(created_at) FROM activities WHERE deal_id = d.id) < datetime('now', '-14 days')
       OR d.spin_progress < 2
@@ -198,7 +217,7 @@ dashboard.get('/at-risk', async (c) => {
     )
     ORDER BY d.value DESC
     LIMIT 5
-  `).all();
+  `).bind(...orgParams).all();
 
   return c.json({ success: true, data: atRiskDeals.results });
 });

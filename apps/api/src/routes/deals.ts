@@ -16,6 +16,7 @@ deals.get('/', async (c) => {
   const { search, stage, ownerId, minValue, maxValue, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
+  const orgId = c.get('orgId');
 
   // Apply row-level access control
   const accessFilter = getDealAccessFilter(user);
@@ -34,6 +35,12 @@ deals.get('/', async (c) => {
     WHERE 1=1${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND d.org_id = ?`;
+    params.push(orgId);
+  }
 
   if (search) {
     query += ` AND (d.name LIKE ? OR co.name LIKE ?)`;
@@ -87,6 +94,7 @@ deals.get('/', async (c) => {
 deals.get('/pipeline', async (c) => {
   const { ownerId } = c.req.query();
   const user = c.get('user');
+  const orgId = c.get('orgId');
 
   // Apply row-level access control
   const accessFilter = getDealAccessFilter(user);
@@ -105,6 +113,12 @@ deals.get('/pipeline', async (c) => {
     WHERE d.stage NOT IN ('closed_won', 'closed_lost')${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    baseQuery += ` AND d.org_id = ?`;
+    params.push(orgId);
+  }
 
   if (ownerId) {
     baseQuery += ` AND d.owner_id = ?`;
@@ -186,13 +200,14 @@ deals.get('/:id', async (c) => {
 deals.post('/', zValidator('json', createDealSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
 
   const id = nanoid();
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO deals (id, name, value, stage, contact_id, company_id, owner_id, close_date, spin_progress, stage_changed_at, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO deals (id, name, value, stage, contact_id, company_id, owner_id, close_date, spin_progress, org_id, stage_changed_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
@@ -203,6 +218,7 @@ deals.post('/', zValidator('json', createDealSchema), async (c) => {
     userId,
     body.close_date || null,
     0,
+    orgId || null,
     now,
     now,
     now

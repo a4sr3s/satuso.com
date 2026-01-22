@@ -73,13 +73,18 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       return c.json({ success: false, error: 'User not found' }, 401);
     }
 
+    // Extract Clerk organization ID from JWT (when user has selected an org)
+    const clerkOrgId = payload.org_id as string | undefined;
+
     c.set('userId', user.id);
+    c.set('orgId', clerkOrgId);
     c.set('user', {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       organization_id: user.organization_id || undefined,
+      org_id: clerkOrgId,
     });
 
     await next();

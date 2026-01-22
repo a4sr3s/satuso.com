@@ -16,6 +16,7 @@ contacts.get('/', async (c) => {
   const { search, status, ownerId, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
+  const orgId = c.get('orgId');
 
   // Apply row-level access control
   const accessFilter = getAccessFilter(user, 'c.owner_id');
@@ -31,6 +32,12 @@ contacts.get('/', async (c) => {
     WHERE 1=1${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND c.org_id = ?`;
+    params.push(orgId);
+  }
 
   if (search) {
     query += ` AND (c.name LIKE ? OR c.email LIKE ?)`;
@@ -125,13 +132,14 @@ contacts.get('/:id', async (c) => {
 contacts.post('/', zValidator('json', createContactSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
 
   const id = nanoid();
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source, linkedin_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source, linkedin_url, org_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
@@ -143,6 +151,7 @@ contacts.post('/', zValidator('json', createContactSchema), async (c) => {
     body.status || 'active',
     body.source || null,
     body.linkedinUrl || null,
+    orgId || null,
     now,
     now
   ).run();

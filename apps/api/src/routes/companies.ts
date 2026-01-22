@@ -16,6 +16,7 @@ companies.get('/', async (c) => {
   const { search, industry, ownerId, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
+  const orgId = c.get('orgId');
 
   // Apply row-level access control
   const accessFilter = getAccessFilter(user, 'c.owner_id');
@@ -35,6 +36,12 @@ companies.get('/', async (c) => {
     WHERE 1=1${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND c.org_id = ?`;
+    params.push(orgId);
+  }
 
   if (search) {
     query += ` AND (c.name LIKE ? OR c.domain LIKE ?)`;
@@ -141,13 +148,14 @@ companies.get('/:id', async (c) => {
 companies.post('/', zValidator('json', createCompanySchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
 
   const id = nanoid();
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO companies (id, name, domain, industry, employee_count, annual_revenue, website, description, owner_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO companies (id, name, domain, industry, employee_count, annual_revenue, website, description, owner_id, org_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
@@ -158,6 +166,7 @@ companies.post('/', zValidator('json', createCompanySchema), async (c) => {
     body.website || null,
     body.description || null,
     userId,
+    orgId || null,
     now,
     now
   ).run();

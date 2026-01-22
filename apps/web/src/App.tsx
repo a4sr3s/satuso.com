@@ -1,24 +1,23 @@
-import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SignedIn, SignedOut, RedirectToSignIn, useAuth } from '@clerk/clerk-react';
 import Layout from '@/components/Layout';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import AuthProvider from '@/components/AuthProvider';
 
-// Lazy load pages for code-splitting
-const SignInPage = lazy(() => import('@/pages/SignIn'));
-const SignUpPage = lazy(() => import('@/pages/SignUp'));
-const DashboardPage = lazy(() => import('@/pages/Dashboard'));
-const ContactsPage = lazy(() => import('@/pages/Contacts'));
-const ContactDetailPage = lazy(() => import('@/pages/ContactDetail'));
-const CompaniesPage = lazy(() => import('@/pages/Companies'));
-const CompanyDetailPage = lazy(() => import('@/pages/CompanyDetail'));
-const DealsPage = lazy(() => import('@/pages/Deals'));
-const DealDetailPage = lazy(() => import('@/pages/DealDetail'));
-const TasksPage = lazy(() => import('@/pages/Tasks'));
-const SettingsPage = lazy(() => import('@/pages/Settings'));
-const WorkboardsPage = lazy(() => import('@/pages/Workboards'));
-const WorkboardViewPage = lazy(() => import('@/pages/WorkboardView'));
+// Direct imports for instant navigation
+import SignInPage from '@/pages/SignIn';
+import SignUpPage from '@/pages/SignUp';
+import DashboardPage from '@/pages/Dashboard';
+import ContactsPage from '@/pages/Contacts';
+import ContactDetailPage from '@/pages/ContactDetail';
+import CompaniesPage from '@/pages/Companies';
+import CompanyDetailPage from '@/pages/CompanyDetail';
+import DealsPage from '@/pages/Deals';
+import DealDetailPage from '@/pages/DealDetail';
+import TasksPage from '@/pages/Tasks';
+import SettingsPage from '@/pages/Settings';
+import WorkboardsPage from '@/pages/Workboards';
+import WorkboardViewPage from '@/pages/WorkboardView';
 
 // Full page loader for auth state
 function FullPageLoader() {
@@ -60,8 +59,8 @@ function App() {
     <AuthProvider>
       <Routes>
         {/* Auth routes */}
-        <Route path="/sign-in/*" element={<Suspense fallback={<FullPageLoader />}><SignInPage /></Suspense>} />
-        <Route path="/sign-up/*" element={<Suspense fallback={<FullPageLoader />}><SignUpPage /></Suspense>} />
+        <Route path="/sign-in/*" element={<SignInPage />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
         {/* Legacy route redirect */}
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation, useParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
+import { OrganizationSwitcher, UserButton } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
 import AssistantPanel from './AssistantPanel';
@@ -61,6 +62,35 @@ export default function Layout() {
     <div className="min-h-screen bg-surface">
       <Sidebar />
       <main className="pl-sidebar">
+        {/* Header */}
+        <header className="h-14 border-b border-border bg-white flex items-center justify-end px-6">
+          <div className="flex items-center gap-3">
+            <OrganizationSwitcher
+              hidePersonal
+              afterCreateOrganizationUrl="/"
+              afterSelectOrganizationUrl="/"
+              appearance={{
+                elements: {
+                  rootBox: 'flex items-center',
+                  organizationSwitcherTrigger: 'px-2 py-1.5 rounded-lg hover:bg-surface',
+                  organizationPreviewAvatarBox: 'w-8 h-8',
+                  organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
+                  organizationSwitcherPopoverCard: 'shadow-lg border border-border',
+                },
+              }}
+            />
+            <UserButton
+              afterSignOutUrl="/sign-in"
+              appearance={{
+                elements: {
+                  avatarBox: 'w-8 h-8',
+                  userButtonPopoverCard: 'shadow-lg border border-border',
+                  userButtonPopoverFooter: 'hidden',
+                },
+              }}
+            />
+          </div>
+        </header>
         <div className="p-6">
           <Outlet />
         </div>

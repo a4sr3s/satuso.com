@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser, UserProfile } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import { organizationsApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -130,7 +130,7 @@ const INTEGRATIONS = [
 
 export default function SettingsPage() {
   const { user } = useUser();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState('organization');
 
   // Organization state
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -147,7 +147,6 @@ export default function SettingsPage() {
   const [inviting, setInviting] = useState(false);
 
   const tabs = [
-    { id: 'profile', label: 'Profile' },
     { id: 'organization', label: 'Organization' },
     { id: 'team', label: 'Team' },
     { id: 'integrations', label: 'Integrations' },
@@ -283,35 +282,6 @@ export default function SettingsPage() {
 
       {/* Content */}
       <div className="max-w-2xl">
-        {activeTab === 'profile' && (
-          <div className="[&_.cl-rootBox]:w-full [&_.cl-card]:shadow-none [&_.cl-card]:border [&_.cl-card]:border-border [&_.cl-card]:rounded-xl [&_.cl-navbar]:hidden [&_.cl-pageScrollBox]:p-0 [&_.cl-profilePage]:p-0">
-            <UserProfile
-              routing="path"
-              path="/settings"
-              appearance={{
-                elements: {
-                  rootBox: 'w-full',
-                  card: 'shadow-none border border-border rounded-xl',
-                  navbar: 'hidden',
-                  pageScrollBox: 'p-0',
-                  page: 'p-0',
-                  profilePage: 'p-0',
-                  profileSection: 'border-border',
-                  profileSectionTitle: 'text-text-primary',
-                  profileSectionTitleText: 'text-text-primary font-medium',
-                  profileSectionContent: 'text-text-secondary',
-                  formButtonPrimary: 'bg-primary hover:bg-primary/90 text-white',
-                  formFieldLabel: 'text-text-primary',
-                  formFieldInput: 'border-border focus:ring-primary',
-                  accordionTriggerButton: 'text-text-primary hover:bg-surface',
-                  badge: 'bg-primary/10 text-primary',
-                  avatarBox: 'border-2 border-border',
-                },
-              }}
-            />
-          </div>
-        )}
-
         {activeTab === 'organization' && (
           <div className="space-y-6">
             {/* Organization Info */}

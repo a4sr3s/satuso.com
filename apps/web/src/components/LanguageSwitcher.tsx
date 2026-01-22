@@ -15,6 +15,9 @@ export default function LanguageSwitcher({ variant = 'header' }: LanguageSwitche
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Safely get language, fallback to 'en' if not found
+  const currentLang = LANGUAGES[language] ? language : 'en';
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -47,14 +50,14 @@ export default function LanguageSwitcher({ variant = 'header' }: LanguageSwitche
               onClick={() => handleLanguageChange(lang.code as LanguageCode)}
               className={clsx(
                 'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors',
-                language === lang.code
+                currentLang === lang.code
                   ? 'bg-primary text-white border-primary'
                   : 'bg-white text-text-primary border-gray-200 hover:border-gray-300'
               )}
             >
               <span>{lang.flag}</span>
               <span>{lang.name}</span>
-              {language === lang.code && <Check className="h-4 w-4" />}
+              {currentLang === lang.code && <Check className="h-4 w-4" />}
             </button>
           ))}
         </div>
@@ -70,7 +73,7 @@ export default function LanguageSwitcher({ variant = 'header' }: LanguageSwitche
         title={t('common:language.title')}
       >
         <Globe className="h-4 w-4" />
-        <span className="text-sm">{LANGUAGES[language].flag}</span>
+        <span className="text-sm">{LANGUAGES[currentLang].flag}</span>
       </button>
 
       {isOpen && (
@@ -81,14 +84,14 @@ export default function LanguageSwitcher({ variant = 'header' }: LanguageSwitche
               onClick={() => handleLanguageChange(lang.code as LanguageCode)}
               className={clsx(
                 'w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors',
-                language === lang.code
+                currentLang === lang.code
                   ? 'bg-primary-light text-primary font-medium'
                   : 'text-text-primary hover:bg-surface'
               )}
             >
               <span>{lang.flag}</span>
               <span className="flex-1">{lang.name}</span>
-              {language === lang.code && <Check className="h-4 w-4" />}
+              {currentLang === lang.code && <Check className="h-4 w-4" />}
             </button>
           ))}
         </div>

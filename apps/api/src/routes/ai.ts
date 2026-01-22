@@ -286,6 +286,11 @@ ai.post('/query', async (c) => {
     return c.json({ success: false, error: 'Query is required' }, 400);
   }
 
+  if (!c.env.GROQ_API_KEY) {
+    console.error('GROQ_API_KEY is not configured');
+    return c.json({ success: false, error: 'AI service is not configured. Please set GROQ_API_KEY.' }, 500);
+  }
+
   try {
     // Fetch full CRM context
     const crmContext = await getCRMContext(c.env.DB);
@@ -338,6 +343,8 @@ Always give your honest assessment. If a deal looks weak, say so. Your job is to
   } catch (error) {
     console.error('AI query error:', error);
     const errorMsg = error instanceof Error ? error.message : 'Failed to process query';
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('AI query stack:', errorStack);
 
     // Check if it's a rate limit error and return a friendly message
     if (errorMsg.includes('Rate limit')) {
@@ -347,6 +354,11 @@ Always give your honest assessment. If a deal looks weak, say so. Your job is to
           response: "I'm currently at my request limit. Please wait about a minute and try again. The free tier allows 30 requests per minute and 6,000 tokens per minute.",
         },
       });
+    }
+
+    // Check for API key issues
+    if (errorMsg.includes('API key') || errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+      return c.json({ success: false, error: 'AI service authentication failed. Please check GROQ_API_KEY configuration.' }, 500);
     }
 
     return c.json({ success: false, error: errorMsg }, 500);

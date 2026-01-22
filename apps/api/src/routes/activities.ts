@@ -4,6 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { createActivitySchema, updateActivitySchema } from '../schemas';
+import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../utils/access-control';
 
 const activities = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -13,6 +14,11 @@ activities.use('*', clerkAuthMiddleware);
 activities.get('/', async (c) => {
   const { page = '1', limit = '20', type, dealId, contactId, companyId, ownerId } = c.req.query();
   const offset = (parseInt(page) - 1) * parseInt(limit);
+  const user = c.get('user');
+  const orgId = c.get('orgId');
+
+  // Apply row-level access control
+  const accessFilter = getAccessFilter(user, 'a.owner_id');
 
   let query = `
     SELECT
@@ -26,9 +32,15 @@ activities.get('/', async (c) => {
     LEFT JOIN contacts c ON a.contact_id = c.id
     LEFT JOIN companies co ON a.company_id = co.id
     LEFT JOIN users u ON a.owner_id = u.id
-    WHERE 1=1
+    WHERE 1=1${accessFilter.sql}
   `;
-  const params: any[] = [];
+  const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND a.org_id = ?`;
+    params.push(orgId);
+  }
 
   if (type) {
     query += ` AND a.type = ?`;
@@ -81,9 +93,13 @@ activities.get('/', async (c) => {
 // Get recent activity feed
 activities.get('/feed', async (c) => {
   const { limit = '20' } = c.req.query();
-  const userId = c.get('userId');
+  const user = c.get('user');
+  const orgId = c.get('orgId');
 
-  const results = await c.env.DB.prepare(`
+  // Apply row-level access control
+  const accessFilter = getAccessFilter(user, 'a.owner_id');
+
+  let query = `
     SELECT
       a.*,
       d.name as deal_name,
@@ -95,9 +111,20 @@ activities.get('/feed', async (c) => {
     LEFT JOIN contacts c ON a.contact_id = c.id
     LEFT JOIN companies co ON a.company_id = co.id
     LEFT JOIN users u ON a.owner_id = u.id
-    ORDER BY a.created_at DESC
-    LIMIT ?
-  `).bind(parseInt(limit)).all();
+    WHERE 1=1${accessFilter.sql}
+  `;
+  const params: any[] = [...accessFilter.params];
+
+  // Filter by Clerk organization
+  if (orgId) {
+    query += ` AND a.org_id = ?`;
+    params.push(orgId);
+  }
+
+  query += ` ORDER BY a.created_at DESC LIMIT ?`;
+  params.push(parseInt(limit));
+
+  const results = await c.env.DB.prepare(query).bind(...params).all();
 
   return c.json({ success: true, data: results.results });
 });
@@ -105,6 +132,17 @@ activities.get('/feed', async (c) => {
 // Get single activity
 activities.get('/:id', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
+
+  // Check access before returning activity
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
 
   const activity = await c.env.DB.prepare(`
     SELECT
@@ -132,13 +170,14 @@ activities.get('/:id', async (c) => {
 activities.post('/', zValidator('json', createActivitySchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId');
+  const orgId = c.get('orgId');
 
   const id = nanoid();
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO activities (id, type, subject, content, deal_id, contact_id, company_id, owner_id, due_date, completed, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO activities (id, type, subject, content, deal_id, contact_id, company_id, owner_id, due_date, completed, org_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.type,
@@ -150,6 +189,7 @@ activities.post('/', zValidator('json', createActivitySchema), async (c) => {
     userId,
     body.due_date || null,
     0,
+    orgId || null,
     now,
     now
   ).run();
@@ -171,6 +211,17 @@ activities.patch('/:id', zValidator('json', updateActivitySchema), async (c) => 
   const { id } = c.req.param();
   const body = c.req.valid('json');
   const now = new Date().toISOString();
+  const user = c.get('user');
+
+  // Check access before updating
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
 
   const fields: string[] = [];
   const params: any[] = [];
@@ -224,6 +275,17 @@ activities.patch('/:id', zValidator('json', updateActivitySchema), async (c) => 
 activities.post('/:id/complete', async (c) => {
   const { id } = c.req.param();
   const now = new Date().toISOString();
+  const user = c.get('user');
+
+  // Check access before completing
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
 
   await c.env.DB.prepare(`
     UPDATE activities SET completed = 1, completed_at = ?, updated_at = ? WHERE id = ?
@@ -237,6 +299,17 @@ activities.post('/:id/complete', async (c) => {
 // Delete activity
 activities.delete('/:id', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
+
+  // Check access before deleting
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
 
   await c.env.DB.prepare('DELETE FROM activities WHERE id = ?').bind(id).run();
 

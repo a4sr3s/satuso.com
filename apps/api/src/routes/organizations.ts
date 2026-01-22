@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { Env, Variables } from '../types';
 import { hashPassword } from '../utils/password';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
+import { strictRateLimiter } from '../middleware/rate-limit';
 
 const organizations = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -230,7 +231,8 @@ organizations.delete('/invites/:id', async (c) => {
 });
 
 // Accept invite (public endpoint - no auth required)
-organizations.post('/accept-invite', zValidator('json', acceptInviteSchema), async (c) => {
+// Apply strict rate limiting to prevent brute-force attacks on invite tokens
+organizations.post('/accept-invite', strictRateLimiter, zValidator('json', acceptInviteSchema), async (c) => {
   const { token, name, password } = c.req.valid('json');
 
   // Find the invite

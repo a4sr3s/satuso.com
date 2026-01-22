@@ -12,45 +12,84 @@ ai.use('*', clerkAuthMiddleware);
 ai.use('*', strictRateLimiter);
 
 // Helper to fetch compact CRM context for AI (optimized for token limits)
-async function getCRMContext(db: D1Database): Promise<string> {
-  // Fetch deals with key info only
-  const deals = await db.prepare(`
-    SELECT
-      d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
-      co.name as company_name,
-      c.name as contact_name
-    FROM deals d
-    LEFT JOIN contacts c ON d.contact_id = c.id
-    LEFT JOIN companies co ON d.company_id = co.id
-    ORDER BY d.value DESC
-    LIMIT 20
-  `).all();
+// Filters by org_id when provided to ensure data isolation
+async function getCRMContext(db: D1Database, orgId?: string): Promise<string> {
+  // Fetch deals with key info only - filtered by org_id
+  const deals = orgId
+    ? await db.prepare(`
+        SELECT
+          d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
+          co.name as company_name,
+          c.name as contact_name
+        FROM deals d
+        LEFT JOIN contacts c ON d.contact_id = c.id
+        LEFT JOIN companies co ON d.company_id = co.id
+        WHERE d.org_id = ?
+        ORDER BY d.value DESC
+        LIMIT 20
+      `).bind(orgId).all()
+    : await db.prepare(`
+        SELECT
+          d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
+          co.name as company_name,
+          c.name as contact_name
+        FROM deals d
+        LEFT JOIN contacts c ON d.contact_id = c.id
+        LEFT JOIN companies co ON d.company_id = co.id
+        ORDER BY d.value DESC
+        LIMIT 20
+      `).all();
 
-  // Fetch contacts summary
-  const contacts = await db.prepare(`
-    SELECT c.id, c.name, c.email, c.title, co.name as company_name
-    FROM contacts c
-    LEFT JOIN companies co ON c.company_id = co.id
-    ORDER BY c.created_at DESC
-    LIMIT 15
-  `).all();
+  // Fetch contacts summary - filtered by org_id
+  const contacts = orgId
+    ? await db.prepare(`
+        SELECT c.id, c.name, c.email, c.title, co.name as company_name
+        FROM contacts c
+        LEFT JOIN companies co ON c.company_id = co.id
+        WHERE c.org_id = ?
+        ORDER BY c.created_at DESC
+        LIMIT 15
+      `).bind(orgId).all()
+    : await db.prepare(`
+        SELECT c.id, c.name, c.email, c.title, co.name as company_name
+        FROM contacts c
+        LEFT JOIN companies co ON c.company_id = co.id
+        ORDER BY c.created_at DESC
+        LIMIT 15
+      `).all();
 
-  // Fetch companies summary
-  const companies = await db.prepare(`
-    SELECT co.id, co.name, co.industry,
-      (SELECT COUNT(*) FROM deals WHERE company_id = co.id) as deal_count
-    FROM companies co
-    ORDER BY co.name
-    LIMIT 15
-  `).all();
+  // Fetch companies summary - filtered by org_id
+  const companies = orgId
+    ? await db.prepare(`
+        SELECT co.id, co.name, co.industry,
+          (SELECT COUNT(*) FROM deals WHERE company_id = co.id AND org_id = ?) as deal_count
+        FROM companies co
+        WHERE co.org_id = ?
+        ORDER BY co.name
+        LIMIT 15
+      `).bind(orgId, orgId).all()
+    : await db.prepare(`
+        SELECT co.id, co.name, co.industry,
+          (SELECT COUNT(*) FROM deals WHERE company_id = co.id) as deal_count
+        FROM companies co
+        ORDER BY co.name
+        LIMIT 15
+      `).all();
 
-  // Fetch pipeline metrics
-  const pipelineMetrics = await db.prepare(`
-    SELECT stage, COUNT(*) as count, SUM(value) as total_value
-    FROM deals
-    WHERE stage NOT IN ('closed_won', 'closed_lost')
-    GROUP BY stage
-  `).all();
+  // Fetch pipeline metrics - filtered by org_id
+  const pipelineMetrics = orgId
+    ? await db.prepare(`
+        SELECT stage, COUNT(*) as count, SUM(value) as total_value
+        FROM deals
+        WHERE org_id = ? AND stage NOT IN ('closed_won', 'closed_lost')
+        GROUP BY stage
+      `).bind(orgId).all()
+    : await db.prepare(`
+        SELECT stage, COUNT(*) as count, SUM(value) as total_value
+        FROM deals
+        WHERE stage NOT IN ('closed_won', 'closed_lost')
+        GROUP BY stage
+      `).all();
 
   // Build compact context
   let context = `## CRM DATA
@@ -89,6 +128,12 @@ ai.post('/extract-spin', async (c) => {
 
   if (!text) {
     return c.json({ success: false, error: 'Text is required' }, 400);
+  }
+
+  // Input length validation to prevent abuse
+  const maxTextLength = 10000;
+  if (text.length > maxTextLength) {
+    return c.json({ success: false, error: `Text exceeds maximum length of ${maxTextLength} characters` }, 400);
   }
 
   try {
@@ -281,9 +326,16 @@ Keep questions conversational and natural. Return ONLY the JSON, no other text.`
 // Natural language query - FULLY CONTEXT AWARE
 ai.post('/query', async (c) => {
   const { query } = await c.req.json();
+  const orgId = c.get('orgId');
 
   if (!query) {
     return c.json({ success: false, error: 'Query is required' }, 400);
+  }
+
+  // Input length validation to prevent abuse
+  const maxQueryLength = 2000;
+  if (query.length > maxQueryLength) {
+    return c.json({ success: false, error: `Query exceeds maximum length of ${maxQueryLength} characters` }, 400);
   }
 
   if (!c.env.GROQ_API_KEY) {
@@ -292,8 +344,8 @@ ai.post('/query', async (c) => {
   }
 
   try {
-    // Fetch full CRM context
-    const crmContext = await getCRMContext(c.env.DB);
+    // Fetch full CRM context - filtered by organization
+    const crmContext = await getCRMContext(c.env.DB, orgId);
 
     const response = await groqChat(c.env.GROQ_API_KEY, [
       {
@@ -367,21 +419,37 @@ Always give your honest assessment. If a deal looks weak, say so. Your job is to
 
 // Get AI insights for dashboard
 ai.get('/insights', async (c) => {
+  const orgId = c.get('orgId');
+
   try {
-    // Get pipeline context for AI with SPIN details
-    const deals = await c.env.DB.prepare(`
-      SELECT
-        d.id, d.name, d.value, d.stage, d.spin_progress,
-        d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
-        co.name as company_name,
-        CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
-        CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
-      FROM deals d
-      LEFT JOIN companies co ON d.company_id = co.id
-      WHERE d.stage NOT IN ('closed_won', 'closed_lost')
-      ORDER BY d.value DESC
-      LIMIT 10
-    `).all();
+    // Get pipeline context for AI with SPIN details - filtered by org_id
+    const deals = orgId
+      ? await c.env.DB.prepare(`
+          SELECT
+            d.id, d.name, d.value, d.stage, d.spin_progress,
+            d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
+            co.name as company_name,
+            CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
+            CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
+          FROM deals d
+          LEFT JOIN companies co ON d.company_id = co.id
+          WHERE d.org_id = ? AND d.stage NOT IN ('closed_won', 'closed_lost')
+          ORDER BY d.value DESC
+          LIMIT 10
+        `).bind(orgId).all()
+      : await c.env.DB.prepare(`
+          SELECT
+            d.id, d.name, d.value, d.stage, d.spin_progress,
+            d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
+            co.name as company_name,
+            CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
+            CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
+          FROM deals d
+          LEFT JOIN companies co ON d.company_id = co.id
+          WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+          ORDER BY d.value DESC
+          LIMIT 10
+        `).all();
 
     // Build context for AI with SPIN focus
     let context = `## ACTIVE PIPELINE WITH SPIN STATUS\n`;

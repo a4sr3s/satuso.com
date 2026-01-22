@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
+import { bodyLimit } from 'hono/body-limit';
 import type { Env, Variables } from './types';
 import { corsMiddleware } from './middleware/cors';
 import { standardRateLimiter } from './middleware/rate-limit';
+import { securityHeadersMiddleware } from './middleware/security-headers';
 
 // Routes
 import auth from './routes/auth';
@@ -24,6 +26,14 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', corsMiddleware);
+app.use('*', securityHeadersMiddleware);
+// Request body size limit (1MB) to prevent large payload attacks
+app.use('*', bodyLimit({
+  maxSize: 1024 * 1024, // 1MB
+  onError: (c) => {
+    return c.json({ success: false, error: 'Request body too large' }, 413);
+  },
+}));
 // Apply standard rate limiting to all API routes
 app.use('/api/*', standardRateLimiter);
 

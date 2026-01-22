@@ -192,17 +192,31 @@ workboards.get('/:id/data', async (c) => {
   const countResult = await c.env.DB.prepare(countQuery).bind(...params).first<{ total: number }>();
   const total = countResult?.total || 0;
 
-  // Add sorting
+  // Add sorting - with SQL injection protection via allowlist
   if (sortCol) {
+    // Define allowed sort columns for each entity type to prevent SQL injection
+    const allowedColumns: Record<string, string[]> = {
+      deals: ['id', 'name', 'value', 'stage', 'close_date', 'probability', 'spin_progress', 'created_at', 'updated_at', 'stage_changed_at', 'owner_id', 'contact_id', 'company_id'],
+      contacts: ['id', 'name', 'email', 'phone', 'title', 'status', 'source', 'created_at', 'updated_at', 'last_contacted_at', 'owner_id', 'company_id'],
+      companies: ['id', 'name', 'domain', 'industry', 'employee_count', 'created_at', 'updated_at', 'owner_id'],
+    };
+
+    // Formula columns that are computed in the SELECT
+    const formulaColumns = ['days_in_stage', 'sla_breach', 'last_activity_days'];
+
+    // Validate sort direction
+    const validSortDir = sortDir === 'desc' ? 'DESC' : 'ASC';
+
     // Handle formula columns in sorting
-    const formulas = extractFormulasFromColumns(columns);
-    if (sortCol in { days_in_stage: 1, sla_breach: 1, last_activity_days: 1 }) {
+    if (formulaColumns.includes(sortCol)) {
       // Already in SELECT, can sort directly
-      query += ` ORDER BY ${sortCol} ${sortDir === 'desc' ? 'DESC' : 'ASC'}`;
-    } else {
+      query += ` ORDER BY ${sortCol} ${validSortDir}`;
+    } else if (allowedColumns[entityType]?.includes(sortCol)) {
+      // Validated column - safe to use
       const alias = entityType === 'deals' ? 'd' : entityType === 'contacts' ? 'c' : 'co';
-      query += ` ORDER BY ${alias}.${sortCol} ${sortDir === 'desc' ? 'DESC' : 'ASC'}`;
+      query += ` ORDER BY ${alias}.${sortCol} ${validSortDir}`;
     }
+    // If sortCol is not in allowlist, we simply don't add ORDER BY (fail safely)
   }
 
   // Add pagination

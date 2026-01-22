@@ -87,7 +87,7 @@ export default function Layout() {
                 elements: {
                   rootBox: 'flex items-center',
                   organizationSwitcherTrigger: 'px-2 py-1 rounded-lg hover:bg-surface',
-                  organizationPreviewAvatarBox: 'w-7 h-7',
+                  organizationPreviewAvatarBox: 'hidden',
                   organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
                   organizationSwitcherPopoverCard: 'shadow-lg border border-border',
                 },

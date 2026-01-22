@@ -75,11 +75,8 @@ export default function Sidebar() {
       {/* Logo & Search */}
       <div className="p-4 space-y-4">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-1">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <span className="text-gray-900 font-bold text-sm">S</span>
-          </div>
-          <span className="text-lg font-semibold text-white">Satuso</span>
+        <div className="flex items-center px-1">
+          <img src="/logo.svg" alt="Satuso" className="h-8 brightness-0 invert" />
         </div>
 
         {/* Search */}

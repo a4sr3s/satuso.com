@@ -48,11 +48,8 @@ export default function TopNav() {
         {/* Left: Logo + Nav */}
         <div className="flex items-center gap-8">
           {/* Logo */}
-          <NavLink to="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
-            <span className="text-lg font-semibold text-text-primary hidden sm:block">Satuso</span>
+          <NavLink to="/" className="flex items-center flex-shrink-0">
+            <img src="/logo.svg" alt="Satuso" className="h-8" />
           </NavLink>
 
           {/* Main Navigation */}

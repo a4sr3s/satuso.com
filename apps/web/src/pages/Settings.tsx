@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import Card, { CardHeader } from '@/components/ui/Card';
-import Tabs from '@/components/ui/Tabs';
 
 const INTEGRATIONS = [
   {
@@ -95,77 +93,37 @@ const INTEGRATIONS = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('integrations');
-
-  const tabs = [
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'notifications', label: 'Notifications' },
-  ];
-
   return (
-    <div className="space-y-6">
-      {/* Tabs */}
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-
-      {/* Content */}
-      <div className="max-w-2xl">
-        {activeTab === 'integrations' && (
-          <Card>
-            <CardHeader
-              title="Available Integrations"
-              description="Connect your favorite tools to supercharge your sales workflow"
-            />
-            <div className="space-y-3">
-              {INTEGRATIONS.map((integration) => (
-                <div key={integration.id} className="flex items-center justify-between p-4 bg-surface rounded-lg opacity-60">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
-                      {integration.icon}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-text-primary">{integration.name}</p>
-                        <span className="text-[10px] font-medium text-text-muted bg-gray-100 px-1.5 py-0.5 rounded">
-                          {integration.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-text-muted mt-0.5">{integration.description}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-medium text-text-muted bg-gray-100 px-3 py-1.5 rounded-full">
-                    Coming Soon
-                  </span>
+    <div className="max-w-2xl">
+      <Card>
+        <CardHeader
+          title="Integrations"
+          description="Connect your favorite tools to supercharge your sales workflow"
+        />
+        <div className="space-y-3">
+          {INTEGRATIONS.map((integration) => (
+            <div key={integration.id} className="flex items-center justify-between p-4 bg-surface rounded-lg opacity-60">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
+                  {integration.icon}
                 </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {activeTab === 'notifications' && (
-          <Card>
-            <CardHeader title="Email Notifications" />
-            <div className="space-y-4">
-              {[
-                { id: 'deals', label: 'Deal updates', description: 'When deals move stages or close' },
-                { id: 'tasks', label: 'Task reminders', description: 'Daily digest of upcoming tasks' },
-                { id: 'ai', label: 'AI insights', description: 'Weekly AI-powered recommendations' },
-                { id: 'mentions', label: 'Mentions', description: 'When someone mentions you' },
-              ].map((item) => (
-                <div key={item.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{item.label}</p>
-                    <p className="text-xs text-text-muted">{item.description}</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-text-primary">{integration.name}</p>
+                    <span className="text-[10px] font-medium text-text-muted bg-gray-100 px-1.5 py-0.5 rounded">
+                      {integration.category}
+                    </span>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" defaultChecked className="sr-only peer" />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
+                  <p className="text-xs text-text-muted mt-0.5">{integration.description}</p>
                 </div>
-              ))}
+              </div>
+              <span className="text-xs font-medium text-text-muted bg-gray-100 px-3 py-1.5 rounded-full">
+                Coming Soon
+              </span>
             </div>
-          </Card>
-        )}
-      </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

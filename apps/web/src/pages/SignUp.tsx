@@ -4,7 +4,7 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Sign Up Form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white min-h-screen">
         {/* Logo */}
         <img src="/logo.svg" alt="Satuso" className="h-20 mb-8" />
 

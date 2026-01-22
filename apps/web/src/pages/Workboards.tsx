@@ -178,12 +178,6 @@ export default function WorkboardsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-text-primary">Workboards</h1>
-            <p className="text-text-secondary">Loading...</p>
-          </div>
-        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
@@ -205,14 +199,8 @@ export default function WorkboardsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Workboards</h1>
-          <p className="text-text-secondary">
-            Programmable table views for your data
-          </p>
-        </div>
+      {/* Actions */}
+      <div className="flex items-center justify-end">
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           New Workboard

@@ -191,14 +191,11 @@ export default function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Actions */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Companies</h1>
-          <p className="text-text-secondary">
-            {companies.length} companies in your CRM
-          </p>
-        </div>
+        <p className="text-text-secondary text-sm">
+          {companies.length} companies
+        </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           Add Company

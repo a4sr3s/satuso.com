@@ -191,14 +191,11 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Actions */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Contacts</h1>
-          <p className="text-text-secondary">
-            {contacts.length} contacts in your CRM
-          </p>
-        </div>
+        <p className="text-text-secondary text-sm">
+          {contacts.length} contacts
+        </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           Add Contact

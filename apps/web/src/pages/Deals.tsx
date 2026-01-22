@@ -445,14 +445,8 @@ export default function DealsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Pipeline</h1>
-          <p className="text-text-secondary mt-1">
-            Track and manage your sales opportunities
-          </p>
-        </div>
+      {/* Actions */}
+      <div className="flex items-center justify-end">
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           New Deal

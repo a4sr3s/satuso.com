@@ -104,12 +104,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-text-primary">Settings</h1>
-        <p className="text-text-secondary">Manage your preferences</p>
-      </div>
-
       {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 

@@ -105,17 +105,14 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Actions */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Tasks</h1>
-          <p className="text-text-secondary">
-            {counts.pending || 0} pending tasks
-            {counts.overdue > 0 && (
-              <span className="text-error ml-2">· {counts.overdue} overdue</span>
-            )}
-          </p>
-        </div>
+        <p className="text-text-secondary text-sm">
+          {counts.pending || 0} pending
+          {counts.overdue > 0 && (
+            <span className="text-error ml-2">· {counts.overdue} overdue</span>
+          )}
+        </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           Add Task

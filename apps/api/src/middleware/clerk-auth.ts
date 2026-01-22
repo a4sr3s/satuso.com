@@ -54,11 +54,11 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, now, now).run();
 
-      // Create user
+      // Create user (password_hash='clerk_managed' for Clerk-authenticated users)
       await c.env.DB.prepare(
-        `INSERT INTO users (id, clerk_id, email, name, role, organization_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'admin', orgId, now, now).run();
+        `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
 
       user = {
         id: userId,

@@ -1,6 +1,7 @@
 import { Context, Next } from 'hono';
 import { verifyToken } from '@clerk/backend';
 import type { Env, Variables } from '../types';
+import { logger } from '../utils/logger';
 
 export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
   const authHeader = c.req.header('Authorization');
@@ -10,7 +11,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
   }
 
   if (!c.env.CLERK_SECRET_KEY) {
-    console.error('CRITICAL: CLERK_SECRET_KEY environment variable is not set');
+    logger.error('CLERK_SECRET_KEY not configured', undefined, { action: 'config_error' });
     return c.json({ success: false, error: 'Server configuration error' }, 500);
   }
 
@@ -89,7 +90,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     await next();
   } catch (error) {
-    console.error('Clerk auth error:', error);
+    logger.warn('Clerk authentication failed', { action: 'auth_error' });
     return c.json({ success: false, error: 'Invalid token' }, 401);
   }
 }

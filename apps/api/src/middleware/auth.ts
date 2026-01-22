@@ -1,6 +1,7 @@
 import { Context, Next } from 'hono';
 import { verify, decode } from '@tsndr/cloudflare-worker-jwt';
 import type { Env, Variables } from '../types';
+import { logger } from '../utils/logger';
 
 export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
   const authHeader = c.req.header('Authorization');
@@ -10,7 +11,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: Vari
   }
 
   if (!c.env.JWT_SECRET) {
-    console.error('CRITICAL: JWT_SECRET environment variable is not set');
+    logger.error('JWT_SECRET not configured', undefined, { action: 'config_error' });
     return c.json({ success: false, error: 'Server configuration error' }, 500);
   }
 

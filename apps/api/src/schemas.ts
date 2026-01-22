@@ -109,34 +109,103 @@ export const createActivitySchema = z.object({
 export const updateActivitySchema = createActivitySchema.partial();
 
 // Workboard schemas
+
+// Allowed raw fields for workboard columns (prevents arbitrary field injection)
+const allowedColumnFields = [
+  // Common fields
+  'id', 'name', 'created_at', 'updated_at', 'owner_id', 'owner_name',
+  // Deal fields
+  'value', 'stage', 'close_date', 'probability', 'spin_progress', 'stage_changed_at',
+  'contact_id', 'company_id', 'contact_name', 'company_name',
+  'spin_situation', 'spin_problem', 'spin_implication', 'spin_need_payoff',
+  // Contact fields
+  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  // Company fields
+  'domain', 'industry', 'employee_count', 'website', 'annual_revenue', 'description',
+  'contact_count', 'deal_count', 'total_revenue',
+] as const;
+
+// Allowed formula types (computed columns)
+const allowedFormulas = [
+  'spin_score', 'days_in_stage', 'sla_breach', 'last_activity_days',
+] as const;
+
 export const workboardColumnSchema = z.object({
-  id: z.string().min(1),
-  field: z.string().min(1),
-  label: z.string().min(1),
+  id: z.string().min(1).max(100),
+  field: z.string().min(1).max(100),
+  label: z.string().min(1).max(100),
   type: z.enum(['raw', 'formula']),
-  formula: z.string().optional(),
+  formula: z.enum(allowedFormulas).optional(),
   format: z.enum(['text', 'currency', 'date', 'number', 'boolean']).optional(),
-  width: z.number().int().positive().optional(),
-});
+  width: z.number().int().positive().max(1000).optional(),
+}).refine(
+  (data) => {
+    // If type is 'formula', formula must be specified
+    if (data.type === 'formula') {
+      return data.formula !== undefined;
+    }
+    // If type is 'raw', field must be in allowlist
+    return (allowedColumnFields as readonly string[]).includes(data.field);
+  },
+  {
+    message: 'Invalid column configuration: raw columns must use allowed fields, formula columns must specify a valid formula',
+  }
+);
+
+// Allowed fields for workboard filters (prevents arbitrary field injection)
+const allowedFilterFields = [
+  // Common fields
+  'id', 'name', 'created_at', 'updated_at', 'owner_id',
+  // Deal fields
+  'value', 'stage', 'close_date', 'probability', 'spin_progress', 'stage_changed_at',
+  'contact_id', 'company_id', 'spin_score', 'days_in_stage', 'sla_breach', 'last_activity_days',
+  // Contact fields
+  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  // Company fields
+  'domain', 'industry', 'employee_count', 'website', 'annual_revenue',
+] as const;
+
+// Filter value must be one of: string, number, boolean, null, or array of primitives
+const filterValueSchema = z.union([
+  z.string().max(500), // Limit string length to prevent abuse
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.union([z.string().max(500), z.number()])).max(100), // For 'in' and 'not_in' operators
+]);
 
 export const workboardFilterSchema = z.object({
-  field: z.string().min(1),
+  field: z.enum(allowedFilterFields),
   operator: z.enum([
     'eq', 'neq', 'gt', 'gte', 'lt', 'lte',
     'contains', 'not_contains', 'starts_with', 'ends_with',
     'is_null', 'is_not_null', 'in', 'not_in'
   ]),
-  value: z.any(),
+  value: filterValueSchema,
 });
+
+// Allowed sort columns for workboards (must match allowedColumns used in workboards.ts)
+const allowedSortColumns = [
+  // Common
+  'id', 'name', 'created_at', 'updated_at', 'owner_id',
+  // Deals
+  'value', 'stage', 'close_date', 'probability', 'spin_progress', 'stage_changed_at', 'contact_id', 'company_id',
+  // Contacts
+  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  // Companies
+  'domain', 'industry', 'employee_count',
+  // Formulas (computed)
+  'days_in_stage', 'sla_breach', 'last_activity_days',
+] as const;
 
 export const createWorkboardSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   description: z.string().max(500, 'Description is too long').optional(),
   entity_type: z.enum(['deals', 'contacts', 'companies']),
   is_shared: z.boolean().optional(),
-  columns: z.array(workboardColumnSchema).optional(),
-  filters: z.array(workboardFilterSchema).optional(),
-  sort_column: z.string().optional(),
+  columns: z.array(workboardColumnSchema).max(50, 'Too many columns').optional(), // Limit to 50 columns
+  filters: z.array(workboardFilterSchema).max(20, 'Too many filters').optional(), // Limit to 20 filters
+  sort_column: z.enum(allowedSortColumns).optional(),
   sort_direction: z.enum(['asc', 'desc']).optional(),
 });
 

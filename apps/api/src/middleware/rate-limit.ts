@@ -1,5 +1,6 @@
 import { Context, Next } from 'hono';
 import type { Env, Variables } from '../types';
+import { logger } from '../utils/logger';
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -76,7 +77,7 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
       return next();
     } catch (error) {
       // If rate limiting fails, allow the request but log the error
-      console.error('Rate limiting error:', error);
+      logger.error('Rate limiting check failed', error, { action: 'rate_limit_error' });
       return next();
     }
   };

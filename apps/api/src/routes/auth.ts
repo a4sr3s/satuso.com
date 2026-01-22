@@ -6,6 +6,8 @@ import type { Env, Variables } from '../types';
 import { registerSchema, loginSchema } from '../schemas';
 import { hashPassword, verifyPassword, isLegacyHash } from '../utils/password';
 import { strictRateLimiter } from '../middleware/rate-limit';
+import { logger } from '../utils/logger';
+import { logAudit } from '../utils/audit';
 
 const auth = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -46,7 +48,7 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
 
   // Validate JWT_SECRET is configured
   if (!c.env.JWT_SECRET) {
-    console.error('CRITICAL: JWT_SECRET environment variable is not set');
+    logger.error('JWT_SECRET not configured', undefined, { action: 'config_error' });
     return c.json({ success: false, error: 'Server configuration error' }, 500);
   }
 
@@ -67,6 +69,28 @@ auth.post('/register', zValidator('json', registerSchema), async (c) => {
   // Store session in KV
   await c.env.KV.put(`session:${token}`, JSON.stringify({ userId, email, organizationId: orgId }), {
     expirationTtl: 86400 * 7,
+  });
+
+  // Audit log: user created
+  await logAudit(c.env.DB, {
+    action: 'user.created',
+    userId,
+    orgId,
+    targetId: userId,
+    targetType: 'user',
+    ipAddress: c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For'),
+    userAgent: c.req.header('User-Agent'),
+  });
+
+  // Audit log: org created
+  await logAudit(c.env.DB, {
+    action: 'org.created',
+    userId,
+    orgId,
+    targetId: orgId,
+    targetType: 'organization',
+    ipAddress: c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For'),
+    userAgent: c.req.header('User-Agent'),
   });
 
   return c.json({
@@ -93,13 +117,22 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
     organization_id: string | null;
   }>();
 
-  if (!user) {
-    return c.json({ success: false, error: 'Invalid credentials' }, 401);
-  }
+  // Mitigate timing attacks: always perform password verification
+  // even when user doesn't exist, to ensure consistent response times
+  // This prevents username enumeration via timing side-channel
+  const dummyHash = '100000$0000000000000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000';
+  const hashToVerify = user?.password_hash ?? dummyHash;
+  const isValid = await verifyPassword(password, hashToVerify);
 
-  // Verify password using PBKDF2 (with legacy SHA-256 fallback)
-  const isValid = await verifyPassword(password, user.password_hash);
-  if (!isValid) {
+  // Check both conditions together to avoid early return timing leak
+  if (!user || !isValid) {
+    // Audit log: failed login attempt
+    await logAudit(c.env.DB, {
+      action: 'user.login_failed',
+      metadata: { attemptedEmail: email.toLowerCase() },
+      ipAddress: c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For'),
+      userAgent: c.req.header('User-Agent'),
+    });
     return c.json({ success: false, error: 'Invalid credentials' }, 401);
   }
 
@@ -113,7 +146,7 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
 
   // Validate JWT_SECRET is configured
   if (!c.env.JWT_SECRET) {
-    console.error('CRITICAL: JWT_SECRET environment variable is not set');
+    logger.error('JWT_SECRET not configured', undefined, { action: 'config_error' });
     return c.json({ success: false, error: 'Server configuration error' }, 500);
   }
 
@@ -136,6 +169,17 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
     expirationTtl: 86400 * 7,
   });
 
+  // Audit log: successful login
+  await logAudit(c.env.DB, {
+    action: 'user.login',
+    userId: user.id,
+    orgId: user.organization_id || undefined,
+    targetId: user.id,
+    targetType: 'user',
+    ipAddress: c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For'),
+    userAgent: c.req.header('User-Agent'),
+  });
+
   return c.json({
     success: true,
     data: {
@@ -148,10 +192,28 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
 // Logout
 auth.post('/logout', async (c) => {
   const authHeader = c.req.header('Authorization');
+  let userId: string | undefined;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '');
+    const sessionData = await c.env.KV.get(`session:${token}`);
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      userId = session.userId;
+    }
     await c.env.KV.delete(`session:${token}`);
+  }
+
+  // Audit log: logout
+  if (userId) {
+    await logAudit(c.env.DB, {
+      action: 'user.logout',
+      userId,
+      targetId: userId,
+      targetType: 'user',
+      ipAddress: c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For'),
+      userAgent: c.req.header('User-Agent'),
+    });
   }
 
   return c.json({ success: true });

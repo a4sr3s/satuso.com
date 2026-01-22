@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
-import { logger } from 'hono/logger';
+import { logger as honoLogger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import { bodyLimit } from 'hono/body-limit';
 import type { Env, Variables } from './types';
 import { corsMiddleware } from './middleware/cors';
 import { standardRateLimiter } from './middleware/rate-limit';
 import { securityHeadersMiddleware } from './middleware/security-headers';
+import { logger } from './utils/logger';
 
 // Routes
 import auth from './routes/auth';
@@ -23,7 +24,7 @@ import organizations from './routes/organizations';
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Middleware
-app.use('*', logger());
+app.use('*', honoLogger());
 app.use('*', prettyJSON());
 app.use('*', corsMiddleware);
 app.use('*', securityHeadersMiddleware);
@@ -70,7 +71,11 @@ app.notFound((c) => {
 
 // Error handler - don't leak implementation details in production
 app.onError((err, c) => {
-  console.error('Error:', err);
+  logger.error('Unhandled error', err, {
+    action: 'request_error',
+    path: c.req.path,
+    method: c.req.method,
+  });
 
   // Only show detailed errors in development
   const isDev = c.env.ENVIRONMENT === 'development';
@@ -129,12 +134,12 @@ Return JSON: { "situation": [], "problem": [], "implication": [], "needPayoff": 
             break;
 
           default:
-            console.warn('Unknown job type:', type);
+            logger.warn('Unknown job type received', { action: 'queue_unknown_type', jobType: type });
         }
 
         message.ack();
       } catch (error) {
-        console.error('Job processing error:', error);
+        logger.error('Job processing failed', error, { action: 'queue_error', jobType: type });
         message.retry();
       }
     }

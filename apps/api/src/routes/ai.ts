@@ -4,6 +4,7 @@ import type { Env, Variables } from '../types';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { groqChat, getRateLimitStatus } from '../utils/groq';
 import { strictRateLimiter } from '../middleware/rate-limit';
+import { logger } from '../utils/logger';
 
 const ai = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -177,7 +178,7 @@ If a category has no insights, use an empty array. Return ONLY the JSON, no othe
         insights = JSON.parse(jsonMatch[0]);
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
+      logger.warn('Failed to parse AI extraction response', { action: 'ai_parse_error', endpoint: 'extract-spin' });
     }
 
     // If dealId provided, update the deal
@@ -238,7 +239,7 @@ If a category has no insights, use an empty array. Return ONLY the JSON, no othe
 
     return c.json({ success: true, data: insights });
   } catch (error) {
-    console.error('AI extraction error:', error);
+    logger.error('AI SPIN extraction failed', error, { action: 'ai_error', endpoint: 'extract-spin' });
     const message = error instanceof Error ? error.message : 'Failed to extract SPIN insights';
     return c.json({ success: false, error: message }, 500);
   }
@@ -312,12 +313,12 @@ Keep questions conversational and natural. Return ONLY the JSON, no other text.`
         suggestions = JSON.parse(jsonMatch[0]);
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
+      logger.warn('Failed to parse AI suggestion response', { action: 'ai_parse_error', endpoint: 'spin-suggestions' });
     }
 
     return c.json({ success: true, data: suggestions });
   } catch (error) {
-    console.error('AI suggestion error:', error);
+    logger.error('AI suggestion generation failed', error, { action: 'ai_error', endpoint: 'spin-suggestions' });
     const message = error instanceof Error ? error.message : 'Failed to generate suggestions';
     return c.json({ success: false, error: message }, 500);
   }
@@ -339,7 +340,7 @@ ai.post('/query', async (c) => {
   }
 
   if (!c.env.GROQ_API_KEY) {
-    console.error('GROQ_API_KEY is not configured');
+    logger.error('GROQ_API_KEY not configured', undefined, { action: 'config_error', endpoint: 'query' });
     return c.json({ success: false, error: 'AI service is not configured. Please set GROQ_API_KEY.' }, 500);
   }
 
@@ -393,10 +394,8 @@ Always give your honest assessment. If a deal looks weak, say so. Your job is to
       },
     });
   } catch (error) {
-    console.error('AI query error:', error);
     const errorMsg = error instanceof Error ? error.message : 'Failed to process query';
-    const errorStack = error instanceof Error ? error.stack : '';
-    console.error('AI query stack:', errorStack);
+    logger.error('AI query failed', error, { action: 'ai_error', endpoint: 'query' });
 
     // Check if it's a rate limit error and return a friendly message
     if (errorMsg.includes('Rate limit')) {
@@ -504,7 +503,7 @@ Be specific about which SPIN element is missing and why it matters.`,
         insights = JSON.parse(jsonMatch[0]);
       }
     } catch (parseError) {
-      console.warn('Failed to parse AI insights:', parseError);
+      logger.warn('Failed to parse AI insights response', { action: 'ai_parse_error', endpoint: 'insights' });
       // Fallback to SPIN-based insight
       const weakDeal = (deals.results as any[]).find(d => d.spin_progress < 2);
       if (weakDeal) {
@@ -521,7 +520,7 @@ Be specific about which SPIN element is missing and why it matters.`,
 
     return c.json({ success: true, data: insights });
   } catch (error) {
-    console.error('AI insights error:', error);
+    logger.error('AI insights generation failed', error, { action: 'ai_error', endpoint: 'insights' });
     return c.json({ success: true, data: [] });
   }
 });

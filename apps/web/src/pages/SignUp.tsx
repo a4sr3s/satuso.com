@@ -28,7 +28,7 @@ export default function SignUpPage() {
               rootBox: 'w-full max-w-sm',
               card: 'shadow-none border border-gray-200 rounded-xl',
               formButtonPrimary: 'bg-gray-900 hover:bg-gray-800',
-              footer: 'hidden',
+              footerPagesLink: 'hidden',
             },
           }}
         />

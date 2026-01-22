@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Table2,
 } from 'lucide-react';
-import { OrganizationSwitcher } from '@clerk/clerk-react';
 
 const mainNav = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -106,28 +105,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom section */}
-      <div className="border-t border-gray-800 p-3 space-y-3">
+      <div className="border-t border-gray-800 p-3">
         <NavItem item={{ name: 'Settings', href: '/settings', icon: Settings }} compact />
-
-        {/* Organization Switcher */}
-        <div className="px-1">
-          <OrganizationSwitcher
-            hidePersonal
-            afterCreateOrganizationUrl="/"
-            afterSelectOrganizationUrl="/"
-            appearance={{
-              elements: {
-                rootBox: 'w-full',
-                organizationSwitcherTrigger: 'w-full justify-between px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 hover:border-gray-600',
-                organizationSwitcherTriggerIcon: 'text-gray-400',
-                organizationPreviewMainIdentifier: 'text-gray-200 text-sm font-medium',
-                organizationPreviewSecondaryIdentifier: 'text-gray-400 text-xs',
-                organizationSwitcherPopoverCard: 'bg-white border border-gray-200 shadow-lg',
-                organizationSwitcherPopoverActionButton: 'hover:bg-gray-50',
-              },
-            }}
-          />
-        </div>
       </div>
     </aside>
   );

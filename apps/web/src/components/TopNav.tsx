@@ -12,7 +12,7 @@ import {
   CheckSquare,
   ChevronDown,
 } from 'lucide-react';
-import { UserButton } from '@clerk/clerk-react';
+import { UserButton, OrganizationSwitcher } from '@clerk/clerk-react';
 
 const mainNav = [
   { name: 'Home', href: '/', icon: Home },
@@ -133,20 +133,35 @@ export default function TopNav() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
           </button>
 
-          {/* User Menu */}
-          <UserButton
-            afterSignOutUrl="/sign-in"
-            appearance={{
-              elements: {
-                avatarBox: 'w-8 h-8',
-                userButtonPopoverCard: 'shadow-lg border border-border',
-                userButtonPopoverActionButton: 'hover:bg-surface',
-                userButtonPopoverActionButtonText: 'text-text-primary',
-                userButtonPopoverActionButtonIcon: 'text-text-muted',
-                userButtonPopoverFooter: 'hidden',
-              },
-            }}
-          />
+          {/* Organization Switcher + User */}
+          <div className="flex items-center gap-2 pl-2 border-l border-border">
+            <OrganizationSwitcher
+              hidePersonal
+              afterCreateOrganizationUrl="/"
+              afterSelectOrganizationUrl="/"
+              appearance={{
+                elements: {
+                  rootBox: 'flex items-center',
+                  organizationSwitcherTrigger: 'px-2 py-1.5 rounded-lg hover:bg-surface border-0 shadow-none',
+                  organizationPreviewAvatarBox: 'w-8 h-8',
+                  organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
+                  organizationSwitcherPopoverCard: 'shadow-lg border border-border',
+                  organizationSwitcherPopoverActionButton: 'hover:bg-surface',
+                },
+              }}
+            />
+            <UserButton
+              afterSignOutUrl="/sign-in"
+              appearance={{
+                elements: {
+                  avatarBox: 'w-8 h-8',
+                  userButtonPopoverCard: 'shadow-lg border border-border',
+                  userButtonPopoverActionButton: 'hover:bg-surface',
+                  userButtonPopoverFooter: 'hidden',
+                },
+              }}
+            />
+          </div>
         </div>
       </div>
 

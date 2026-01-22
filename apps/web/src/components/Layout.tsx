@@ -90,6 +90,7 @@ export default function Layout() {
                   organizationPreviewAvatarBox: 'hidden',
                   organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
                   organizationSwitcherPopoverCard: 'shadow-lg border border-border',
+                  organizationSwitcherPopoverFooter: 'hidden',
                 },
               }}
             />

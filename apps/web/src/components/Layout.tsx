@@ -58,13 +58,27 @@ export default function Layout() {
     return { type: 'general' as const };
   };
 
+  // Get page title based on current route
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/') return 'Dashboard';
+    if (path === '/contacts' || path.startsWith('/contacts/')) return 'Contacts';
+    if (path === '/companies' || path.startsWith('/companies/')) return 'Companies';
+    if (path === '/deals' || path.startsWith('/deals/')) return 'Pipeline';
+    if (path === '/tasks') return 'Tasks';
+    if (path === '/workboards' || path.startsWith('/workboards/')) return 'Workboards';
+    if (path === '/settings') return 'Settings';
+    return '';
+  };
+
   return (
     <div className="min-h-screen bg-surface">
       <Sidebar />
       <main className="pl-sidebar">
         {/* Header */}
-        <header className="h-14 border-b border-border bg-white flex items-center justify-end px-6">
-          <div className="flex items-center gap-3">
+        <header className="h-12 border-b border-border bg-white flex items-center justify-between px-6">
+          <h1 className="text-sm font-medium text-text-primary">{getPageTitle()}</h1>
+          <div className="flex items-center gap-2">
             <OrganizationSwitcher
               hidePersonal
               afterCreateOrganizationUrl="/"
@@ -72,8 +86,8 @@ export default function Layout() {
               appearance={{
                 elements: {
                   rootBox: 'flex items-center',
-                  organizationSwitcherTrigger: 'px-2 py-1.5 rounded-lg hover:bg-surface',
-                  organizationPreviewAvatarBox: 'w-8 h-8',
+                  organizationSwitcherTrigger: 'px-2 py-1 rounded-lg hover:bg-surface',
+                  organizationPreviewAvatarBox: 'w-7 h-7',
                   organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
                   organizationSwitcherPopoverCard: 'shadow-lg border border-border',
                 },
@@ -83,7 +97,7 @@ export default function Layout() {
               afterSignOutUrl="/sign-in"
               appearance={{
                 elements: {
-                  avatarBox: 'w-8 h-8',
+                  avatarBox: 'w-7 h-7',
                   userButtonPopoverCard: 'shadow-lg border border-border',
                   userButtonPopoverFooter: 'hidden',
                 },

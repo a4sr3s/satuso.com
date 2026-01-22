@@ -5,17 +5,14 @@ import {
   Search,
   Bell,
   Plus,
-  LogOut,
   Home,
   Users,
   Building2,
   DollarSign,
   CheckSquare,
-  Settings,
   ChevronDown,
 } from 'lucide-react';
-import { useUser, useClerk } from '@clerk/clerk-react';
-import Avatar from './ui/Avatar';
+import { UserButton } from '@clerk/clerk-react';
 
 const mainNav = [
   { name: 'Home', href: '/', icon: Home },
@@ -28,14 +25,7 @@ const mainNav = [
 export default function TopNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useUser();
-  const { signOut } = useClerk();
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
-
-  const handleLogout = () => {
-    signOut(() => navigate('/sign-in'));
-  };
 
   const isActive = (href: string) => {
     if (href === '/') return location.pathname === '/';
@@ -144,43 +134,19 @@ export default function TopNav() {
           </button>
 
           {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface transition-colors"
-            >
-              <Avatar name={user?.fullName || 'User'} size="sm" />
-              <ChevronDown className="h-3 w-3 text-text-muted hidden sm:block" />
-            </button>
-
-            {showUserMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-lg shadow-lg z-20">
-                  <div className="px-3 py-2 border-b border-border">
-                    <p className="text-sm font-medium text-text-primary">{user?.fullName}</p>
-                    <p className="text-xs text-text-muted">{user?.primaryEmailAddress?.emailAddress}</p>
-                  </div>
-                  <div className="py-1">
-                    <button
-                      onClick={() => { setShowUserMenu(false); navigate('/settings'); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface"
-                    >
-                      <Settings className="h-4 w-4 text-text-muted" />
-                      Settings
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <UserButton
+            afterSignOutUrl="/sign-in"
+            appearance={{
+              elements: {
+                avatarBox: 'w-8 h-8',
+                userButtonPopoverCard: 'shadow-lg border border-border',
+                userButtonPopoverActionButton: 'hover:bg-surface',
+                userButtonPopoverActionButtonText: 'text-text-primary',
+                userButtonPopoverActionButtonIcon: 'text-text-muted',
+                userButtonPopoverFooter: 'hidden',
+              },
+            }}
+          />
         </div>
       </div>
 

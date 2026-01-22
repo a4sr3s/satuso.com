@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Table2,
 } from 'lucide-react';
-import { UserButton, OrganizationSwitcher, useUser } from '@clerk/clerk-react';
+import { OrganizationSwitcher } from '@clerk/clerk-react';
 
 const mainNav = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -68,8 +68,6 @@ function NavSection({ title, items }: { title?: string; items: typeof mainNav })
 }
 
 export default function Sidebar() {
-  const { user } = useUser();
-
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-sidebar bg-gray-900 flex flex-col">
       {/* Logo & Search */}
@@ -129,28 +127,6 @@ export default function Sidebar() {
               },
             }}
           />
-        </div>
-
-        {/* User with Clerk UserButton */}
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg">
-          <UserButton
-            afterSignOutUrl="/sign-in"
-            appearance={{
-              elements: {
-                avatarBox: 'w-8 h-8',
-                userButtonPopoverCard: 'shadow-lg border border-border',
-                userButtonPopoverActionButton: 'hover:bg-surface',
-                userButtonPopoverActionButtonText: 'text-text-primary',
-                userButtonPopoverActionButtonIcon: 'text-text-muted',
-                userButtonPopoverFooter: 'hidden',
-              },
-            }}
-          />
-          <div className="flex-1 text-left min-w-0">
-            <p className="text-sm font-medium text-gray-200 truncate">
-              {user?.fullName || user?.primaryEmailAddress?.emailAddress}
-            </p>
-          </div>
         </div>
       </div>
     </aside>

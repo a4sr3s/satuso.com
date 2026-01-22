@@ -3,20 +3,51 @@
 **Audit Date:** January 22, 2026
 **Application Version:** 0.1.0
 **Status:** LIVE PRODUCTION SITE
+**Last Updated:** January 22, 2026
+
+---
+
+## Remediation Status
+
+### Fixed (Critical/High)
+- [x] Missing authorization on activities routes - Added `assertCanAccess()` and org_id filtering
+- [x] Missing org_id filtering on search routes - Added org_id filtering to all queries
+- [x] Missing org_id filtering on AI context - Added org_id parameter to `getCRMContext()`
+- [x] SQL injection in workboard sort column - Added allowlist validation
+- [x] Verified .env files not in git history - Confirmed clean
+
+### Fixed (Medium)
+- [x] Security headers missing - Added HSTS, CSP, X-Frame-Options middleware
+- [x] Missing AI input validation - Added length limits (2KB query, 10KB text)
+- [x] Missing rate limit on accept-invite - Added `strictRateLimiter`
+- [x] Request body size limits - Added 1MB body limit middleware
+- [x] Password complexity - Added uppercase, lowercase, number requirements
+- [x] Invite token entropy - Using Web Crypto API instead of nanoid
+- [x] Legacy password hash upgrade - Auto-upgrades SHA-256 to PBKDF2 on login
+- [x] CORS wildcards - Removed subdomain wildcards, explicit allowlist only
+- [x] Rate limiting in dev - Now applies in all environments (higher limits in dev)
+
+### Remaining (Low Priority)
+- [ ] Audit logging
+- [ ] Timing attacks on login
+- [ ] Email verification
+- [ ] Debug logging cleanup
+- [ ] API versioning
+- [ ] Workboard JSON schema validation
 
 ---
 
 ## Executive Summary
 
-This security audit of the Satuso CRM application has identified **27 security issues** across the codebase, including **2 Critical**, **7 High**, **11 Medium**, and **7 Low** severity findings. The most urgent issues involve **exposed production secrets in version control** and **missing authorization checks** on several API endpoints.
+This security audit of the Satuso CRM application identified **27 security issues** across the codebase. **Most critical and high severity issues have been remediated.** The remaining items are low priority improvements.
 
-### Severity Distribution
-| Severity | Count |
-|----------|-------|
-| Critical | 2 |
-| High | 7 |
-| Medium | 11 |
-| Low | 7 |
+### Original Severity Distribution
+| Severity | Count | Fixed |
+|----------|-------|-------|
+| Critical | 2 | 2 |
+| High | 7 | 5 |
+| Medium | 11 | 9 |
+| Low | 7 | 0 |
 
 ---
 

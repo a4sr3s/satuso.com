@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   CheckCircle,
@@ -9,7 +10,7 @@ import {
   Trash2,
   AlertCircle,
 } from 'lucide-react';
-import { format, isToday, isPast } from 'date-fns';
+import { isToday, isPast } from 'date-fns';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { tasksApi } from '@/lib/api';
@@ -20,8 +21,11 @@ import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Tabs from '@/components/ui/Tabs';
 import { PriorityBadge } from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
+import { useLocale } from '@/hooks/useLocale';
 
 export default function TasksPage() {
+  const { t } = useTranslation(['tasks', 'common']);
+  const { formatDate } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,7 +55,7 @@ export default function TasksPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowNewModal(false);
       setFormData({ subject: '', content: '', due_date: '', priority: 'medium' as TaskPriority });
-      toast.success('Task created');
+      toast.success(t('tasks:toast.created'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -70,7 +74,7 @@ export default function TasksPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setDeleteId(null);
-      toast.success('Task deleted');
+      toast.success(t('tasks:toast.deleted'));
     },
   });
 
@@ -78,11 +82,11 @@ export default function TasksPage() {
   const counts: TaskCounts = countsData?.data || { pending: 0, today: 0, overdue: 0, this_week: 0, completed: 0 };
 
   const tabs = [
-    { id: 'pending', label: 'Pending', count: counts.pending || 0 },
-    { id: 'today', label: 'Today', count: counts.today || 0 },
-    { id: 'overdue', label: 'Overdue', count: counts.overdue || 0 },
-    { id: 'week', label: 'This Week', count: counts.this_week || 0 },
-    { id: 'completed', label: 'Completed', count: counts.completed || 0 },
+    { id: 'pending', label: t('tasks:tabs.pending'), count: counts.pending || 0 },
+    { id: 'today', label: t('tasks:tabs.today'), count: counts.today || 0 },
+    { id: 'overdue', label: t('tasks:tabs.overdue'), count: counts.overdue || 0 },
+    { id: 'week', label: t('tasks:tabs.thisWeek'), count: counts.this_week || 0 },
+    { id: 'completed', label: t('tasks:tabs.completed'), count: counts.completed || 0 },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,14 +112,14 @@ export default function TasksPage() {
       {/* Actions */}
       <div className="flex items-center justify-between">
         <p className="text-text-secondary text-sm">
-          {counts.pending || 0} pending
+          {t('tasks:pending', { count: counts.pending || 0 })}
           {counts.overdue > 0 && (
-            <span className="text-error ml-2">· {counts.overdue} overdue</span>
+            <span className="text-error ml-2">· {t('tasks:overdue', { count: counts.overdue })}</span>
           )}
         </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
-          Add Task
+          {t('tasks:addTask')}
         </Button>
       </div>
 
@@ -126,13 +130,13 @@ export default function TasksPage() {
       {tasks.length === 0 && !isLoading ? (
         <EmptyState
           icon={CheckCircle}
-          title={activeTab === 'completed' ? 'No completed tasks' : 'No tasks'}
+          title={activeTab === 'completed' ? t('tasks:empty.noCompletedTasks') : t('tasks:empty.noTasks')}
           description={
             activeTab === 'completed'
-              ? "Tasks you complete will appear here."
-              : "You're all caught up! Add a new task to stay organized."
+              ? t('tasks:empty.completedDescription')
+              : t('tasks:empty.pendingDescription')
           }
-          actionLabel={activeTab !== 'completed' ? 'Add Task' : undefined}
+          actionLabel={activeTab !== 'completed' ? t('tasks:addTask') : undefined}
           onAction={activeTab !== 'completed' ? () => setShowNewModal(true) : undefined}
         />
       ) : (
@@ -176,7 +180,7 @@ export default function TasksPage() {
                   {task.due_date && (
                     <span className={clsx('flex items-center gap-1', getDueDateStyle(task.due_date, task.completed))}>
                       <Calendar className="h-3 w-3" />
-                      {format(new Date(task.due_date), 'MMM d, yyyy')}
+                      {formatDate(task.due_date, 'PP')}
                       {isPast(new Date(task.due_date)) && !isToday(new Date(task.due_date)) && !task.completed && (
                         <AlertCircle className="h-3 w-3 text-error" />
                       )}
@@ -218,42 +222,42 @@ export default function TasksPage() {
           setShowNewModal(false);
           setSearchParams({});
         }}
-        title="Create New Task"
+        title={t('tasks:modal.createTitle')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Task"
-            placeholder="What needs to be done?"
+            label={t('tasks:modal.task')}
+            placeholder={t('tasks:modal.taskPlaceholder')}
             value={formData.subject}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
             required
           />
           <div>
-            <label className="label">Description (optional)</label>
+            <label className="label">{t('tasks:modal.description')}</label>
             <textarea
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               className="input min-h-[80px]"
-              placeholder="Add more details..."
+              placeholder={t('tasks:modal.descriptionPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Due Date"
+              label={t('tasks:modal.dueDate')}
               type="date"
               value={formData.due_date}
               onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
             />
             <div>
-              <label className="label">Priority</label>
+              <label className="label">{t('tasks:modal.priority')}</label>
               <select
                 value={formData.priority}
                 onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
                 className="input"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="low">{t('common:priority.low')}</option>
+                <option value="medium">{t('common:priority.medium')}</option>
+                <option value="high">{t('common:priority.high')}</option>
               </select>
             </div>
           </div>
@@ -263,10 +267,10 @@ export default function TasksPage() {
               variant="secondary"
               onClick={() => setShowNewModal(false)}
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Create Task
+              {t('tasks:modal.createTask')}
             </Button>
           </div>
         </form>
@@ -277,9 +281,9 @@ export default function TasksPage() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        title="Delete Task"
-        message="Are you sure you want to delete this task?"
-        confirmLabel="Delete"
+        title={t('tasks:delete.title')}
+        message={t('tasks:delete.message')}
+        confirmLabel={t('common:buttons.delete')}
         variant="danger"
         isLoading={deleteMutation.isPending}
       />

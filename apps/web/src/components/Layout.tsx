@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
 import { OrganizationSwitcher, UserButton } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
 import AssistantPanel from './AssistantPanel';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Layout() {
+  const { t } = useTranslation();
   const [assistantOpen, setAssistantOpen] = useState(false);
   const location = useLocation();
   const params = useParams();
@@ -61,13 +64,13 @@ export default function Layout() {
   // Get page title based on current route
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path === '/') return 'Dashboard';
-    if (path === '/contacts' || path.startsWith('/contacts/')) return 'Contacts';
-    if (path === '/companies' || path.startsWith('/companies/')) return 'Companies';
-    if (path === '/deals' || path.startsWith('/deals/')) return 'Pipeline';
-    if (path === '/tasks') return 'Tasks';
-    if (path === '/workboards' || path.startsWith('/workboards/')) return 'Workboards';
-    if (path === '/settings') return 'Settings';
+    if (path === '/') return t('common:nav.dashboard');
+    if (path === '/contacts' || path.startsWith('/contacts/')) return t('common:nav.contacts');
+    if (path === '/companies' || path.startsWith('/companies/')) return t('common:nav.companies');
+    if (path === '/deals' || path.startsWith('/deals/')) return t('common:nav.pipeline');
+    if (path === '/tasks') return t('common:nav.tasks');
+    if (path === '/workboards' || path.startsWith('/workboards/')) return t('common:nav.workboards');
+    if (path === '/settings') return t('common:nav.settings');
     return '';
   };
 
@@ -79,6 +82,7 @@ export default function Layout() {
         <header className="h-12 border-b border-border bg-white flex items-center justify-between px-6">
           <h1 className="text-sm font-medium text-text-primary">{getPageTitle()}</h1>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <OrganizationSwitcher
               hidePersonal
               afterCreateOrganizationUrl="/"
@@ -115,7 +119,7 @@ export default function Layout() {
       <button
         onClick={() => setAssistantOpen(true)}
         className="fixed bottom-6 right-6 p-3 bg-text-primary text-white rounded-full shadow-lg hover:bg-primary-hover transition-all z-30 group"
-        title="Open Assistant (⌘J)"
+        title={`${t('common:assistant.openTitle')} (⌘J)`}
       >
         <MessageSquare className="h-5 w-5" />
         <span className="absolute right-full mr-3 px-2 py-1 bg-text-primary text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">

@@ -1,0 +1,27 @@
+{
+  "title": "Configuración",
+  "integrations": {
+    "title": "Integraciones",
+    "description": "Conecta tus herramientas favoritas para potenciar tu flujo de ventas",
+    "comingSoon": "Próximamente"
+  },
+  "categories": {
+    "dataEnrichment": "Enriquecimiento de Datos",
+    "automation": "Automatización",
+    "communication": "Comunicación",
+    "productivity": "Productividad"
+  },
+  "integrationDescriptions": {
+    "clay": "Enriquece contactos y automatiza flujos de prospección",
+    "apollo": "Inteligencia de ventas y base de datos de prospección",
+    "clearbit": "Enriquecimiento de empresas y contactos en tiempo real",
+    "zapier": "Conecta con más de 5,000 apps con flujos automatizados",
+    "slack": "Recibe alertas de negocios y actualizaciones en tus canales",
+    "googleCalendar": "Sincroniza reuniones y programa seguimientos",
+    "gmail": "Registra correos y rastrea conversaciones automáticamente"
+  },
+  "language": {
+    "title": "Idioma",
+    "description": "Elige tu idioma preferido para la interfaz"
+  }
+}

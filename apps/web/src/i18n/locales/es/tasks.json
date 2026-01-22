@@ -1,0 +1,39 @@
+{
+  "title": "Tareas",
+  "pending": "{{count}} pendientes",
+  "overdue": "{{count}} vencidas",
+  "addTask": "Agregar Tarea",
+  "tabs": {
+    "pending": "Pendientes",
+    "today": "Hoy",
+    "overdue": "Vencidas",
+    "thisWeek": "Esta Semana",
+    "completed": "Completadas"
+  },
+  "empty": {
+    "noTasks": "Sin tareas",
+    "noCompletedTasks": "Sin tareas completadas",
+    "completedDescription": "Las tareas que completes aparecerán aquí.",
+    "pendingDescription": "¡Estás al día! Agrega una nueva tarea para mantenerte organizado."
+  },
+  "modal": {
+    "createTitle": "Crear Nueva Tarea",
+    "editTitle": "Editar Tarea",
+    "task": "Tarea",
+    "taskPlaceholder": "¿Qué necesitas hacer?",
+    "description": "Descripción (opcional)",
+    "descriptionPlaceholder": "Agrega más detalles...",
+    "dueDate": "Fecha de Vencimiento",
+    "priority": "Prioridad",
+    "createTask": "Crear Tarea",
+    "saveTask": "Guardar Tarea"
+  },
+  "delete": {
+    "title": "Eliminar Tarea",
+    "message": "¿Estás seguro de que deseas eliminar esta tarea?"
+  },
+  "toast": {
+    "created": "Tarea creada",
+    "deleted": "Tarea eliminada"
+  }
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, Filter, Mail, Phone, Building2, Trash2, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { contactsApi } from '@/lib/api';
@@ -13,9 +14,11 @@ import { StatusBadge } from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
 import { Users } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { useLocale } from '@/hooks/useLocale';
 
 export default function ContactsPage() {
+  const { t } = useTranslation(['contacts', 'common']);
+  const { formatRelativeDate } = useLocale();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,7 +46,7 @@ export default function ContactsPage() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setShowNewModal(false);
       setFormData({ name: '', email: '', phone: '', title: '', status: 'active' } as CreateContactData);
-      toast.success('Contact created successfully');
+      toast.success(t('contacts:toast.created'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -55,7 +58,7 @@ export default function ContactsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setDeleteId(null);
-      toast.success('Contact deleted');
+      toast.success(t('contacts:toast.deleted'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -109,7 +112,7 @@ export default function ContactsPage() {
   const columns = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('contacts:table.name'),
       sortable: true,
       render: (contact: any) => (
         <div className="flex items-center gap-3">
@@ -125,7 +128,7 @@ export default function ContactsPage() {
     },
     {
       key: 'company',
-      header: 'Company',
+      header: t('contacts:table.company'),
       sortable: true,
       render: (contact: any) => (
         <div className="flex items-center gap-2 text-text-secondary">
@@ -136,7 +139,7 @@ export default function ContactsPage() {
     },
     {
       key: 'email',
-      header: 'Email',
+      header: t('contacts:table.email'),
       sortable: true,
       render: (contact: any) => (
         contact.email ? (
@@ -153,7 +156,7 @@ export default function ContactsPage() {
     },
     {
       key: 'phone',
-      header: 'Phone',
+      header: t('contacts:table.phone'),
       render: (contact: any) => (
         contact.phone ? (
           <a
@@ -169,18 +172,18 @@ export default function ContactsPage() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('contacts:table.status'),
       sortable: true,
       render: (contact: any) => <StatusBadge status={contact.status} />,
     },
     {
       key: 'last_contacted',
-      header: 'Last Contact',
+      header: t('contacts:table.lastContact'),
       sortable: true,
       render: (contact: any) =>
         contact.last_contacted_at
-          ? formatDistanceToNow(new Date(contact.last_contacted_at), { addSuffix: true })
-          : 'Never',
+          ? formatRelativeDate(contact.last_contacted_at)
+          : t('common:time.never'),
     },
   ];
 
@@ -194,11 +197,11 @@ export default function ContactsPage() {
       {/* Actions */}
       <div className="flex items-center justify-between">
         <p className="text-text-secondary text-sm">
-          {contacts.length} contacts
+          {t('contacts:count', { count: contacts.length })}
         </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
-          Add Contact
+          {t('contacts:addContact')}
         </Button>
       </div>
 
@@ -209,7 +212,7 @@ export default function ContactsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Search contacts..."
+              placeholder={t('contacts:searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-10"
@@ -218,7 +221,7 @@ export default function ContactsPage() {
         </div>
         <Button variant="secondary">
           <Filter className="h-4 w-4" />
-          Filters
+          {t('common:buttons.filters')}
         </Button>
       </div>
 
@@ -226,9 +229,9 @@ export default function ContactsPage() {
       {contacts.length === 0 && !isLoading ? (
         <EmptyState
           icon={Users}
-          title="No contacts yet"
-          description="Add your first contact to start building relationships."
-          actionLabel="Add Contact"
+          title={t('contacts:empty.title')}
+          description={t('contacts:empty.description')}
+          actionLabel={t('contacts:addContact')}
           onAction={() => setShowNewModal(true)}
         />
       ) : (
@@ -244,12 +247,12 @@ export default function ContactsPage() {
             <ActionMenu
               items={[
                 {
-                  label: 'Edit',
+                  label: t('common:buttons.edit'),
                   icon: <Edit className="h-4 w-4" />,
                   onClick: () => navigate(`/contacts/${contact.id}`),
                 },
                 {
-                  label: 'Delete',
+                  label: t('common:buttons.delete'),
                   icon: <Trash2 className="h-4 w-4" />,
                   onClick: () => setDeleteId(contact.id),
                   variant: 'danger',
@@ -267,33 +270,33 @@ export default function ContactsPage() {
           setShowNewModal(false);
           setSearchParams({});
         }}
-        title="Add New Contact"
+        title={t('contacts:modal.addTitle')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Full Name"
-            placeholder="John Smith"
+            label={t('contacts:modal.fullName')}
+            placeholder={t('contacts:modal.fullNamePlaceholder')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
           <Input
-            label="Email"
+            label={t('contacts:modal.email')}
             type="email"
-            placeholder="john@company.com"
+            placeholder={t('contacts:modal.emailPlaceholder')}
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
           <Input
-            label="Phone"
+            label={t('contacts:modal.phone')}
             type="tel"
-            placeholder="+1 (555) 000-0000"
+            placeholder={t('contacts:modal.phonePlaceholder')}
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           />
           <Input
-            label="Job Title"
-            placeholder="VP of Sales"
+            label={t('contacts:modal.jobTitle')}
+            placeholder={t('contacts:modal.jobTitlePlaceholder')}
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
@@ -303,10 +306,10 @@ export default function ContactsPage() {
               variant="secondary"
               onClick={() => setShowNewModal(false)}
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Create Contact
+              {t('contacts:modal.createContact')}
             </Button>
           </div>
         </form>
@@ -317,9 +320,9 @@ export default function ContactsPage() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        title="Delete Contact"
-        message="Are you sure you want to delete this contact? This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('contacts:delete.title')}
+        message={t('contacts:delete.message')}
+        confirmLabel={t('common:buttons.delete')}
         variant="danger"
         isLoading={deleteMutation.isPending}
       />

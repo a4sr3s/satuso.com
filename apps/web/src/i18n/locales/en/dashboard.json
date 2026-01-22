@@ -1,0 +1,34 @@
+{
+  "metrics": {
+    "revenueThisMonth": "Revenue (This Month)",
+    "activeDeals": "Active Deals",
+    "conversionRate": "Conversion Rate",
+    "tasksDueToday": "Tasks Due Today"
+  },
+  "activity": {
+    "title": "Recent Activity",
+    "noActivity": "No recent activity",
+    "loggedCall": "logged a call",
+    "sentEmail": "sent an email",
+    "scheduledMeeting": "scheduled a meeting",
+    "addedNote": "added a note",
+    "createdTask": "created a task",
+    "hadActivity": "had activity",
+    "for": "for"
+  },
+  "insights": {
+    "title": "Insights",
+    "noInsights": "No insights yet",
+    "viewDeal": "View deal"
+  },
+  "pipeline": {
+    "title": "Pipeline Summary",
+    "viewPipeline": "View pipeline",
+    "deals": "deals"
+  },
+  "atRisk": {
+    "title": "Deals Needing Attention",
+    "atRisk": "at risk",
+    "allOnTrack": "All deals are on track!"
+  }
+}

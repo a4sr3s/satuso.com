@@ -1,0 +1,41 @@
+{
+  "title": "Contacts",
+  "count": "{{count}} contacts",
+  "count_one": "{{count}} contact",
+  "addContact": "Add Contact",
+  "searchPlaceholder": "Search contacts...",
+  "table": {
+    "name": "Name",
+    "company": "Company",
+    "email": "Email",
+    "phone": "Phone",
+    "status": "Status",
+    "lastContact": "Last Contact"
+  },
+  "empty": {
+    "title": "No contacts yet",
+    "description": "Add your first contact to start building relationships."
+  },
+  "modal": {
+    "addTitle": "Add New Contact",
+    "editTitle": "Edit Contact",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "John Smith",
+    "email": "Email",
+    "emailPlaceholder": "john@company.com",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 (555) 000-0000",
+    "jobTitle": "Job Title",
+    "jobTitlePlaceholder": "VP of Sales",
+    "createContact": "Create Contact",
+    "saveContact": "Save Contact"
+  },
+  "delete": {
+    "title": "Delete Contact",
+    "message": "Are you sure you want to delete this contact? This action cannot be undone."
+  },
+  "toast": {
+    "created": "Contact created successfully",
+    "deleted": "Contact deleted"
+  }
+}

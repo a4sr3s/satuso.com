@@ -1,0 +1,34 @@
+{
+  "metrics": {
+    "revenueThisMonth": "Ingresos (Este Mes)",
+    "activeDeals": "Negocios Activos",
+    "conversionRate": "Tasa de Conversión",
+    "tasksDueToday": "Tareas para Hoy"
+  },
+  "activity": {
+    "title": "Actividad Reciente",
+    "noActivity": "Sin actividad reciente",
+    "loggedCall": "registró una llamada",
+    "sentEmail": "envió un correo",
+    "scheduledMeeting": "programó una reunión",
+    "addedNote": "agregó una nota",
+    "createdTask": "creó una tarea",
+    "hadActivity": "tuvo actividad",
+    "for": "para"
+  },
+  "insights": {
+    "title": "Insights",
+    "noInsights": "Sin insights aún",
+    "viewDeal": "Ver negocio"
+  },
+  "pipeline": {
+    "title": "Resumen del Pipeline",
+    "viewPipeline": "Ver pipeline",
+    "deals": "negocios"
+  },
+  "atRisk": {
+    "title": "Negocios que Necesitan Atención",
+    "atRisk": "en riesgo",
+    "allOnTrack": "¡Todos los negocios van por buen camino!"
+  }
+}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'primary';
@@ -26,42 +27,52 @@ export default function Badge({ children, variant = 'default', className }: Badg
 
 // Stage badge for deals
 export function StageBadge({ stage }: { stage: string }) {
-  const stageConfig: Record<string, { label: string; variant: BadgeVariant }> = {
-    lead: { label: 'Lead', variant: 'default' },
-    qualified: { label: 'Qualified', variant: 'primary' },
-    proposal: { label: 'Proposal', variant: 'warning' },
-    negotiation: { label: 'Negotiation', variant: 'primary' },
-    closed_won: { label: 'Closed Won', variant: 'success' },
-    closed_lost: { label: 'Closed Lost', variant: 'error' },
+  const { t } = useTranslation();
+
+  const stageConfig: Record<string, { labelKey: string; variant: BadgeVariant }> = {
+    lead: { labelKey: 'common:stages.lead', variant: 'default' },
+    qualified: { labelKey: 'common:stages.qualified', variant: 'primary' },
+    discovery: { labelKey: 'common:stages.discovery', variant: 'primary' },
+    proposal: { labelKey: 'common:stages.proposal', variant: 'warning' },
+    negotiation: { labelKey: 'common:stages.negotiation', variant: 'primary' },
+    closed_won: { labelKey: 'common:stages.closedWon', variant: 'success' },
+    closed_lost: { labelKey: 'common:stages.closedLost', variant: 'error' },
   };
 
-  const config = stageConfig[stage] || { label: stage, variant: 'default' };
+  const config = stageConfig[stage] || { labelKey: stage, variant: 'default' as BadgeVariant };
+  const label = stageConfig[stage] ? t(config.labelKey) : stage;
 
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return <Badge variant={config.variant}>{label}</Badge>;
 }
 
 // Priority badge for tasks
 export function PriorityBadge({ priority }: { priority: string }) {
-  const priorityConfig: Record<string, { label: string; variant: BadgeVariant }> = {
-    low: { label: 'Low', variant: 'default' },
-    medium: { label: 'Medium', variant: 'warning' },
-    high: { label: 'High', variant: 'error' },
+  const { t } = useTranslation();
+
+  const priorityConfig: Record<string, { labelKey: string; variant: BadgeVariant }> = {
+    low: { labelKey: 'common:priority.low', variant: 'default' },
+    medium: { labelKey: 'common:priority.medium', variant: 'warning' },
+    high: { labelKey: 'common:priority.high', variant: 'error' },
   };
 
-  const config = priorityConfig[priority] || { label: priority, variant: 'default' };
+  const config = priorityConfig[priority] || { labelKey: priority, variant: 'default' as BadgeVariant };
+  const label = priorityConfig[priority] ? t(config.labelKey) : priority;
 
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return <Badge variant={config.variant}>{label}</Badge>;
 }
 
 // Status badge for contacts
 export function StatusBadge({ status }: { status: string }) {
-  const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
-    active: { label: 'Active', variant: 'success' },
-    inactive: { label: 'Inactive', variant: 'default' },
-    lead: { label: 'Lead', variant: 'primary' },
+  const { t } = useTranslation();
+
+  const statusConfig: Record<string, { labelKey: string; variant: BadgeVariant }> = {
+    active: { labelKey: 'common:status.active', variant: 'success' },
+    inactive: { labelKey: 'common:status.inactive', variant: 'default' },
+    lead: { labelKey: 'common:status.lead', variant: 'primary' },
   };
 
-  const config = statusConfig[status] || { label: status, variant: 'default' };
+  const config = statusConfig[status] || { labelKey: status, variant: 'default' as BadgeVariant };
+  const label = statusConfig[status] ? t(config.labelKey) : status;
 
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return <Badge variant={config.variant}>{label}</Badge>;
 }

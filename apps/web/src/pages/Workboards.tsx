@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Table2,
@@ -27,13 +28,8 @@ const entityTypeIcons: Record<WorkboardEntityType, React.ElementType> = {
   companies: Building2,
 };
 
-const entityTypeLabels: Record<WorkboardEntityType, string> = {
-  deals: 'Deals',
-  contacts: 'Contacts',
-  companies: 'Companies',
-};
-
 export default function WorkboardsPage() {
+  const { t } = useTranslation(['workboards', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showNewModal, setShowNewModal] = useState(false);
@@ -55,7 +51,7 @@ export default function WorkboardsPage() {
       queryClient.invalidateQueries({ queryKey: ['workboards'] });
       setShowNewModal(false);
       setFormData({ name: '', description: '', entity_type: 'deals' });
-      toast.success('Workboard created');
+      toast.success(t('workboards:toast.created'));
       navigate(`/workboards/${response.data.id}`);
     },
     onError: (error: Error) => {
@@ -68,7 +64,7 @@ export default function WorkboardsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workboards'] });
       setDeleteId(null);
-      toast.success('Workboard deleted');
+      toast.success(t('workboards:toast.deleted'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -79,7 +75,7 @@ export default function WorkboardsPage() {
     mutationFn: workboardsApi.duplicate,
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['workboards'] });
-      toast.success('Workboard duplicated');
+      toast.success(t('workboards:toast.duplicated'));
       navigate(`/workboards/${response.data.id}`);
     },
     onError: (error: Error) => {
@@ -127,7 +123,7 @@ export default function WorkboardsPage() {
                   )}
                 </div>
                 <p className="text-sm text-text-muted">
-                  {entityTypeLabels[workboard.entity_type]}
+                  {t(`workboards:entityTypes.${workboard.entity_type}`)}
                 </p>
               </div>
             </div>
@@ -138,7 +134,7 @@ export default function WorkboardsPage() {
                   duplicateMutation.mutate(workboard.id);
                 }}
                 className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface rounded"
-                title="Duplicate"
+                title={t('workboards:card.duplicate')}
               >
                 <Copy className="h-4 w-4" />
               </button>
@@ -149,7 +145,7 @@ export default function WorkboardsPage() {
                     setDeleteId(workboard.id);
                   }}
                   className="p-1.5 text-text-muted hover:text-error hover:bg-red-50 rounded"
-                  title="Delete"
+                  title={t('workboards:card.delete')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -162,11 +158,11 @@ export default function WorkboardsPage() {
             </p>
           )}
           <div className="mt-3 flex items-center gap-2 text-xs text-text-muted">
-            <span>{workboard.columns.length} columns</span>
+            <span>{t('workboards:card.columns', { count: workboard.columns.length })}</span>
             {workboard.filters.length > 0 && (
               <>
                 <span>·</span>
-                <span>{workboard.filters.length} filters</span>
+                <span>{t('workboards:card.filters', { count: workboard.filters.length })}</span>
               </>
             )}
           </div>
@@ -203,16 +199,16 @@ export default function WorkboardsPage() {
       <div className="flex items-center justify-end">
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
-          New Workboard
+          {t('workboards:newWorkboard')}
         </Button>
       </div>
 
       {workboards.length === 0 ? (
         <EmptyState
           icon={Table2}
-          title="No workboards yet"
-          description="Create your first workboard to build custom views of your data"
-          actionLabel="New Workboard"
+          title={t('workboards:empty.title')}
+          description={t('workboards:empty.description')}
+          actionLabel={t('workboards:newWorkboard')}
           onAction={() => setShowNewModal(true)}
         />
       ) : (
@@ -221,7 +217,7 @@ export default function WorkboardsPage() {
           {defaultWorkboards.length > 0 && (
             <div>
               <h2 className="text-sm font-medium text-text-muted mb-3 uppercase tracking-wider">
-                Default Workboards
+                {t('workboards:sections.default')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {defaultWorkboards.map((workboard: Workboard) => (
@@ -235,7 +231,7 @@ export default function WorkboardsPage() {
           {userWorkboards.length > 0 && (
             <div>
               <h2 className="text-sm font-medium text-text-muted mb-3 uppercase tracking-wider">
-                Your Workboards
+                {t('workboards:sections.yours')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {userWorkboards.map((workboard: Workboard) => (
@@ -251,35 +247,35 @@ export default function WorkboardsPage() {
       <Modal
         isOpen={showNewModal}
         onClose={() => setShowNewModal(false)}
-        title="Create New Workboard"
+        title={t('workboards:modal.createTitle')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Name"
-            placeholder="My Workboard"
+            label={t('workboards:modal.name')}
+            placeholder={t('workboards:modal.namePlaceholder')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
           <div>
-            <label className="label">Description (optional)</label>
+            <label className="label">{t('workboards:modal.description')}</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="input min-h-[80px]"
-              placeholder="What is this workboard for?"
+              placeholder={t('workboards:modal.descriptionPlaceholder')}
             />
           </div>
           <div>
-            <label className="label">Entity Type</label>
+            <label className="label">{t('workboards:modal.entityType')}</label>
             <select
               value={formData.entity_type}
               onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as WorkboardEntityType })}
               className="input"
             >
-              <option value="deals">Deals</option>
-              <option value="contacts">Contacts</option>
-              <option value="companies">Companies</option>
+              <option value="deals">{t('workboards:entityTypes.deals')}</option>
+              <option value="contacts">{t('workboards:entityTypes.contacts')}</option>
+              <option value="companies">{t('workboards:entityTypes.companies')}</option>
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-4">
@@ -288,10 +284,10 @@ export default function WorkboardsPage() {
               variant="secondary"
               onClick={() => setShowNewModal(false)}
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Create Workboard
+              {t('workboards:modal.createWorkboard')}
             </Button>
           </div>
         </form>
@@ -302,9 +298,9 @@ export default function WorkboardsPage() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        title="Delete Workboard"
-        message="Are you sure you want to delete this workboard? This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('workboards:delete.title')}
+        message={t('workboards:delete.message')}
+        confirmLabel={t('common:buttons.delete')}
         variant="danger"
         isLoading={deleteMutation.isPending}
       />

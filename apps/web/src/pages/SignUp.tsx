@@ -1,6 +1,9 @@
 import { SignUp } from '@clerk/clerk-react';
+import { useTranslation } from 'react-i18next';
 
 export default function SignUpPage() {
+  const { t } = useTranslation('auth');
+
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Sign Up Form */}
@@ -37,10 +40,10 @@ export default function SignUpPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-gray-900 text-white p-12 flex-col items-center justify-center">
         <div className="max-w-md text-center">
           <h1 className="text-4xl font-bold mb-4">
-            Start Closing More Deals Today
+            {t('signUp.marketing.headline')}
           </h1>
           <p className="text-lg text-gray-400 mb-8">
-            Join thousands of solopreneurs and small teams who've simplified their sales process.
+            {t('signUp.marketing.subheadline')}
           </p>
 
           <div className="space-y-4 inline-block text-left">
@@ -48,19 +51,19 @@ export default function SignUpPage() {
               <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-gray-300">Free to get started</span>
+              <span className="text-gray-300">{t('signUp.marketing.features.free')}</span>
             </div>
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-gray-300">Set up in under 5 minutes</span>
+              <span className="text-gray-300">{t('signUp.marketing.features.noCard')}</span>
             </div>
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-gray-300">No credit card required</span>
+              <span className="text-gray-300">{t('signUp.marketing.features.cancel')}</span>
             </div>
           </div>
         </div>

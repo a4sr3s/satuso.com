@@ -1,0 +1,43 @@
+{
+  "title": "Companies",
+  "count": "{{count}} companies",
+  "count_one": "{{count}} company",
+  "addCompany": "Add Company",
+  "searchPlaceholder": "Search companies...",
+  "table": {
+    "company": "Company",
+    "industry": "Industry",
+    "contacts": "Contacts",
+    "deals": "Deals",
+    "totalRevenue": "Total Revenue",
+    "website": "Website"
+  },
+  "empty": {
+    "title": "No companies yet",
+    "description": "Add your first company to start tracking accounts."
+  },
+  "modal": {
+    "addTitle": "Add New Company",
+    "editTitle": "Edit Company",
+    "companyName": "Company Name",
+    "companyNamePlaceholder": "Acme Corporation",
+    "domain": "Domain",
+    "domainPlaceholder": "acme.com",
+    "industry": "Industry",
+    "industryPlaceholder": "Technology",
+    "employeeCount": "Employee Count",
+    "employeeCountPlaceholder": "100",
+    "website": "Website",
+    "websitePlaceholder": "https://acme.com",
+    "createCompany": "Create Company",
+    "saveCompany": "Save Company"
+  },
+  "delete": {
+    "title": "Delete Company",
+    "message": "Are you sure you want to delete this company? This action cannot be undone."
+  },
+  "toast": {
+    "created": "Company created successfully",
+    "deleted": "Company deleted"
+  }
+}

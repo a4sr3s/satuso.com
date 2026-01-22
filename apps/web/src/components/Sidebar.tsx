@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard,
@@ -11,21 +12,6 @@ import {
   ChevronRight,
   Table2,
 } from 'lucide-react';
-
-const mainNav = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-];
-
-const crmNav = [
-  { name: 'Contacts', href: '/contacts', icon: Users },
-  { name: 'Companies', href: '/companies', icon: Building2 },
-  { name: 'Pipeline', href: '/deals', icon: DollarSign },
-  { name: 'Workboards', href: '/workboards', icon: Table2 },
-];
-
-const productivityNav = [
-  { name: 'Tasks', href: '/tasks', icon: CheckSquare },
-];
 
 function NavItem({ item, compact = false }: { item: { name: string; href: string; icon: React.ElementType }; compact?: boolean }) {
   const location = useLocation();
@@ -51,7 +37,7 @@ function NavItem({ item, compact = false }: { item: { name: string; href: string
   );
 }
 
-function NavSection({ title, items }: { title?: string; items: typeof mainNav }) {
+function NavSection({ title, items }: { title?: string; items: { name: string; href: string; icon: React.ElementType }[] }) {
   return (
     <div className="space-y-1">
       {title && (
@@ -67,6 +53,23 @@ function NavSection({ title, items }: { title?: string; items: typeof mainNav })
 }
 
 export default function Sidebar() {
+  const { t } = useTranslation();
+
+  const mainNav = [
+    { name: t('common:nav.dashboard'), href: '/', icon: LayoutDashboard },
+  ];
+
+  const crmNav = [
+    { name: t('common:nav.contacts'), href: '/contacts', icon: Users },
+    { name: t('common:nav.companies'), href: '/companies', icon: Building2 },
+    { name: t('common:nav.pipeline'), href: '/deals', icon: DollarSign },
+    { name: t('common:nav.workboards'), href: '/workboards', icon: Table2 },
+  ];
+
+  const productivityNav = [
+    { name: t('common:nav.tasks'), href: '/tasks', icon: CheckSquare },
+  ];
+
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-sidebar bg-gray-900 flex flex-col">
       {/* Logo & Search */}
@@ -86,7 +89,7 @@ export default function Sidebar() {
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 bg-gray-800 border border-gray-700 rounded-lg hover:border-gray-600 hover:text-gray-300 transition-colors"
         >
           <Search className="h-4 w-4" />
-          <span className="flex-1 text-left">Quick search...</span>
+          <span className="flex-1 text-left">{t('common:search.quickSearch')}</span>
           <kbd className="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded border border-gray-600">⌘K</kbd>
         </button>
       </div>
@@ -96,17 +99,17 @@ export default function Sidebar() {
         <NavSection items={mainNav} />
 
         <div className="border-t border-gray-800 pt-4">
-          <NavSection title="Records" items={crmNav} />
+          <NavSection title={t('common:sections.records')} items={crmNav} />
         </div>
 
         <div className="border-t border-gray-800 pt-4">
-          <NavSection title="Productivity" items={productivityNav} />
+          <NavSection title={t('common:sections.productivity')} items={productivityNav} />
         </div>
       </nav>
 
       {/* Bottom section */}
       <div className="border-t border-gray-800 p-3">
-        <NavItem item={{ name: 'Settings', href: '/settings', icon: Settings }} compact />
+        <NavItem item={{ name: t('common:nav.settings'), href: '/settings', icon: Settings }} compact />
       </div>
     </aside>
   );

@@ -1,0 +1,45 @@
+{
+  "title": "Tableros",
+  "newWorkboard": "Nuevo Tablero",
+  "entityTypes": {
+    "deals": "Negocios",
+    "contacts": "Contactos",
+    "companies": "Empresas"
+  },
+  "sections": {
+    "default": "Tableros Predeterminados",
+    "yours": "Tus Tableros"
+  },
+  "card": {
+    "columns": "{{count}} columnas",
+    "columns_one": "{{count}} columna",
+    "filters": "{{count}} filtros",
+    "filters_one": "{{count}} filtro",
+    "duplicate": "Duplicar",
+    "delete": "Eliminar"
+  },
+  "empty": {
+    "title": "Sin tableros aún",
+    "description": "Crea tu primer tablero para construir vistas personalizadas de tus datos"
+  },
+  "modal": {
+    "createTitle": "Crear Nuevo Tablero",
+    "editTitle": "Editar Tablero",
+    "name": "Nombre",
+    "namePlaceholder": "Mi Tablero",
+    "description": "Descripción (opcional)",
+    "descriptionPlaceholder": "¿Para qué es este tablero?",
+    "entityType": "Tipo de Entidad",
+    "createWorkboard": "Crear Tablero",
+    "saveWorkboard": "Guardar Tablero"
+  },
+  "delete": {
+    "title": "Eliminar Tablero",
+    "message": "¿Estás seguro de que deseas eliminar este tablero? Esta acción no se puede deshacer."
+  },
+  "toast": {
+    "created": "Tablero creado",
+    "deleted": "Tablero eliminado",
+    "duplicated": "Tablero duplicado"
+  }
+}

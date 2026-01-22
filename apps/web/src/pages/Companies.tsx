@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Plus, Search, Filter, Globe, Users, Trash2, Edit, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { companiesApi } from '@/lib/api';
@@ -11,6 +12,7 @@ import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
 
 export default function CompaniesPage() {
+  const { t } = useTranslation(['companies', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,7 +40,7 @@ export default function CompaniesPage() {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       setShowNewModal(false);
       setFormData({ name: '', domain: '', industry: '', employee_count: '', website: '' });
-      toast.success('Company created successfully');
+      toast.success(t('companies:toast.created'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -50,7 +52,7 @@ export default function CompaniesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
       setDeleteId(null);
-      toast.success('Company deleted');
+      toast.success(t('companies:toast.deleted'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -104,7 +106,7 @@ export default function CompaniesPage() {
   const columns = [
     {
       key: 'name',
-      header: 'Company',
+      header: t('companies:table.company'),
       sortable: true,
       render: (company: any) => (
         <div className="flex items-center gap-3">
@@ -126,13 +128,13 @@ export default function CompaniesPage() {
     },
     {
       key: 'industry',
-      header: 'Industry',
+      header: t('companies:table.industry'),
       sortable: true,
       render: (company: any) => company.industry || '-',
     },
     {
       key: 'contacts',
-      header: 'Contacts',
+      header: t('companies:table.contacts'),
       sortable: true,
       render: (company: any) => (
         <div className="flex items-center gap-2 text-text-secondary">
@@ -143,13 +145,13 @@ export default function CompaniesPage() {
     },
     {
       key: 'deals',
-      header: 'Deals',
+      header: t('companies:table.deals'),
       sortable: true,
       render: (company: any) => company.deal_count || 0,
     },
     {
       key: 'revenue',
-      header: 'Total Revenue',
+      header: t('companies:table.totalRevenue'),
       sortable: true,
       render: (company: any) => (
         <span className="text-success font-medium">
@@ -159,7 +161,7 @@ export default function CompaniesPage() {
     },
     {
       key: 'website',
-      header: 'Website',
+      header: t('companies:table.website'),
       render: (company: any) =>
         company.website ? (
           <a
@@ -170,7 +172,7 @@ export default function CompaniesPage() {
             className="flex items-center gap-2 text-primary hover:underline"
           >
             <Globe className="h-4 w-4" />
-            Visit
+            {t('common:buttons.visit')}
           </a>
         ) : (
           '-'
@@ -194,11 +196,11 @@ export default function CompaniesPage() {
       {/* Actions */}
       <div className="flex items-center justify-between">
         <p className="text-text-secondary text-sm">
-          {companies.length} companies
+          {t('companies:count', { count: companies.length })}
         </p>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
-          Add Company
+          {t('companies:addCompany')}
         </Button>
       </div>
 
@@ -209,7 +211,7 @@ export default function CompaniesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Search companies..."
+              placeholder={t('companies:searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-10"
@@ -218,7 +220,7 @@ export default function CompaniesPage() {
         </div>
         <Button variant="secondary">
           <Filter className="h-4 w-4" />
-          Filters
+          {t('common:buttons.filters')}
         </Button>
       </div>
 
@@ -226,9 +228,9 @@ export default function CompaniesPage() {
       {companies.length === 0 && !isLoading ? (
         <EmptyState
           icon={Building2}
-          title="No companies yet"
-          description="Add your first company to start tracking accounts."
-          actionLabel="Add Company"
+          title={t('companies:empty.title')}
+          description={t('companies:empty.description')}
+          actionLabel={t('companies:addCompany')}
           onAction={() => setShowNewModal(true)}
         />
       ) : (
@@ -244,12 +246,12 @@ export default function CompaniesPage() {
             <ActionMenu
               items={[
                 {
-                  label: 'Edit',
+                  label: t('common:buttons.edit'),
                   icon: <Edit className="h-4 w-4" />,
                   onClick: () => navigate(`/companies/${company.id}`),
                 },
                 {
-                  label: 'Delete',
+                  label: t('common:buttons.delete'),
                   icon: <Trash2 className="h-4 w-4" />,
                   onClick: () => setDeleteId(company.id),
                   variant: 'danger',
@@ -267,39 +269,39 @@ export default function CompaniesPage() {
           setShowNewModal(false);
           setSearchParams({});
         }}
-        title="Add New Company"
+        title={t('companies:modal.addTitle')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Company Name"
-            placeholder="Acme Corporation"
+            label={t('companies:modal.companyName')}
+            placeholder={t('companies:modal.companyNamePlaceholder')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
           <Input
-            label="Domain"
-            placeholder="acme.com"
+            label={t('companies:modal.domain')}
+            placeholder={t('companies:modal.domainPlaceholder')}
             value={formData.domain}
             onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
           />
           <Input
-            label="Industry"
-            placeholder="Technology"
+            label={t('companies:modal.industry')}
+            placeholder={t('companies:modal.industryPlaceholder')}
             value={formData.industry}
             onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
           />
           <Input
-            label="Employee Count"
+            label={t('companies:modal.employeeCount')}
             type="number"
-            placeholder="100"
+            placeholder={t('companies:modal.employeeCountPlaceholder')}
             value={formData.employee_count}
             onChange={(e) => setFormData({ ...formData, employee_count: e.target.value })}
           />
           <Input
-            label="Website"
+            label={t('companies:modal.website')}
             type="url"
-            placeholder="https://acme.com"
+            placeholder={t('companies:modal.websitePlaceholder')}
             value={formData.website}
             onChange={(e) => setFormData({ ...formData, website: e.target.value })}
           />
@@ -309,10 +311,10 @@ export default function CompaniesPage() {
               variant="secondary"
               onClick={() => setShowNewModal(false)}
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Create Company
+              {t('companies:modal.createCompany')}
             </Button>
           </div>
         </form>
@@ -323,9 +325,9 @@ export default function CompaniesPage() {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        title="Delete Company"
-        message="Are you sure you want to delete this company? This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('companies:delete.title')}
+        message={t('companies:delete.message')}
+        confirmLabel={t('common:buttons.delete')}
         variant="danger"
         isLoading={deleteMutation.isPending}
       />

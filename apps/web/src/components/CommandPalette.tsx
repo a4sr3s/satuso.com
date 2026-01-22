@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Search, Users, Building2, DollarSign, CheckSquare, MessageSquare, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { searchApi } from '@/lib/api';
@@ -12,21 +13,22 @@ interface SearchResult {
   url: string;
 }
 
-const quickActions = [
-  { id: 'new-contact', label: 'Create new contact', icon: Users, action: '/contacts?new=true' },
-  { id: 'new-company', label: 'Create new company', icon: Building2, action: '/companies?new=true' },
-  { id: 'new-deal', label: 'Create new deal', icon: DollarSign, action: '/deals?new=true' },
-  { id: 'new-task', label: 'Create new task', icon: CheckSquare, action: '/tasks?new=true' },
-  { id: 'assistant', label: 'Open assistant', icon: MessageSquare, action: 'assistant' },
-];
-
 export default function CommandPalette() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  const quickActions = [
+    { id: 'new-contact', label: t('common:quickActions.newContact'), icon: Users, action: '/contacts?new=true' },
+    { id: 'new-company', label: t('common:quickActions.newCompany'), icon: Building2, action: '/companies?new=true' },
+    { id: 'new-deal', label: t('common:quickActions.newDeal'), icon: DollarSign, action: '/deals?new=true' },
+    { id: 'new-task', label: t('common:quickActions.newTask'), icon: CheckSquare, action: '/tasks?new=true' },
+    { id: 'assistant', label: t('common:quickActions.openAssistant'), icon: MessageSquare, action: 'assistant' },
+  ];
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -157,7 +159,7 @@ export default function CommandPalette() {
                 setSelectedIndex(0);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Search contacts, companies, deals or type a command..."
+              placeholder={t('common:search.placeholder')}
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-text-muted"
             />
             <kbd className="text-xs text-text-muted bg-surface px-1.5 py-0.5 rounded">
@@ -173,13 +175,13 @@ export default function CommandPalette() {
               </div>
             ) : allItems.length === 0 ? (
               <div className="px-4 py-8 text-center text-text-muted text-sm">
-                {query.length >= 2 ? 'No results found' : 'Start typing to search...'}
+                {query.length >= 2 ? t('common:search.noResults') : t('common:search.startTyping')}
               </div>
             ) : (
               <div className="py-2">
                 {query.length < 2 && (
                   <div className="px-3 py-1 text-xs font-medium text-text-muted uppercase">
-                    Quick Actions
+                    {t('common:quickActions.title')}
                   </div>
                 )}
                 {allItems.map((item, index) => {
@@ -218,11 +220,11 @@ export default function CommandPalette() {
           <div className="px-4 py-2 border-t border-border bg-surface flex items-center justify-between text-xs text-text-muted">
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 bg-white rounded border border-border">↑↓</kbd>
-              <span>to navigate</span>
+              <span>{t('common:search.toNavigate')}</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 bg-white rounded border border-border">↵</kbd>
-              <span>to select</span>
+              <span>{t('common:search.toSelect')}</span>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import {
   Phone,
   Mail,
@@ -15,8 +15,11 @@ import MetricCard from '@/components/ui/MetricCard';
 import Card, { CardHeader } from '@/components/ui/Card';
 import { StageBadge } from '@/components/ui/Badge';
 import SpinProgress from '@/components/ui/SpinProgress';
+import { useLocale } from '@/hooks/useLocale';
 
 export default function DashboardPage() {
+  const { t } = useTranslation(['dashboard', 'common']);
+  const { formatRelativeDate } = useLocale();
   const navigate = useNavigate();
 
   const { data: metrics } = useQuery({
@@ -57,6 +60,23 @@ export default function DashboardPage() {
     }
   };
 
+  const getActivityText = (type: string) => {
+    switch (type) {
+      case 'call':
+        return t('dashboard:activity.loggedCall');
+      case 'email':
+        return t('dashboard:activity.sentEmail');
+      case 'meeting':
+        return t('dashboard:activity.scheduledMeeting');
+      case 'note':
+        return t('dashboard:activity.addedNote');
+      case 'task':
+        return t('dashboard:activity.createdTask');
+      default:
+        return t('dashboard:activity.hadActivity');
+    }
+  };
+
   const metricsData = metrics?.data;
   const activityData = activity?.data || [];
   const pipelineData = pipeline?.data || [];
@@ -68,7 +88,7 @@ export default function DashboardPage() {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Revenue (This Month)"
+          title={t('dashboard:metrics.revenueThisMonth')}
           value={metricsData?.totalRevenue?.value || 0}
           change={metricsData?.totalRevenue?.change}
           changeDirection={metricsData?.totalRevenue?.changeDirection}
@@ -76,20 +96,20 @@ export default function DashboardPage() {
           format="currency"
         />
         <MetricCard
-          title="Active Deals"
+          title={t('dashboard:metrics.activeDeals')}
           value={metricsData?.activeDeals?.value || 0}
           change={metricsData?.activeDeals?.change}
           changeDirection={metricsData?.activeDeals?.changeDirection}
         />
         <MetricCard
-          title="Conversion Rate"
+          title={t('dashboard:metrics.conversionRate')}
           value={metricsData?.conversionRate?.value || 0}
           change={metricsData?.conversionRate?.change}
           changeDirection={metricsData?.conversionRate?.changeDirection}
           format="percent"
         />
         <MetricCard
-          title="Tasks Due Today"
+          title={t('dashboard:metrics.tasksDueToday')}
           value={metricsData?.tasksDueToday?.value || 0}
         />
       </div>
@@ -99,20 +119,20 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader
-              title="Recent Activity"
+              title={t('dashboard:activity.title')}
               action={
                 <button
                   onClick={() => navigate('/tasks')}
                   className="text-sm text-primary hover:underline"
                 >
-                  View all
+                  {t('common:buttons.viewAll')}
                 </button>
               }
             />
             <div className="space-y-4">
               {activityData.length === 0 ? (
                 <p className="text-sm text-text-muted py-4 text-center">
-                  No recent activity
+                  {t('dashboard:activity.noActivity')}
                 </p>
               ) : (
                 activityData.slice(0, 6).map((item: any) => {
@@ -134,15 +154,10 @@ export default function DashboardPage() {
                         <p className="text-sm text-text-primary">
                           <span className="font-medium">{item.owner_name || 'Someone'}</span>
                           {' '}
-                          {item.type === 'call' && 'logged a call'}
-                          {item.type === 'email' && 'sent an email'}
-                          {item.type === 'meeting' && 'scheduled a meeting'}
-                          {item.type === 'note' && 'added a note'}
-                          {item.type === 'task' && 'created a task'}
-                          {!item.type && 'had activity'}
+                          {getActivityText(item.type)}
                           {item.deal_name && (
                             <>
-                              {' for '}
+                              {' '}{t('dashboard:activity.for')}{' '}
                               <span className="font-medium text-primary">{item.deal_name}</span>
                             </>
                           )}
@@ -152,8 +167,8 @@ export default function DashboardPage() {
                         )}
                         <p className="text-xs text-text-muted mt-0.5">
                           {item.created_at
-                            ? formatDistanceToNow(new Date(item.created_at), { addSuffix: true })
-                            : 'Recently'}
+                            ? formatRelativeDate(item.created_at)
+                            : t('common:time.recently')}
                         </p>
                       </div>
                       {isClickable && (
@@ -170,7 +185,7 @@ export default function DashboardPage() {
         {/* Insights */}
         <Card>
           <CardHeader
-            title="Insights"
+            title={t('dashboard:insights.title')}
             action={
               <Lightbulb className="h-4 w-4 text-text-muted" />
             }
@@ -178,7 +193,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {insightsData.length === 0 ? (
               <p className="text-sm text-text-muted py-4 text-center">
-                No insights yet
+                {t('dashboard:insights.noInsights')}
               </p>
             ) : (
               insightsData.slice(0, 3).map((insight: any, index: number) => (
@@ -198,7 +213,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-text-secondary mt-0.5">{insight.description}</p>
                       {insight.deal_id && (
                         <div className="flex items-center gap-1 mt-1 text-xs text-primary">
-                          <span>View deal</span>
+                          <span>{t('dashboard:insights.viewDeal')}</span>
                           <ArrowRight className="h-3 w-3" />
                         </div>
                       )}
@@ -215,13 +230,13 @@ export default function DashboardPage() {
         {/* Pipeline Summary */}
         <Card>
           <CardHeader
-            title="Pipeline Summary"
+            title={t('dashboard:pipeline.title')}
             action={
               <button
                 onClick={() => navigate('/deals')}
                 className="text-sm text-primary hover:underline"
               >
-                View pipeline
+                {t('dashboard:pipeline.viewPipeline')}
               </button>
             }
           />
@@ -231,7 +246,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <StageBadge stage={stage.stage} />
                   <span className="text-sm text-text-secondary">
-                    {stage.count} deals
+                    {stage.count} {t('dashboard:pipeline.deals')}
                   </span>
                 </div>
                 <span className="text-sm font-medium text-text-primary">
@@ -245,17 +260,17 @@ export default function DashboardPage() {
         {/* At Risk Deals */}
         <Card>
           <CardHeader
-            title="Deals Needing Attention"
+            title={t('dashboard:atRisk.title')}
             action={
               <span className="text-xs text-warning bg-yellow-50 px-2 py-1 rounded">
-                {atRiskData.length} at risk
+                {atRiskData.length} {t('dashboard:atRisk.atRisk')}
               </span>
             }
           />
           <div className="space-y-3">
             {atRiskData.length === 0 ? (
               <p className="text-sm text-text-muted py-4 text-center">
-                All deals are on track!
+                {t('dashboard:atRisk.allOnTrack')}
               </p>
             ) : (
               atRiskData.slice(0, 4).map((deal: any) => (

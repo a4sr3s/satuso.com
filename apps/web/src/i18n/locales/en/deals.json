@@ -1,0 +1,58 @@
+{
+  "title": "Pipeline",
+  "newDeal": "New Deal",
+  "searchPlaceholder": "Search deals...",
+  "view": {
+    "board": "Board",
+    "list": "List"
+  },
+  "metrics": {
+    "totalPipeline": "Total Pipeline",
+    "weightedValue": "Weighted Value",
+    "activeDeals": "Active Deals",
+    "avgDealSize": "Avg Deal Size"
+  },
+  "stages": {
+    "lead": "Lead",
+    "qualified": "Qualified",
+    "discovery": "Discovery",
+    "proposal": "Proposal",
+    "negotiation": "Negotiation",
+    "probability": "{{percent}}% probability"
+  },
+  "card": {
+    "noCompany": "No company",
+    "noCloseDate": "No close date",
+    "weighted": "weighted",
+    "dropHere": "Drop deals here"
+  },
+  "table": {
+    "deal": "Deal",
+    "company": "Company",
+    "value": "Value",
+    "stage": "Stage",
+    "spin": "SPIN",
+    "closeDate": "Close Date",
+    "days": "Days"
+  },
+  "empty": {
+    "title": "No deals yet",
+    "description": "Create your first deal to start tracking your sales pipeline."
+  },
+  "modal": {
+    "createTitle": "Create New Deal",
+    "editTitle": "Edit Deal",
+    "dealName": "Deal Name",
+    "dealNamePlaceholder": "e.g., Acme Corp - Enterprise License",
+    "value": "Value",
+    "valuePlaceholder": "50000",
+    "stage": "Stage",
+    "expectedCloseDate": "Expected Close Date",
+    "createDeal": "Create Deal",
+    "saveDeal": "Save Deal"
+  },
+  "toast": {
+    "created": "Deal created successfully",
+    "moved": "Moved to {{stage}}"
+  }
+}

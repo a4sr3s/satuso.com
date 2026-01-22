@@ -1,0 +1,41 @@
+{
+  "title": "Contactos",
+  "count": "{{count}} contactos",
+  "count_one": "{{count}} contacto",
+  "addContact": "Agregar Contacto",
+  "searchPlaceholder": "Buscar contactos...",
+  "table": {
+    "name": "Nombre",
+    "company": "Empresa",
+    "email": "Correo",
+    "phone": "Teléfono",
+    "status": "Estado",
+    "lastContact": "Último Contacto"
+  },
+  "empty": {
+    "title": "Sin contactos aún",
+    "description": "Agrega tu primer contacto para comenzar a construir relaciones."
+  },
+  "modal": {
+    "addTitle": "Agregar Nuevo Contacto",
+    "editTitle": "Editar Contacto",
+    "fullName": "Nombre Completo",
+    "fullNamePlaceholder": "Juan García",
+    "email": "Correo Electrónico",
+    "emailPlaceholder": "juan@empresa.com",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+52 (555) 000-0000",
+    "jobTitle": "Cargo",
+    "jobTitlePlaceholder": "Director de Ventas",
+    "createContact": "Crear Contacto",
+    "saveContact": "Guardar Contacto"
+  },
+  "delete": {
+    "title": "Eliminar Contacto",
+    "message": "¿Estás seguro de que deseas eliminar este contacto? Esta acción no se puede deshacer."
+  },
+  "toast": {
+    "created": "Contacto creado exitosamente",
+    "deleted": "Contacto eliminado"
+  }
+}

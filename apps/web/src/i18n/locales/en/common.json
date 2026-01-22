@@ -1,0 +1,85 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "contacts": "Contacts",
+    "companies": "Companies",
+    "pipeline": "Pipeline",
+    "workboards": "Workboards",
+    "tasks": "Tasks",
+    "settings": "Settings"
+  },
+  "sections": {
+    "records": "Records",
+    "productivity": "Productivity"
+  },
+  "search": {
+    "quickSearch": "Quick search...",
+    "placeholder": "Search contacts, companies, deals or type a command...",
+    "noResults": "No results found",
+    "startTyping": "Start typing to search...",
+    "toNavigate": "to navigate",
+    "toSelect": "to select"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "newContact": "Create new contact",
+    "newCompany": "Create new company",
+    "newDeal": "Create new deal",
+    "newTask": "Create new task",
+    "openAssistant": "Open assistant"
+  },
+  "buttons": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "viewAll": "View all",
+    "filters": "Filters",
+    "visit": "Visit"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "lead": "Lead"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "stages": {
+    "lead": "Lead",
+    "qualified": "Qualified",
+    "discovery": "Discovery",
+    "proposal": "Proposal",
+    "negotiation": "Negotiation",
+    "closedWon": "Closed Won",
+    "closedLost": "Closed Lost"
+  },
+  "time": {
+    "never": "Never",
+    "recently": "Recently",
+    "overdue": "Overdue"
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "notFound": "Not found"
+  },
+  "toast": {
+    "createdSuccess": "{{item}} created successfully",
+    "updatedSuccess": "{{item}} updated successfully",
+    "deletedSuccess": "{{item}} deleted"
+  },
+  "assistant": {
+    "openTitle": "Open Assistant"
+  },
+  "language": {
+    "title": "Language",
+    "english": "English",
+    "spanish": "Spanish"
+  }
+}

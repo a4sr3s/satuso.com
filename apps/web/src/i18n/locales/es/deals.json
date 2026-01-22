@@ -1,0 +1,58 @@
+{
+  "title": "Pipeline",
+  "newDeal": "Nuevo Negocio",
+  "searchPlaceholder": "Buscar negocios...",
+  "view": {
+    "board": "Tablero",
+    "list": "Lista"
+  },
+  "metrics": {
+    "totalPipeline": "Pipeline Total",
+    "weightedValue": "Valor Ponderado",
+    "activeDeals": "Negocios Activos",
+    "avgDealSize": "Tamaño Promedio"
+  },
+  "stages": {
+    "lead": "Prospecto",
+    "qualified": "Calificado",
+    "discovery": "Descubrimiento",
+    "proposal": "Propuesta",
+    "negotiation": "Negociación",
+    "probability": "{{percent}}% probabilidad"
+  },
+  "card": {
+    "noCompany": "Sin empresa",
+    "noCloseDate": "Sin fecha de cierre",
+    "weighted": "ponderado",
+    "dropHere": "Arrastra negocios aquí"
+  },
+  "table": {
+    "deal": "Negocio",
+    "company": "Empresa",
+    "value": "Valor",
+    "stage": "Etapa",
+    "spin": "SPIN",
+    "closeDate": "Fecha de Cierre",
+    "days": "Días"
+  },
+  "empty": {
+    "title": "Sin negocios aún",
+    "description": "Crea tu primer negocio para comenzar a rastrear tu pipeline de ventas."
+  },
+  "modal": {
+    "createTitle": "Crear Nuevo Negocio",
+    "editTitle": "Editar Negocio",
+    "dealName": "Nombre del Negocio",
+    "dealNamePlaceholder": "ej., Acme Corp - Licencia Empresarial",
+    "value": "Valor",
+    "valuePlaceholder": "50000",
+    "stage": "Etapa",
+    "expectedCloseDate": "Fecha de Cierre Esperada",
+    "createDeal": "Crear Negocio",
+    "saveDeal": "Guardar Negocio"
+  },
+  "toast": {
+    "created": "Negocio creado exitosamente",
+    "moved": "Movido a {{stage}}"
+  }
+}

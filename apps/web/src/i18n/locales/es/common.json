@@ -1,0 +1,85 @@
+{
+  "nav": {
+    "dashboard": "Panel",
+    "contacts": "Contactos",
+    "companies": "Empresas",
+    "pipeline": "Pipeline",
+    "workboards": "Tableros",
+    "tasks": "Tareas",
+    "settings": "Configuración"
+  },
+  "sections": {
+    "records": "Registros",
+    "productivity": "Productividad"
+  },
+  "search": {
+    "quickSearch": "Búsqueda rápida...",
+    "placeholder": "Buscar contactos, empresas, negocios o escribir un comando...",
+    "noResults": "No se encontraron resultados",
+    "startTyping": "Empieza a escribir para buscar...",
+    "toNavigate": "para navegar",
+    "toSelect": "para seleccionar"
+  },
+  "quickActions": {
+    "title": "Acciones Rápidas",
+    "newContact": "Crear nuevo contacto",
+    "newCompany": "Crear nueva empresa",
+    "newDeal": "Crear nuevo negocio",
+    "newTask": "Crear nueva tarea",
+    "openAssistant": "Abrir asistente"
+  },
+  "buttons": {
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "add": "Agregar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "viewAll": "Ver todo",
+    "filters": "Filtros",
+    "visit": "Visitar"
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "lead": "Prospecto"
+  },
+  "priority": {
+    "low": "Baja",
+    "medium": "Media",
+    "high": "Alta"
+  },
+  "stages": {
+    "lead": "Prospecto",
+    "qualified": "Calificado",
+    "discovery": "Descubrimiento",
+    "proposal": "Propuesta",
+    "negotiation": "Negociación",
+    "closedWon": "Cerrado Ganado",
+    "closedLost": "Cerrado Perdido"
+  },
+  "time": {
+    "never": "Nunca",
+    "recently": "Recientemente",
+    "overdue": "Vencido"
+  },
+  "errors": {
+    "generic": "Algo salió mal",
+    "notFound": "No encontrado"
+  },
+  "toast": {
+    "createdSuccess": "{{item}} creado exitosamente",
+    "updatedSuccess": "{{item}} actualizado exitosamente",
+    "deletedSuccess": "{{item}} eliminado"
+  },
+  "assistant": {
+    "openTitle": "Abrir Asistente"
+  },
+  "language": {
+    "title": "Idioma",
+    "english": "Inglés",
+    "spanish": "Español"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "title": "Tasks",
+  "pending": "{{count}} pending",
+  "overdue": "{{count}} overdue",
+  "addTask": "Add Task",
+  "tabs": {
+    "pending": "Pending",
+    "today": "Today",
+    "overdue": "Overdue",
+    "thisWeek": "This Week",
+    "completed": "Completed"
+  },
+  "empty": {
+    "noTasks": "No tasks",
+    "noCompletedTasks": "No completed tasks",
+    "completedDescription": "Tasks you complete will appear here.",
+    "pendingDescription": "You're all caught up! Add a new task to stay organized."
+  },
+  "modal": {
+    "createTitle": "Create New Task",
+    "editTitle": "Edit Task",
+    "task": "Task",
+    "taskPlaceholder": "What needs to be done?",
+    "description": "Description (optional)",
+    "descriptionPlaceholder": "Add more details...",
+    "dueDate": "Due Date",
+    "priority": "Priority",
+    "createTask": "Create Task",
+    "saveTask": "Save Task"
+  },
+  "delete": {
+    "title": "Delete Task",
+    "message": "Are you sure you want to delete this task?"
+  },
+  "toast": {
+    "created": "Task created",
+    "deleted": "Task deleted"
+  }
+}

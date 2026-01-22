@@ -1,0 +1,43 @@
+{
+  "title": "Empresas",
+  "count": "{{count}} empresas",
+  "count_one": "{{count}} empresa",
+  "addCompany": "Agregar Empresa",
+  "searchPlaceholder": "Buscar empresas...",
+  "table": {
+    "company": "Empresa",
+    "industry": "Industria",
+    "contacts": "Contactos",
+    "deals": "Negocios",
+    "totalRevenue": "Ingresos Totales",
+    "website": "Sitio Web"
+  },
+  "empty": {
+    "title": "Sin empresas aún",
+    "description": "Agrega tu primera empresa para comenzar a rastrear cuentas."
+  },
+  "modal": {
+    "addTitle": "Agregar Nueva Empresa",
+    "editTitle": "Editar Empresa",
+    "companyName": "Nombre de la Empresa",
+    "companyNamePlaceholder": "Corporación Acme",
+    "domain": "Dominio",
+    "domainPlaceholder": "acme.com",
+    "industry": "Industria",
+    "industryPlaceholder": "Tecnología",
+    "employeeCount": "Número de Empleados",
+    "employeeCountPlaceholder": "100",
+    "website": "Sitio Web",
+    "websitePlaceholder": "https://acme.com",
+    "createCompany": "Crear Empresa",
+    "saveCompany": "Guardar Empresa"
+  },
+  "delete": {
+    "title": "Eliminar Empresa",
+    "message": "¿Estás seguro de que deseas eliminar esta empresa? Esta acción no se puede deshacer."
+  },
+  "toast": {
+    "created": "Empresa creada exitosamente",
+    "deleted": "Empresa eliminada"
+  }
+}

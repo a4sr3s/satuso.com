@@ -1,0 +1,27 @@
+{
+  "title": "Settings",
+  "integrations": {
+    "title": "Integrations",
+    "description": "Connect your favorite tools to supercharge your sales workflow",
+    "comingSoon": "Coming Soon"
+  },
+  "categories": {
+    "dataEnrichment": "Data Enrichment",
+    "automation": "Automation",
+    "communication": "Communication",
+    "productivity": "Productivity"
+  },
+  "integrationDescriptions": {
+    "clay": "Enrich contacts & automate prospecting workflows",
+    "apollo": "Sales intelligence & prospecting database",
+    "clearbit": "Real-time company & contact enrichment",
+    "zapier": "Connect to 5,000+ apps with automated workflows",
+    "slack": "Get deal alerts & updates in your channels",
+    "googleCalendar": "Sync meetings & schedule follow-ups",
+    "gmail": "Log emails & track conversations automatically"
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose your preferred language for the interface"
+  }
+}

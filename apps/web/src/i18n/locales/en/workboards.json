@@ -1,0 +1,45 @@
+{
+  "title": "Workboards",
+  "newWorkboard": "New Workboard",
+  "entityTypes": {
+    "deals": "Deals",
+    "contacts": "Contacts",
+    "companies": "Companies"
+  },
+  "sections": {
+    "default": "Default Workboards",
+    "yours": "Your Workboards"
+  },
+  "card": {
+    "columns": "{{count}} columns",
+    "columns_one": "{{count}} column",
+    "filters": "{{count}} filters",
+    "filters_one": "{{count}} filter",
+    "duplicate": "Duplicate",
+    "delete": "Delete"
+  },
+  "empty": {
+    "title": "No workboards yet",
+    "description": "Create your first workboard to build custom views of your data"
+  },
+  "modal": {
+    "createTitle": "Create New Workboard",
+    "editTitle": "Edit Workboard",
+    "name": "Name",
+    "namePlaceholder": "My Workboard",
+    "description": "Description (optional)",
+    "descriptionPlaceholder": "What is this workboard for?",
+    "entityType": "Entity Type",
+    "createWorkboard": "Create Workboard",
+    "saveWorkboard": "Save Workboard"
+  },
+  "delete": {
+    "title": "Delete Workboard",
+    "message": "Are you sure you want to delete this workboard? This action cannot be undone."
+  },
+  "toast": {
+    "created": "Workboard created",
+    "deleted": "Workboard deleted",
+    "duplicated": "Workboard duplicated"
+  }
+}

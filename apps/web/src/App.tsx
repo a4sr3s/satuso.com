@@ -20,15 +20,6 @@ const SettingsPage = lazy(() => import('@/pages/Settings'));
 const WorkboardsPage = lazy(() => import('@/pages/Workboards'));
 const WorkboardViewPage = lazy(() => import('@/pages/WorkboardView'));
 
-// Loading component for lazy-loaded pages
-function PageLoader() {
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-}
-
 // Full page loader for auth state
 function FullPageLoader() {
   return (
@@ -67,15 +58,14 @@ function App() {
 
   return (
     <AuthProvider>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
+      <Routes>
         {/* Auth routes */}
-        <Route path="/sign-in/*" element={<SignInPage />} />
-        <Route path="/sign-up/*" element={<SignUpPage />} />
+        <Route path="/sign-in/*" element={<Suspense fallback={<FullPageLoader />}><SignInPage /></Suspense>} />
+        <Route path="/sign-up/*" element={<Suspense fallback={<FullPageLoader />}><SignUpPage /></Suspense>} />
         {/* Legacy route redirect */}
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
 
-        {/* Protected routes */}
+        {/* Protected routes - Layout has its own Suspense for content */}
         <Route
           path="/"
           element={
@@ -101,8 +91,7 @@ function App() {
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      </Routes>
     </AuthProvider>
   );
 }

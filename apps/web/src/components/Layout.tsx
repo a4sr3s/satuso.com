@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet, useLocation, useParams } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
 import AssistantPanel from './AssistantPanel';
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 export default function Layout() {
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -62,7 +70,9 @@ export default function Layout() {
       <Sidebar />
       <main className="pl-sidebar">
         <div className="p-6">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 

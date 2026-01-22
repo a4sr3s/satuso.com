@@ -4,14 +4,7 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Branding & Graphics */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600">
-        {/* Animated blob decorations */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-white/10 rounded-full mix-blend-overlay filter blur-3xl animate-blob" />
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-white/10 rounded-full mix-blend-overlay filter blur-3xl animate-blob animation-delay-2000" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full mix-blend-overlay filter blur-3xl animate-blob animation-delay-4000" />
-        </div>
-
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary">
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           {/* Logo */}
@@ -80,23 +73,17 @@ export default function SignUpPage() {
       </div>
 
       {/* Right Panel - Sign Up Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-white">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-surface overflow-y-auto">
+        <div className="w-full max-w-[400px]">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-2xl">S</span>
               </div>
-              <span className="text-2xl font-bold text-gray-900">Satuso</span>
+              <span className="text-2xl font-bold text-text-primary">Satuso</span>
             </div>
-            <p className="text-gray-600">Never lose a deal again</p>
-          </div>
-
-          {/* Welcome text - desktop only */}
-          <div className="hidden lg:block mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h2>
-            <p className="text-gray-600">Get started with your free account today</p>
+            <p className="text-text-secondary">Never lose a deal again</p>
           </div>
 
           {/* Clerk SignUp */}
@@ -106,63 +93,25 @@ export default function SignUpPage() {
             signInUrl="/sign-in"
             forceRedirectUrl="/"
             appearance={{
+              variables: {
+                colorPrimary: '#171717',
+                colorText: '#171717',
+                colorTextSecondary: '#525252',
+                colorBackground: '#FAFAFA',
+                colorInputBackground: '#FFFFFF',
+                colorInputText: '#171717',
+                borderRadius: '0.5rem',
+              },
               elements: {
                 rootBox: 'w-full',
-                card: 'w-full shadow-none border-0 p-0',
-                headerTitle: 'hidden',
-                headerSubtitle: 'hidden',
-                socialButtonsBlockButton: 'border border-gray-200 hover:bg-gray-50 transition-colors rounded-lg h-11',
-                socialButtonsBlockButtonText: 'text-gray-700 font-medium',
-                dividerLine: 'bg-gray-200',
-                dividerText: 'text-gray-500 text-sm',
-                formFieldLabel: 'text-sm font-medium text-gray-700',
-                formFieldInput: 'border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 rounded-lg h-11',
-                formButtonPrimary: 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg h-11 shadow-lg shadow-purple-500/25',
-                footerActionLink: 'text-purple-600 hover:text-purple-700 font-medium',
-                identityPreviewEditButton: 'text-purple-600',
-                formFieldAction: 'text-purple-600 hover:text-purple-700',
-                alert: 'rounded-lg',
-                footer: 'hidden',
+                card: 'w-full shadow-none bg-transparent',
+                socialButtonsBlockButton: 'border border-border bg-white hover:bg-surface-hover',
+                formButtonPrimary: 'bg-primary hover:bg-primary-hover',
               },
             }}
           />
-
-          {/* Sign in link */}
-          <p className="mt-8 text-center text-gray-600">
-            Already have an account?{' '}
-            <a href="/sign-in" className="text-purple-600 hover:text-purple-700 font-medium">
-              Sign in
-            </a>
-          </p>
-
-          {/* Terms */}
-          <p className="mt-6 text-center text-sm text-gray-500">
-            By signing up, you agree to our{' '}
-            <a href="/terms" className="text-purple-600 hover:text-purple-700">Terms of Service</a>
-            {' '}and{' '}
-            <a href="/privacy" className="text-purple-600 hover:text-purple-700">Privacy Policy</a>
-          </p>
         </div>
       </div>
-
-      {/* Blob animation styles */}
-      <style>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          25% { transform: translate(20px, -30px) scale(1.1); }
-          50% { transform: translate(-20px, 20px) scale(0.9); }
-          75% { transform: translate(30px, 10px) scale(1.05); }
-        }
-        .animate-blob {
-          animation: blob 8s infinite ease-in-out;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 }

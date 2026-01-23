@@ -226,6 +226,23 @@ export interface AIQueryResult {
   };
 }
 
+export type EntityCreateResponseType = 'question' | 'confirm' | 'created' | 'cancelled' | 'error';
+
+export interface EntityCreateResponse {
+  type: EntityCreateResponseType;
+  message?: string;
+  sessionId: string | null;
+  entityType?: 'contact' | 'company' | 'deal';
+  fields?: Record<string, any>;
+  resolvedRefs?: {
+    companyId?: string;
+    companyName?: string;
+    contactId?: string;
+    contactName?: string;
+  };
+  entity?: Contact | Company | Deal;
+}
+
 // ============================================
 // Task Counts
 // ============================================

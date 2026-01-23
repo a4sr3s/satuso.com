@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { createCompanySchema, updateCompanySchema } from '../schemas';
 import { parsePagination } from '../utils/pagination';
 import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../utils/access-control';
+import { createCompanyRecord } from '../services/entity-service';
 
 const companies = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -151,28 +151,7 @@ companies.post('/', zValidator('json', createCompanySchema), async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
 
-  const id = nanoid();
-  const now = new Date().toISOString();
-
-  await c.env.DB.prepare(`
-    INSERT INTO companies (id, name, domain, industry, employee_count, annual_revenue, website, description, owner_id, org_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id,
-    body.name,
-    body.domain || null,
-    body.industry || null,
-    body.employee_count || null,
-    body.annual_revenue || null,
-    body.website || null,
-    body.description || null,
-    userId,
-    orgId || null,
-    now,
-    now
-  ).run();
-
-  const company = await c.env.DB.prepare('SELECT * FROM companies WHERE id = ?').bind(id).first();
+  const company = await createCompanyRecord(c.env.DB, body, userId, orgId);
 
   return c.json({ success: true, data: company }, 201);
 });

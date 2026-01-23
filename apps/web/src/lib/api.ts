@@ -25,6 +25,7 @@ import type {
   CreateWorkboardData,
   DealTeamMember,
   AddDealTeamMemberData,
+  EntityCreateResponse,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -256,6 +257,9 @@ export const aiApi = {
 
   insights: () =>
     api.get<ApiResponse<AIInsight[]>>('/ai/insights'),
+
+  entityCreate: (message: string, sessionId?: string) =>
+    api.post<ApiResponse<EntityCreateResponse>>('/ai/entity-create', { message, sessionId }),
 };
 
 // Search API

@@ -6,6 +6,7 @@ import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { createDealSchema, updateDealSchema, moveDealSchema, addDealTeamMemberSchema, updateDealTeamMemberSchema } from '../schemas';
 import { parsePagination } from '../utils/pagination';
 import { getDealAccessFilter, assertCanAccess, AccessDeniedError } from '../utils/access-control';
+import { createDealRecord } from '../services/entity-service';
 
 const deals = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -202,29 +203,7 @@ deals.post('/', zValidator('json', createDealSchema), async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
 
-  const id = nanoid();
-  const now = new Date().toISOString();
-
-  await c.env.DB.prepare(`
-    INSERT INTO deals (id, name, value, stage, contact_id, company_id, owner_id, close_date, spin_progress, org_id, stage_changed_at, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id,
-    body.name,
-    body.value || 0,
-    body.stage || 'lead',
-    body.contact_id || null,
-    body.company_id || null,
-    userId,
-    body.close_date || null,
-    0,
-    orgId || null,
-    now,
-    now,
-    now
-  ).run();
-
-  const deal = await c.env.DB.prepare('SELECT * FROM deals WHERE id = ?').bind(id).first();
+  const deal = await createDealRecord(c.env.DB, body, userId, orgId);
 
   return c.json({ success: true, data: deal }, 201);
 });

@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
-import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
 import { createContactSchema, updateContactSchema } from '../schemas';
 import { parsePagination } from '../utils/pagination';
 import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../utils/access-control';
+import { createContactRecord } from '../services/entity-service';
 
 const contacts = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -134,29 +134,7 @@ contacts.post('/', zValidator('json', createContactSchema), async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
 
-  const id = nanoid();
-  const now = new Date().toISOString();
-
-  await c.env.DB.prepare(`
-    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source, linkedin_url, org_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id,
-    body.name,
-    body.email || null,
-    body.phone || null,
-    body.title || null,
-    body.companyId || null,
-    body.ownerId || userId,
-    body.status || 'active',
-    body.source || null,
-    body.linkedinUrl || null,
-    orgId || null,
-    now,
-    now
-  ).run();
-
-  const contact = await c.env.DB.prepare('SELECT * FROM contacts WHERE id = ?').bind(id).first();
+  const contact = await createContactRecord(c.env.DB, body, userId, orgId);
 
   return c.json({ success: true, data: contact }, 201);
 });

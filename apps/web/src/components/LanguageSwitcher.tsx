@@ -37,12 +37,6 @@ export default function LanguageSwitcher({ variant = 'header' }: LanguageSwitche
   if (variant === 'settings') {
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-text-primary">
-          {t('settings:language.title')}
-        </label>
-        <p className="text-sm text-text-muted mb-3">
-          {t('settings:language.description')}
-        </p>
         <div className="flex gap-2">
           {Object.values(LANGUAGES).map((lang) => (
             <button

@@ -103,6 +103,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader
           title={t('settings:language.title')}
+          description={t('settings:language.description')}
         />
         <LanguageSwitcher variant="settings" />
       </Card>

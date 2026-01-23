@@ -194,11 +194,17 @@ activities.post('/', zValidator('json', createActivitySchema), async (c) => {
     now
   ).run();
 
-  // Update last_contacted_at for contact if applicable
-  if (body.contact_id && ['call', 'email', 'meeting'].includes(body.type)) {
-    await c.env.DB.prepare(`
-      UPDATE contacts SET last_contacted_at = ?, updated_at = ? WHERE id = ?
-    `).bind(now, now, body.contact_id).run();
+  // Update last_contacted_at on the contact
+  if (body.contact_id) {
+    await c.env.DB.prepare(
+      `UPDATE contacts SET last_contacted_at = ? WHERE id = ?`
+    ).bind(now, body.contact_id).run();
+  }
+  // Also update via deal's contact if deal_id is provided but no contact_id
+  if (body.deal_id && !body.contact_id) {
+    await c.env.DB.prepare(
+      `UPDATE contacts SET last_contacted_at = ? WHERE id = (SELECT contact_id FROM deals WHERE id = ?)`
+    ).bind(now, body.deal_id).run();
   }
 
   const activity = await c.env.DB.prepare('SELECT * FROM activities WHERE id = ?').bind(id).first();

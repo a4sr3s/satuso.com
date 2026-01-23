@@ -64,8 +64,10 @@ export default function TasksPage() {
 
   const toggleMutation = useMutation({
     mutationFn: tasksApi.toggle,
-    onSuccess: () => {
+    onSuccess: (_, taskId) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      const task = tasks.find((t: any) => t.id === taskId);
+      toast.success(task?.completed ? 'Task reopened' : 'Task completed');
     },
   });
 
@@ -282,7 +284,7 @@ export default function TasksPage() {
         onClose={() => setDeleteId(null)}
         onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
         title={t('tasks:delete.title')}
-        message={t('tasks:delete.message')}
+        message={`Are you sure you want to delete "${tasks.find((t: any) => t.id === deleteId)?.subject || 'this task'}"?`}
         confirmLabel={t('common:buttons.delete')}
         variant="danger"
         isLoading={deleteMutation.isPending}

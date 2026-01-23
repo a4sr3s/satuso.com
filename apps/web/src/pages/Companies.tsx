@@ -162,21 +162,15 @@ export default function CompaniesPage() {
     {
       key: 'website',
       header: t('companies:table.website'),
-      render: (company: any) =>
-        company.website ? (
-          <a
-            href={company.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-2 text-primary hover:underline"
-          >
+      render: (company: any) => {
+        const url = company.website || (company.domain ? `https://${company.domain}` : null);
+        return url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 text-primary hover:underline">
             <Globe className="h-4 w-4" />
             {t('common:buttons.visit')}
           </a>
-        ) : (
-          '-'
-        ),
+        ) : '-';
+      },
     },
   ];
 

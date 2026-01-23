@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Mail, Phone, Building2, Linkedin, Edit, Plus } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { contactsApi, activitiesApi } from '@/lib/api';
+import { contactsApi, activitiesApi, companiesApi } from '@/lib/api';
 import type { ActivityType } from '@/types';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
@@ -28,11 +28,18 @@ export default function ContactDetailPage() {
 
   const contact = data?.data;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    title: string;
+    company_id: string | undefined;
+  }>({
     name: '',
     email: '',
     phone: '',
     title: '',
+    company_id: '',
   });
 
   const [activityForm, setActivityForm] = useState<{
@@ -43,6 +50,12 @@ export default function ContactDetailPage() {
     type: 'note',
     subject: '',
     content: '',
+  });
+
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => companiesApi.list({ limit: '100' }),
+    enabled: showEditModal,
   });
 
   const updateMutation = useMutation({
@@ -113,6 +126,7 @@ export default function ContactDetailPage() {
                 email: contact.email || '',
                 phone: contact.phone || '',
                 title: contact.title || '',
+                company_id: contact.company_id || '',
               });
               setShowEditModal(true);
             }}
@@ -314,6 +328,19 @@ export default function ContactDetailPage() {
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
+          <div>
+            <label className="label">Company</label>
+            <select
+              value={formData.company_id || ''}
+              onChange={(e) => setFormData({ ...formData, company_id: e.target.value || undefined })}
+              className="input"
+            >
+              <option value="">No company</option>
+              {(companiesData?.data?.items || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
               Cancel

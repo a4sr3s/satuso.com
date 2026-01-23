@@ -51,6 +51,15 @@
     "createDeal": "Crear Negocio",
     "saveDeal": "Guardar Negocio"
   },
+  "filters": {
+    "allStages": "Todas las Etapas",
+    "filterByStage": "Filtrar por etapa",
+    "clearAll": "Limpiar todo"
+  },
+  "validation": {
+    "valueRequired": "Ingresa un valor mayor a 0",
+    "closeDateRequired": "Selecciona una fecha de cierre esperada"
+  },
   "toast": {
     "created": "Negocio creado exitosamente",
     "moved": "Movido a {{stage}}"

@@ -87,7 +87,7 @@ workboards.get('/:id', async (c) => {
 // Get workboard data (execute query)
 workboards.get('/:id/data', async (c) => {
   const { id } = c.req.param();
-  const { page = '1', limit = '50', sort_column, sort_direction } = c.req.query();
+  const { page = '1', limit = '50', sort_column, sort_direction, filters: filtersParam } = c.req.query();
   const userId = c.get('userId');
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
@@ -103,7 +103,13 @@ workboards.get('/:id/data', async (c) => {
 
   const entityType = workboard.entity_type as 'deals' | 'contacts' | 'companies';
   const columns = JSON.parse(workboard.columns || '[]');
-  const filters: WorkboardFilter[] = JSON.parse(workboard.filters || '[]');
+  let filters: WorkboardFilter[] = JSON.parse(workboard.filters || '[]');
+  // Allow client-side filters to override stored ones
+  if (filtersParam) {
+    try {
+      filters = JSON.parse(filtersParam);
+    } catch {}
+  }
   const sortCol = sort_column || workboard.sort_column;
   const sortDir = sort_direction || workboard.sort_direction || 'asc';
 
@@ -259,6 +265,32 @@ workboards.post('/', zValidator('json', createWorkboardSchema), async (c) => {
   const id = nanoid();
   const now = new Date().toISOString();
 
+  const defaultColumns: Record<string, any[]> = {
+    deals: [
+      { field: 'name', label: 'Name', type: 'raw', format: 'text', width: 200 },
+      { field: 'company_name', label: 'Company', type: 'raw', format: 'text', width: 150 },
+      { field: 'value', label: 'Value', type: 'raw', format: 'currency', width: 120 },
+      { field: 'stage', label: 'Stage', type: 'raw', format: 'text', width: 130 },
+      { field: 'close_date', label: 'Close Date', type: 'raw', format: 'date', width: 120 },
+      { field: 'owner_name', label: 'Owner', type: 'raw', format: 'text', width: 130 },
+    ],
+    contacts: [
+      { field: 'name', label: 'Name', type: 'raw', format: 'text', width: 200 },
+      { field: 'email', label: 'Email', type: 'raw', format: 'text', width: 200 },
+      { field: 'phone', label: 'Phone', type: 'raw', format: 'text', width: 140 },
+      { field: 'company_name', label: 'Company', type: 'raw', format: 'text', width: 150 },
+      { field: 'status', label: 'Status', type: 'raw', format: 'text', width: 100 },
+    ],
+    companies: [
+      { field: 'name', label: 'Name', type: 'raw', format: 'text', width: 200 },
+      { field: 'industry', label: 'Industry', type: 'raw', format: 'text', width: 150 },
+      { field: 'employee_count', label: 'Employees', type: 'raw', format: 'number', width: 100 },
+      { field: 'domain', label: 'Domain', type: 'raw', format: 'text', width: 150 },
+    ],
+  };
+
+  const columns = body.columns?.length > 0 ? body.columns : (defaultColumns[body.entity_type] || []);
+
   await c.env.DB.prepare(`
     INSERT INTO workboards (id, name, description, entity_type, owner_id, is_default, is_shared, columns, filters, sort_column, sort_direction, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -270,7 +302,7 @@ workboards.post('/', zValidator('json', createWorkboardSchema), async (c) => {
     userId,
     0, // is_default
     body.is_shared ? 1 : 0,
-    JSON.stringify(body.columns || []),
+    JSON.stringify(columns),
     JSON.stringify(body.filters || []),
     body.sort_column || null,
     body.sort_direction || 'asc',

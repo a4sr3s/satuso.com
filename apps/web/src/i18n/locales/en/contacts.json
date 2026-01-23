@@ -27,6 +27,8 @@
     "phonePlaceholder": "+1 (555) 000-0000",
     "jobTitle": "Job Title",
     "jobTitlePlaceholder": "VP of Sales",
+    "company": "Company",
+    "noCompany": "No company",
     "createContact": "Create Contact",
     "saveContact": "Save Contact"
   },

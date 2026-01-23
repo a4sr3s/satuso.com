@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Building2, Globe, Edit, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { companiesApi } from '@/lib/api';
+import { companiesApi, contactsApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
 import { StageBadge, StatusBadge } from '@/components/ui/Badge';
@@ -18,6 +18,8 @@ export default function CompanyDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', title: '' });
   const [editForm, setEditForm] = useState({
     name: '',
     domain: '',
@@ -41,6 +43,19 @@ export default function CompanyDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['companies', id] });
       setShowEditModal(false);
       toast.success('Company updated');
+    },
+  });
+
+  const createContactMutation = useMutation({
+    mutationFn: (data: any) => contactsApi.create({ ...data, company_id: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', id] });
+      setShowAddContactModal(false);
+      setContactForm({ name: '', email: '', phone: '', title: '' });
+      toast.success('Contact created');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -141,7 +156,7 @@ export default function CompanyDetailPage() {
         <Card>
           <p className="text-xs text-text-muted uppercase tracking-wide">Total Revenue</p>
           <p className="text-2xl font-semibold text-success mt-1">
-            ${(company.annual_revenue || 0).toLocaleString()}
+            ${(company.total_revenue || 0).toLocaleString()}
           </p>
         </Card>
       </div>
@@ -199,7 +214,7 @@ export default function CompanyDetailPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/contacts?new=true&companyId=${id}`)}
+                onClick={() => setShowAddContactModal(true)}
               >
                 <Plus className="h-4 w-4" />
                 Add
@@ -353,6 +368,53 @@ export default function CompanyDetailPage() {
             </Button>
             <Button type="submit" isLoading={updateMutation.isPending}>
               Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Contact Modal */}
+      <Modal
+        isOpen={showAddContactModal}
+        onClose={() => setShowAddContactModal(false)}
+        title="Add Contact"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createContactMutation.mutate(contactForm);
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Full Name"
+            value={contactForm.name}
+            onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+            required
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={contactForm.email}
+            onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            value={contactForm.phone}
+            onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+          />
+          <Input
+            label="Job Title"
+            value={contactForm.title}
+            onChange={(e) => setContactForm({ ...contactForm, title: e.target.value })}
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={() => setShowAddContactModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={createContactMutation.isPending}>
+              Create Contact
             </Button>
           </div>
         </form>

@@ -77,7 +77,7 @@ export default function SpinProgress({
       case 'complete':
         return 'bg-primary';
       case 'partial':
-        return 'bg-primary/50';
+        return 'bg-white border-2 border-primary';
       case 'empty':
       default:
         return 'bg-gray-200';

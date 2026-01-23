@@ -27,6 +27,8 @@
     "phonePlaceholder": "+52 (555) 000-0000",
     "jobTitle": "Cargo",
     "jobTitlePlaceholder": "Director de Ventas",
+    "company": "Empresa",
+    "noCompany": "Sin empresa",
     "createContact": "Crear Contacto",
     "saveContact": "Guardar Contacto"
   },

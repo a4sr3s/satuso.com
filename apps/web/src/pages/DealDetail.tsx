@@ -22,13 +22,13 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
-import { dealsApi, activitiesApi, aiApi } from '@/lib/api';
+import { dealsApi, activitiesApi, aiApi, companiesApi, contactsApi } from '@/lib/api';
 import type { ActivityType, DealTeamMember, DealTeamRole } from '@/types';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
 import { StageBadge } from '@/components/ui/Badge';
 import { SpinPanel } from '@/components/ui/SpinProgress';
-import Modal from '@/components/ui/Modal';
+import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
 
@@ -60,10 +60,14 @@ export default function DealDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<DealTeamRole>('technical');
+  const [confirmStageMove, setConfirmStageMove] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',
     value: '',
     close_date: '',
+    stage: '',
+    company_id: '',
+    contact_id: '',
   });
   const [activityForm, setActivityForm] = useState<{
     type: ActivityType;
@@ -99,10 +103,24 @@ export default function DealDetailPage() {
     enabled: !!id && (showTeamModal || showAssignSEModal),
   });
 
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => companiesApi.list(),
+    enabled: showEditModal,
+  });
+
+  const { data: contactsData } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: () => contactsApi.list(),
+    enabled: showEditModal,
+  });
+
   const deal = data?.data;
   const spinSuggestions = suggestions?.data;
   const team = teamData?.data || [];
   const availableUsers = availableUsersData?.data || [];
+  const companies = companiesData?.data?.items || [];
+  const contacts = contactsData?.data?.items || [];
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => dealsApi.update(id!, data),
@@ -209,6 +227,16 @@ export default function DealDetailPage() {
       setPendingStageMove(newStage);
       setSelectedRole('technical');
       setShowAssignSEModal(true);
+      return;
+    }
+
+    // Check if skipping more than 1 stage forward or moving backward
+    const newStageIndex = stages.indexOf(newStage);
+    const isSkippingForward = newStageIndex > currentStageIndex + 1;
+    const isMovingBackward = newStageIndex < currentStageIndex;
+
+    if (isSkippingForward || isMovingBackward) {
+      setConfirmStageMove(newStage);
     } else {
       moveMutation.mutate(newStage);
     }
@@ -268,6 +296,9 @@ export default function DealDetailPage() {
                 name: deal.name || '',
                 value: deal.value?.toString() || '',
                 close_date: deal.close_date || '',
+                stage: deal.stage || '',
+                company_id: deal.company_id || '',
+                contact_id: deal.contact_id || '',
               });
               setShowEditModal(true);
             }}
@@ -653,6 +684,10 @@ export default function DealDetailPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            if (!activityForm.subject.trim() || !activityForm.content.trim()) {
+              toast.error('Please fill in all required fields');
+              return;
+            }
             await createActivityMutation.mutateAsync({
               ...activityForm,
               deal_id: id,
@@ -682,6 +717,7 @@ export default function DealDetailPage() {
             value={activityForm.subject}
             onChange={(e) => setActivityForm({ ...activityForm, subject: e.target.value })}
             placeholder="Brief description"
+            required
           />
           <div>
             <label className="label">Notes</label>
@@ -747,6 +783,9 @@ export default function DealDetailPage() {
               name: editForm.name,
               value: editForm.value ? parseFloat(editForm.value) : undefined,
               close_date: editForm.close_date || undefined,
+              stage: editForm.stage || undefined,
+              company_id: editForm.company_id || undefined,
+              contact_id: editForm.contact_id || undefined,
             }, {
               onSuccess: () => {
                 setShowEditModal(false);
@@ -768,6 +807,50 @@ export default function DealDetailPage() {
             onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
             placeholder="50000"
           />
+          <div>
+            <label className="label">Stage</label>
+            <select
+              value={editForm.stage}
+              onChange={(e) => setEditForm({ ...editForm, stage: e.target.value })}
+              className="input"
+            >
+              {stages.map((stage) => (
+                <option key={stage} value={stage}>
+                  {stage.charAt(0).toUpperCase() + stage.slice(1).replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Company</label>
+            <select
+              value={editForm.company_id}
+              onChange={(e) => setEditForm({ ...editForm, company_id: e.target.value })}
+              className="input"
+            >
+              <option value="">No company</option>
+              {companies.map((company: any) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Contact</label>
+            <select
+              value={editForm.contact_id}
+              onChange={(e) => setEditForm({ ...editForm, contact_id: e.target.value })}
+              className="input"
+            >
+              <option value="">No contact</option>
+              {contacts.map((contact: any) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Input
             label="Expected Close Date"
             type="date"
@@ -784,6 +867,22 @@ export default function DealDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Stage Move Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!confirmStageMove}
+        onClose={() => setConfirmStageMove(null)}
+        onConfirm={() => {
+          if (confirmStageMove) {
+            moveMutation.mutate(confirmStageMove);
+            setConfirmStageMove(null);
+          }
+        }}
+        title="Confirm Stage Change"
+        message={`Are you sure you want to move this deal from ${deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1).replace('_', ' ')} to ${confirmStageMove ? confirmStageMove.charAt(0).toUpperCase() + confirmStageMove.slice(1).replace('_', ' ') : ''}?`}
+        confirmLabel="Move"
+        isLoading={moveMutation.isPending}
+      />
     </div>
   );
 }

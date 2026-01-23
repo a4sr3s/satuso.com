@@ -43,6 +43,7 @@ export default function WorkboardContainer({ workboard }: WorkboardContainerProp
         limit: '50',
         ...(sortColumn && { sort_column: sortColumn }),
         ...(sortDirection && { sort_direction: sortDirection }),
+        ...(filters.length > 0 && { filters: JSON.stringify(filters) }),
       }),
   });
 

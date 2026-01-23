@@ -51,6 +51,15 @@
     "createDeal": "Create Deal",
     "saveDeal": "Save Deal"
   },
+  "filters": {
+    "allStages": "All Stages",
+    "filterByStage": "Filter by stage",
+    "clearAll": "Clear all"
+  },
+  "validation": {
+    "valueRequired": "Please enter a deal value greater than 0",
+    "closeDateRequired": "Please select an expected close date"
+  },
   "toast": {
     "created": "Deal created successfully",
     "moved": "Moved to {{stage}}"

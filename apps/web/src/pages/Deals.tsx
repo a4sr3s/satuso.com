@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { format, isPast, isWithinInterval, addDays } from 'date-fns';
 import {
   DndContext,
@@ -8,7 +9,7 @@ import {
   DragOverlay,
   DragStartEvent,
   DragOverEvent,
-  closestCenter,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
@@ -31,6 +32,7 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dealsApi } from '@/lib/api';
@@ -42,18 +44,20 @@ import EmptyState from '@/components/ui/EmptyState';
 import Avatar from '@/components/ui/Avatar';
 import { clsx } from 'clsx';
 import type { DealStage } from '@/types';
+import type { TFunction } from 'i18next';
 
 const stages = [
-  { id: 'lead', label: 'Lead', probability: 10, color: 'from-slate-500 to-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-700' },
-  { id: 'qualified', label: 'Qualified', probability: 25, color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-700' },
-  { id: 'discovery', label: 'Discovery', probability: 35, color: 'from-cyan-500 to-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-200', textColor: 'text-cyan-700' },
-  { id: 'proposal', label: 'Proposal', probability: 50, color: 'from-amber-500 to-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', textColor: 'text-amber-700' },
-  { id: 'negotiation', label: 'Negotiation', probability: 75, color: 'from-purple-500 to-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', textColor: 'text-purple-700' },
+  { id: 'lead', probability: 10, color: 'from-slate-500 to-slate-600', bgColor: 'bg-slate-50', borderColor: 'border-slate-200', textColor: 'text-slate-700' },
+  { id: 'qualified', probability: 25, color: 'from-blue-500 to-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-700' },
+  { id: 'discovery', probability: 35, color: 'from-cyan-500 to-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-200', textColor: 'text-cyan-700' },
+  { id: 'proposal', probability: 50, color: 'from-amber-500 to-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', textColor: 'text-amber-700' },
+  { id: 'negotiation', probability: 75, color: 'from-purple-500 to-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', textColor: 'text-purple-700' },
 ];
 
 interface DealCardProps {
   deal: any;
   onClick: () => void;
+  t: TFunction;
 }
 
 function getCloseDateStatus(closeDate: string | null) {
@@ -73,7 +77,7 @@ function getCloseDateStatus(closeDate: string | null) {
   return { status: 'future', label: format(date, 'MMM d'), color: 'text-text-muted bg-surface' };
 }
 
-function DealCard({ deal, onClick }: DealCardProps) {
+function DealCard({ deal, onClick, t }: DealCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: deal.id,
     data: { deal },
@@ -115,7 +119,7 @@ function DealCard({ deal, onClick }: DealCardProps) {
                 <span className="text-xs text-text-muted truncate">{deal.company_name}</span>
               </>
             ) : (
-              <span className="text-xs text-text-muted italic">No company</span>
+              <span className="text-xs text-text-muted italic">{t('deals:card.noCompany')}</span>
             )}
           </div>
         </div>
@@ -148,7 +152,7 @@ function DealCard({ deal, onClick }: DealCardProps) {
             {closeDateInfo.label}
           </span>
         ) : (
-          <span className="text-xs text-text-muted">No close date</span>
+          <span className="text-xs text-text-muted">{t('deals:card.noCloseDate')}</span>
         )}
 
         <div className="flex items-center gap-2">
@@ -165,13 +169,13 @@ function DealCard({ deal, onClick }: DealCardProps) {
   );
 }
 
-function DealCardOverlay({ deal }: { deal: any }) {
+function DealCardOverlay({ deal, t }: { deal: any; t: TFunction }) {
   return (
     <div className="bg-white border-2 border-primary rounded-xl p-4 shadow-2xl w-72 rotate-2">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-semibold text-text-primary line-clamp-1">{deal.name}</h4>
-          <p className="text-xs text-text-muted mt-1">{deal.company_name || 'No company'}</p>
+          <p className="text-xs text-text-muted mt-1">{deal.company_name || t('deals:card.noCompany')}</p>
         </div>
       </div>
       <span className="text-lg font-bold text-primary">
@@ -181,10 +185,11 @@ function DealCardOverlay({ deal }: { deal: any }) {
   );
 }
 
-function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof stages[0]; deals: any[]; onDealClick: (deal: any) => void; isOver?: boolean }) {
+function PipelineColumn({ stage, deals, onDealClick, isOver, t }: { stage: typeof stages[0]; deals: any[]; onDealClick: (deal: any) => void; isOver?: boolean; t: TFunction }) {
   const { setNodeRef } = useDroppable({ id: stage.id });
   const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
   const weightedValue = totalValue * (stage.probability / 100);
+  const stageLabel = t(`deals:stages.${stage.id}`);
 
   return (
     <div className="flex-1 min-w-[300px] max-w-[340px]">
@@ -193,7 +198,7 @@ function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof s
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className={clsx('w-2 h-2 rounded-full bg-gradient-to-r', stage.color)} />
-            <h3 className={clsx('text-sm font-semibold', stage.textColor)}>{stage.label}</h3>
+            <h3 className={clsx('text-sm font-semibold', stage.textColor)}>{stageLabel}</h3>
           </div>
           <div className="flex items-center gap-2">
             <span className={clsx('text-xs font-medium px-2 py-0.5 rounded-full bg-white/80', stage.textColor)}>
@@ -208,7 +213,7 @@ function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof s
           <div>
             <p className="text-lg font-bold text-text-primary">${totalValue.toLocaleString()}</p>
             <p className="text-xs text-text-muted">
-              ${weightedValue.toLocaleString()} weighted
+              ${weightedValue.toLocaleString()} {t('deals:card.weighted')}
             </p>
           </div>
         </div>
@@ -226,7 +231,7 @@ function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof s
       >
         <SortableContext items={deals.map(d => d.id)} strategy={verticalListSortingStrategy}>
           {deals.map((deal) => (
-            <DealCard key={deal.id} deal={deal} onClick={() => onDealClick(deal)} />
+            <DealCard key={deal.id} deal={deal} onClick={() => onDealClick(deal)} t={t} />
           ))}
         </SortableContext>
         {deals.length === 0 && (
@@ -234,7 +239,7 @@ function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof s
             <div className={clsx('w-12 h-12 rounded-full flex items-center justify-center mb-3', stage.bgColor)}>
               <ArrowRight className={clsx('h-5 w-5', stage.textColor)} />
             </div>
-            <p className="text-sm text-text-muted">Drop deals here</p>
+            <p className="text-sm text-text-muted">{t('deals:card.dropHere')}</p>
           </div>
         )}
       </div>
@@ -242,9 +247,9 @@ function PipelineColumn({ stage, deals, onDealClick, isOver }: { stage: typeof s
   );
 }
 
-type StageInfo = { id: string; label: string; probability: number; color: string; bgColor: string; borderColor: string; textColor: string };
+type StageInfo = { id: string; probability: number; color: string; bgColor: string; borderColor: string; textColor: string };
 
-function PipelineMetrics({ pipeline, stageList }: { pipeline: any; stageList: StageInfo[] }) {
+function PipelineMetrics({ pipeline, stageList, t }: { pipeline: any; stageList: StageInfo[]; t: TFunction }) {
   const allDeals = Object.values(pipeline).flat() as any[];
   const totalValue = allDeals.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
 
@@ -257,10 +262,10 @@ function PipelineMetrics({ pipeline, stageList }: { pipeline: any; stageList: St
   const avgDealSize = allDeals.length > 0 ? totalValue / allDeals.length : 0;
 
   const metrics = [
-    { label: 'Total Pipeline', value: `$${totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-text-primary' },
-    { label: 'Weighted Value', value: `$${Math.round(weightedValue).toLocaleString()}`, icon: Target, color: 'text-primary' },
-    { label: 'Active Deals', value: allDeals.length.toString(), icon: TrendingUp, color: 'text-blue-600' },
-    { label: 'Avg Deal Size', value: `$${Math.round(avgDealSize).toLocaleString()}`, icon: DollarSign, color: 'text-purple-600' },
+    { label: t('deals:metrics.totalPipeline'), value: `$${totalValue.toLocaleString()}`, icon: DollarSign, color: 'text-text-primary' },
+    { label: t('deals:metrics.weightedValue'), value: `$${Math.round(weightedValue).toLocaleString()}`, icon: Target, color: 'text-primary' },
+    { label: t('deals:metrics.activeDeals'), value: allDeals.length.toString(), icon: TrendingUp, color: 'text-blue-600' },
+    { label: t('deals:metrics.avgDealSize'), value: `$${Math.round(avgDealSize).toLocaleString()}`, icon: DollarSign, color: 'text-purple-600' },
   ];
 
   return (
@@ -279,6 +284,7 @@ function PipelineMetrics({ pipeline, stageList }: { pipeline: any; stageList: St
 }
 
 export default function DealsPage() {
+  const { t } = useTranslation(['deals', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -287,6 +293,9 @@ export default function DealsPage() {
   const [showNewModal, setShowNewModal] = useState(searchParams.get('new') === 'true');
   const [activeDeal, setActiveDeal] = useState<any>(null);
   const [activeOverId, setActiveOverId] = useState<string | null>(null);
+  const [selectedStages, setSelectedStages] = useState<string[]>([]);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<{
     name: string;
     value: string;
@@ -300,6 +309,17 @@ export default function DealsPage() {
   });
   const [listSortColumn, setListSortColumn] = useState<string>('value');
   const [listSortDirection, setListSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleListSort = (column: string) => {
     if (listSortColumn === column) {
@@ -327,7 +347,7 @@ export default function DealsPage() {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
       setShowNewModal(false);
       setFormData({ name: '', value: '', stage: 'lead', close_date: '' });
-      toast.success('Deal created successfully');
+      toast.success(t('deals:toast.created'));
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -346,6 +366,22 @@ export default function DealsPage() {
   });
 
   const pipeline = pipelineData?.data || {};
+
+  // Build filtered pipeline based on search and selected stages
+  const filteredPipeline: Record<string, any[]> = {};
+  for (const stage of stages) {
+    if (selectedStages.length > 0 && !selectedStages.includes(stage.id)) {
+      filteredPipeline[stage.id] = [];
+      continue;
+    }
+    const stageDeals = (pipeline[stage.id] || []).filter((deal: any) =>
+      !search ||
+      deal.name?.toLowerCase().includes(search.toLowerCase()) ||
+      deal.company_name?.toLowerCase().includes(search.toLowerCase()) ||
+      deal.contact_name?.toLowerCase().includes(search.toLowerCase())
+    );
+    filteredPipeline[stage.id] = stageDeals;
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     const deal = event.active.data.current?.deal;
@@ -419,21 +455,43 @@ export default function DealsPage() {
       });
 
       moveMutation.mutate({ id: dealId, stage: newStageId });
-      toast.success(`Moved to ${stages.find(s => s.id === newStageId)?.label}`);
+      const stageLabel = t(`deals:stages.${newStageId}`);
+      toast.success(t('deals:toast.moved', { stage: stageLabel }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // BUG-009: Validate value > 0 and close_date is set
+    const numericValue = formData.value ? parseFloat(formData.value) : 0;
+    if (numericValue <= 0) {
+      toast.error(t('deals:validation.valueRequired'));
+      return;
+    }
+    if (!formData.close_date) {
+      toast.error(t('deals:validation.closeDateRequired'));
+      return;
+    }
+
     createMutation.mutate({
       name: formData.name,
-      value: formData.value ? parseFloat(formData.value) : undefined,
+      value: numericValue,
       stage: formData.stage,
-      close_date: formData.close_date || undefined,
+      close_date: formData.close_date,
     });
   };
 
+  const toggleStageFilter = (stageId: string) => {
+    setSelectedStages((prev) =>
+      prev.includes(stageId)
+        ? prev.filter((s) => s !== stageId)
+        : [...prev, stageId]
+    );
+  };
+
   const allDeals = Object.values(pipeline).flat();
+  const filteredAllDeals = Object.values(filteredPipeline).flat();
 
   if (isLoading) {
     return (
@@ -449,13 +507,13 @@ export default function DealsPage() {
       <div className="flex items-center justify-end">
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
-          New Deal
+          {t('deals:newDeal')}
         </Button>
       </div>
 
-      {/* Metrics */}
+      {/* Metrics - BUG-016 fix: pass filtered pipeline data */}
       {(allDeals as any[]).length > 0 && (
-        <PipelineMetrics pipeline={pipeline} stageList={stages} />
+        <PipelineMetrics pipeline={filteredPipeline} stageList={stages} t={t} />
       )}
 
       {/* Filters & View Toggle */}
@@ -465,16 +523,66 @@ export default function DealsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
             <input
               type="text"
-              placeholder="Search deals..."
+              placeholder={t('deals:searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-64 pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>
-          <Button variant="secondary">
-            <Filter className="h-4 w-4" />
-            Filters
-          </Button>
+          {/* BUG-003: Stage filter dropdown */}
+          <div className="relative" ref={filterRef}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+            >
+              <Filter className="h-4 w-4" />
+              {t('common:buttons.filters')}
+              {selectedStages.length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">
+                  {selectedStages.length}
+                </span>
+              )}
+            </Button>
+            {showFilterDropdown && (
+              <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 py-2">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">{t('deals:filters.filterByStage')}</p>
+                </div>
+                {stages.map((stage) => {
+                  const isSelected = selectedStages.includes(stage.id);
+                  return (
+                    <button
+                      key={stage.id}
+                      onClick={() => toggleStageFilter(stage.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={clsx(
+                        'w-4 h-4 rounded border flex items-center justify-center',
+                        isSelected ? 'bg-primary border-primary' : 'border-gray-300'
+                      )}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={clsx('w-2 h-2 rounded-full bg-gradient-to-r', stage.color)} />
+                        <span className="text-text-primary">{t(`deals:stages.${stage.id}`)}</span>
+                      </div>
+                      <span className="ml-auto text-xs text-text-muted">{stage.probability}%</span>
+                    </button>
+                  );
+                })}
+                {selectedStages.length > 0 && (
+                  <div className="px-3 pt-2 mt-1 border-t border-gray-100">
+                    <button
+                      onClick={() => setSelectedStages([])}
+                      className="text-xs text-primary hover:text-primary/80 font-medium"
+                    >
+                      {t('deals:filters.clearAll')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           <button
@@ -487,7 +595,7 @@ export default function DealsPage() {
             )}
           >
             <LayoutGrid className="h-4 w-4" />
-            Board
+            {t('deals:view.board')}
           </button>
           <button
             onClick={() => setViewMode('list')}
@@ -499,7 +607,7 @@ export default function DealsPage() {
             )}
           >
             <List className="h-4 w-4" />
-            List
+            {t('deals:view.list')}
           </button>
         </div>
       </div>
@@ -508,27 +616,22 @@ export default function DealsPage() {
       {(allDeals as any[]).length === 0 ? (
         <EmptyState
           icon={DollarSign}
-          title="No deals yet"
-          description="Create your first deal to start tracking your sales pipeline."
-          actionLabel="Create Deal"
+          title={t('deals:empty.title')}
+          description={t('deals:empty.description')}
+          actionLabel={t('deals:modal.createDeal')}
           onAction={() => setShowNewModal(true)}
         />
       ) : viewMode === 'kanban' ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={pointerWithin}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
             {stages.map((stage) => {
-              const stageDeals = (pipeline[stage.id] || []).filter((deal: any) =>
-                !search ||
-                deal.name?.toLowerCase().includes(search.toLowerCase()) ||
-                deal.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-                deal.contact_name?.toLowerCase().includes(search.toLowerCase())
-              );
+              const stageDeals = filteredPipeline[stage.id] || [];
               return (
                 <PipelineColumn
                   key={stage.id}
@@ -536,12 +639,13 @@ export default function DealsPage() {
                   deals={stageDeals}
                   onDealClick={(deal) => navigate(`/deals/${deal.id}`)}
                   isOver={activeOverId === stage.id}
+                  t={t}
                 />
               );
             })}
           </div>
           <DragOverlay>
-            {activeDeal ? <DealCardOverlay deal={activeDeal} /> : null}
+            {activeDeal ? <DealCardOverlay deal={activeDeal} t={t} /> : null}
           </DragOverlay>
         </DndContext>
       ) : (
@@ -550,13 +654,13 @@ export default function DealsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {[
-                  { key: 'name', label: 'Deal' },
-                  { key: 'company', label: 'Company' },
-                  { key: 'value', label: 'Value' },
-                  { key: 'stage', label: 'Stage' },
-                  { key: 'spin', label: 'SPIN', sortable: false },
-                  { key: 'close_date', label: 'Close Date' },
-                  { key: 'days', label: 'Days' },
+                  { key: 'name', label: t('deals:table.deal') },
+                  { key: 'company', label: t('deals:table.company') },
+                  { key: 'value', label: t('deals:table.value') },
+                  { key: 'stage', label: t('deals:table.stage') },
+                  { key: 'spin', label: t('deals:table.spin'), sortable: false },
+                  { key: 'close_date', label: t('deals:table.closeDate') },
+                  { key: 'days', label: t('deals:table.days') },
                 ].map((col) => (
                   <th
                     key={col.key}
@@ -581,13 +685,7 @@ export default function DealsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {(allDeals as any[])
-                .filter((deal: any) =>
-                  !search ||
-                  deal.name?.toLowerCase().includes(search.toLowerCase()) ||
-                  deal.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-                  deal.contact_name?.toLowerCase().includes(search.toLowerCase())
-                )
+              {(filteredAllDeals as any[])
                 .sort((a: any, b: any) => {
                   let aVal: any, bVal: any;
 
@@ -641,7 +739,7 @@ export default function DealsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-text-secondary">{deal.company_name || '—'}</span>
+                        <span className="text-sm text-text-secondary">{deal.company_name || '\u2014'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="font-semibold text-text-primary">${(deal.value || 0).toLocaleString()}</span>
@@ -650,7 +748,7 @@ export default function DealsPage() {
                         {stageInfo && (
                           <span className={clsx('inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full', stageInfo.bgColor, stageInfo.textColor)}>
                             <span className={clsx('w-1.5 h-1.5 rounded-full bg-gradient-to-r', stageInfo.color)} />
-                            {stageInfo.label}
+                            {t(`deals:stages.${stageInfo.id}`)}
                           </span>
                         )}
                       </td>
@@ -669,7 +767,7 @@ export default function DealsPage() {
                             {closeDateInfo.label}
                           </span>
                         ) : (
-                          <span className="text-xs text-text-muted">—</span>
+                          <span className="text-xs text-text-muted">{'\u2014'}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -692,25 +790,25 @@ export default function DealsPage() {
           setShowNewModal(false);
           setSearchParams({});
         }}
-        title="Create New Deal"
+        title={t('deals:modal.createTitle')}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Deal Name"
-            placeholder="e.g., Acme Corp - Enterprise License"
+            label={t('deals:modal.dealName')}
+            placeholder={t('deals:modal.dealNamePlaceholder')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
           <Input
-            label="Value"
+            label={t('deals:modal.value')}
             type="number"
-            placeholder="50000"
+            placeholder={t('deals:modal.valuePlaceholder')}
             value={formData.value}
             onChange={(e) => setFormData({ ...formData, value: e.target.value })}
           />
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">Stage</label>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">{t('deals:modal.stage')}</label>
             <select
               value={formData.stage}
               onChange={(e) => setFormData({ ...formData, stage: e.target.value as DealStage })}
@@ -718,13 +816,13 @@ export default function DealsPage() {
             >
               {stages.map((stage) => (
                 <option key={stage.id} value={stage.id}>
-                  {stage.label} ({stage.probability}% probability)
+                  {t(`deals:stages.${stage.id}`)} ({t('deals:stages.probability', { percent: stage.probability })})
                 </option>
               ))}
             </select>
           </div>
           <Input
-            label="Expected Close Date"
+            label={t('deals:modal.expectedCloseDate')}
             type="date"
             value={formData.close_date}
             onChange={(e) => setFormData({ ...formData, close_date: e.target.value })}
@@ -735,10 +833,10 @@ export default function DealsPage() {
               variant="secondary"
               onClick={() => setShowNewModal(false)}
             >
-              Cancel
+              {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Create Deal
+              {t('deals:modal.createDeal')}
             </Button>
           </div>
         </form>

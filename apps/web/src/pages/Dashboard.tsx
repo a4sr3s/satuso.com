@@ -10,7 +10,7 @@ import {
   Lightbulb,
   ArrowRight,
 } from 'lucide-react';
-import { dashboardApi, aiApi } from '@/lib/api';
+import { dashboardApi, aiApi, tasksApi } from '@/lib/api';
 import MetricCard from '@/components/ui/MetricCard';
 import Card, { CardHeader } from '@/components/ui/Card';
 import { StageBadge } from '@/components/ui/Badge';
@@ -47,6 +47,11 @@ export default function DashboardPage() {
     queryFn: () => aiApi.insights(),
   });
 
+  const { data: taskCounts } = useQuery({
+    queryKey: ['tasks', 'counts'],
+    queryFn: () => tasksApi.counts(),
+  });
+
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'call':
@@ -75,6 +80,10 @@ export default function DashboardPage() {
       default:
         return t('dashboard:activity.hadActivity');
     }
+  };
+
+  const cleanInsightText = (text: string) => {
+    return text.replace(/\[([^\]]+)\]/g, (_, match) => match.replace(/_/g, ' '));
   };
 
   const metricsData = metrics?.data;
@@ -112,6 +121,20 @@ export default function DashboardPage() {
           title={t('dashboard:metrics.tasksDueToday')}
           value={metricsData?.tasksDueToday?.value || 0}
         />
+        {(taskCounts?.data?.overdue ?? 0) > 0 && (
+          <div className="col-span-full bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-800">
+                {taskCounts!.data!.overdue} overdue {taskCounts!.data!.overdue === 1 ? 'task' : 'tasks'}
+              </p>
+              <p className="text-xs text-red-600">Review and update your pending tasks</p>
+            </div>
+            <button onClick={() => navigate('/tasks')} className="ml-auto text-sm text-red-700 hover:underline font-medium">
+              View Tasks
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -209,8 +232,8 @@ export default function DashboardPage() {
                       <Lightbulb className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary">{insight.title}</p>
-                      <p className="text-xs text-text-secondary mt-0.5">{insight.description}</p>
+                      <p className="text-sm font-medium text-text-primary">{cleanInsightText(insight.title)}</p>
+                      <p className="text-xs text-text-secondary mt-0.5">{cleanInsightText(insight.description)}</p>
                       {insight.deal_id && (
                         <div className="flex items-center gap-1 mt-1 text-xs text-primary">
                           <span>{t('dashboard:insights.viewDeal')}</span>

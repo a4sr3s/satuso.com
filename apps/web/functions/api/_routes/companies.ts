@@ -101,7 +101,8 @@ companies.get('/:id', async (c) => {
   const company = await c.env.DB.prepare(`
     SELECT
       c.*,
-      u.name as owner_name
+      u.name as owner_name,
+      (SELECT COALESCE(SUM(value), 0) FROM deals WHERE company_id = c.id AND stage = 'closed_won') as total_revenue
     FROM companies c
     LEFT JOIN users u ON c.owner_id = u.id
     WHERE c.id = ?

@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Filter, Mail, Phone, Building2, Trash2, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { contactsApi } from '@/lib/api';
+import { contactsApi, companiesApi } from '@/lib/api';
 import type { CreateContactData } from '@/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -27,12 +27,20 @@ export default function ContactsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const companyIdFromUrl = searchParams.get('companyId');
+
   const [formData, setFormData] = useState<CreateContactData>({
     name: '',
     email: '',
     phone: '',
     title: '',
+    company_id: companyIdFromUrl || '',
     status: 'active',
+  });
+
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies'],
+    queryFn: () => companiesApi.list({ limit: '100' }),
   });
 
   const { data, isLoading } = useQuery({
@@ -45,7 +53,7 @@ export default function ContactsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setShowNewModal(false);
-      setFormData({ name: '', email: '', phone: '', title: '', status: 'active' } as CreateContactData);
+      setFormData({ name: '', email: '', phone: '', title: '', company_id: '', status: 'active' } as CreateContactData);
       toast.success(t('contacts:toast.created'));
     },
     onError: (error: Error) => {
@@ -300,6 +308,19 @@ export default function ContactsPage() {
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
+          <div>
+            <label className="label">{t('contacts:modal.company') || 'Company'}</label>
+            <select
+              value={formData.company_id || ''}
+              onChange={(e) => setFormData({ ...formData, company_id: e.target.value || undefined })}
+              className="input"
+            >
+              <option value="">No company</option>
+              {(companiesData?.data?.items || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"

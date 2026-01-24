@@ -19,13 +19,52 @@ import type { ChatMessage } from '@/types';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useAudioPlayback } from '@/hooks/useAudioPlayback';
 import { chunkText } from '@/utils/textChunker';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
 
 interface DisplayMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+}
+
+/** Component that renders text with a typing/streaming effect */
+function StreamingText({ content, onComplete }: { content: string; onComplete?: () => void }) {
+  const [displayed, setDisplayed] = useState('');
+  const indexRef = useRef(0);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    indexRef.current = 0;
+    completedRef.current = false;
+    setDisplayed('');
+
+    const interval = setInterval(() => {
+      // Variable speed: faster for spaces/punctuation, slightly slower for content
+      const charsPerTick = 4;
+      indexRef.current += charsPerTick;
+
+      if (indexRef.current >= content.length) {
+        setDisplayed(content);
+        clearInterval(interval);
+        if (!completedRef.current) {
+          completedRef.current = true;
+          onComplete?.();
+        }
+      } else {
+        setDisplayed(content.slice(0, indexRef.current));
+      }
+    }, 12);
+
+    return () => clearInterval(interval);
+  }, [content, onComplete]);
+
+  return (
+    <div className="ai-prose">
+      <ReactMarkdown>{displayed}</ReactMarkdown>
+      {displayed.length < content.length && (
+        <span className="inline-block w-[2px] h-4 bg-text-primary animate-pulse ml-0.5 align-text-bottom" />
+      )}
+    </div>
+  );
 }
 
 const STORAGE_KEY = 'ai-voice-chat-history';
@@ -55,6 +94,7 @@ export default function AIAssistantPage() {
   });
   const [input, setInput] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -100,6 +140,7 @@ export default function AIAssistantPage() {
 
   const clearChat = () => {
     setMessages([]);
+    setStreamingId(null);
     localStorage.removeItem(STORAGE_KEY);
     stopPlayback();
     inputRef.current?.focus();
@@ -109,14 +150,16 @@ export default function AIAssistantPage() {
     mutationFn: (contextMessages: ChatMessage[]) => aiApi.chat(contextMessages),
     onSuccess: (data) => {
       const responseText = data.data?.response || "I've processed your request.";
+      const msgId = Date.now().toString();
       const assistantMessage: DisplayMessage = {
-        id: Date.now().toString(),
+        id: msgId,
         role: 'assistant',
         content: responseText,
       };
       setMessages(prev => [...prev, assistantMessage]);
+      setStreamingId(msgId);
 
-      // Auto-play TTS if enabled
+      // Auto-play TTS if enabled (starts after streaming completes via onComplete)
       if (isTTSEnabled) {
         const chunks = chunkText(responseText);
         if (chunks.length > 0) {
@@ -213,48 +256,48 @@ export default function AIAssistantPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text-primary flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            AI Chat
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
+        <h1 className="text-lg font-medium text-text-primary flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          AI Chat
+        </h1>
+        <div className="flex items-center gap-1.5">
           {/* TTS Toggle */}
           <button
             onClick={toggleTTS}
             className={clsx(
-              'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors',
+              'p-2 rounded-lg transition-colors',
               isTTSEnabled
-                ? 'bg-primary/10 text-primary border border-primary/30'
-                : 'bg-surface text-text-muted border border-border hover:text-text-secondary'
+                ? 'text-primary bg-primary/10'
+                : 'text-text-muted hover:text-text-secondary hover:bg-surface'
             )}
             title={isTTSEnabled ? 'Disable voice responses' : 'Enable voice responses'}
           >
             {isTTSEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            <span className="hidden sm:inline">{isTTSEnabled ? 'Voice On' : 'Voice Off'}</span>
           </button>
           {messages.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={clearChat}>
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
+            <button
+              onClick={clearChat}
+              className="p-2 rounded-lg text-text-muted hover:text-text-secondary hover:bg-surface transition-colors"
+              title="Clear chat"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           )}
         </div>
       </div>
 
       {/* Chat Area */}
-      <Card padding="none" className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 bg-white border border-border rounded-xl shadow-sm overflow-hidden">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
           {messages.length === 0 ? (
             <div className="text-center py-12">
-              <Sparkles className="h-12 w-12 text-primary mx-auto mb-4" />
+              <Sparkles className="h-12 w-12 text-primary mx-auto mb-4 opacity-80" />
               <h3 className="text-lg font-medium text-text-primary mb-2">
                 Ready to crush your quota?
               </h3>
-              <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
+              <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto leading-relaxed">
                 I'm your AI sales coach. Ask me what to prioritize, which deals need attention,
                 or how to advance your biggest opportunities.
               </p>
@@ -263,7 +306,7 @@ export default function AIAssistantPage() {
                   <button
                     key={query}
                     onClick={() => handleSuggestionClick(query)}
-                    className="px-3 py-2 text-sm bg-surface text-text-secondary rounded-lg hover:bg-primary-light hover:text-primary transition-colors"
+                    className="px-3 py-2 text-sm bg-surface text-text-secondary rounded-lg border border-border hover:border-primary hover:text-primary transition-all"
                   >
                     {query}
                   </button>
@@ -280,43 +323,52 @@ export default function AIAssistantPage() {
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-4 w-4 text-white" />
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
                   </div>
                 )}
                 <div
                   className={clsx(
-                    'max-w-[80%] rounded-lg px-4 py-3 relative group',
+                    'max-w-[85%] relative group',
                     message.role === 'user'
-                      ? 'bg-primary text-white'
-                      : 'bg-surface text-text-primary'
+                      ? 'bg-primary text-white rounded-2xl rounded-br-md px-4 py-2.5'
+                      : 'text-text-primary'
                   )}
                 >
                   {message.role === 'user' ? (
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-[14px] leading-relaxed">{message.content}</p>
                   ) : (
                     <>
-                      <div className="text-sm prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:text-text-primary prose-strong:text-text-primary">
-                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                      </div>
+                      {streamingId === message.id ? (
+                        <StreamingText
+                          content={message.content}
+                          onComplete={() => setStreamingId(null)}
+                        />
+                      ) : (
+                        <div className="ai-prose">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      )}
                       {/* Play button for assistant messages */}
-                      <button
-                        onClick={() => handlePlayMessage(message.content)}
-                        className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-surface"
-                        title={isPlaying ? 'Stop playback' : 'Play message'}
-                      >
-                        {isPlaying ? (
-                          <Square className="h-3 w-3 text-text-muted" />
-                        ) : (
-                          <Play className="h-3 w-3 text-text-muted" />
-                        )}
-                      </button>
+                      {streamingId !== message.id && (
+                        <button
+                          onClick={() => handlePlayMessage(message.content)}
+                          className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-surface"
+                          title={isPlaying ? 'Stop playback' : 'Play message'}
+                        >
+                          {isPlaying ? (
+                            <Square className="h-3 w-3 text-text-muted" />
+                          ) : (
+                            <Play className="h-3 w-3 text-text-muted" />
+                          )}
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
                 {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
-                    <User className="h-4 w-4 text-text-muted" />
+                  <div className="w-7 h-7 rounded-full bg-primary/5 flex items-center justify-center flex-shrink-0 mt-1">
+                    <User className="h-3.5 w-3.5 text-text-muted" />
                   </div>
                 )}
               </div>
@@ -326,10 +378,10 @@ export default function AIAssistantPage() {
           {/* Loading / Recording / Transcribing indicators */}
           {(chatMutation.isPending || isTranscribing) && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                <Sparkles className="h-4 w-4 text-white" />
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
               </div>
-              <div className="bg-surface rounded-lg px-4 py-3 flex items-center gap-2">
+              <div className="flex items-center gap-2 py-2">
                 <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
                 <span className="text-sm text-text-muted">
                   {isTranscribing ? 'Transcribing...' : 'Thinking...'}
@@ -340,12 +392,12 @@ export default function AIAssistantPage() {
 
           {isRecording && (
             <div className="flex gap-3 justify-end">
-              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
-                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm text-red-700">Listening...</span>
+              <div className="bg-red-50 border border-red-200 rounded-2xl rounded-br-md px-4 py-2.5 flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-sm text-red-600">Listening...</span>
               </div>
-              <div className="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-text-muted" />
+              <div className="w-7 h-7 rounded-full bg-primary/5 flex items-center justify-center flex-shrink-0 mt-1">
+                <User className="h-3.5 w-3.5 text-text-muted" />
               </div>
             </div>
           )}
@@ -362,42 +414,50 @@ export default function AIAssistantPage() {
 
         {/* Input bar */}
         <div className="border-t border-border p-4 flex-shrink-0">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={isRecording ? 'Recording...' : 'Ask about your CRM data...'}
-              className="input flex-1"
-              disabled={chatMutation.isPending || isRecording || isTranscribing}
-              autoFocus
-            />
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-3xl mx-auto">
+            <div className="flex-1 relative flex items-center">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isRecording ? 'Recording...' : 'Ask about your pipeline, deals, or strategy...'}
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                disabled={chatMutation.isPending || isRecording || isTranscribing}
+                autoFocus
+              />
+            </div>
             {/* Mic button */}
             <button
               type="button"
               onClick={handleMicClick}
               disabled={chatMutation.isPending || isTranscribing}
               className={clsx(
-                'p-2.5 rounded-lg transition-colors',
+                'p-2.5 rounded-xl transition-all',
                 isRecording
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-surface text-text-muted hover:bg-surface hover:text-text-primary border border-border'
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface'
               )}
               title={isRecording ? 'Stop recording' : 'Start voice input'}
             >
               <Mic className="h-4 w-4" />
             </button>
             {/* Send button */}
-            <Button
+            <button
               type="submit"
               disabled={!input.trim() || chatMutation.isPending || isRecording || isTranscribing}
+              className={clsx(
+                'p-2.5 rounded-xl transition-all',
+                input.trim() && !chatMutation.isPending
+                  ? 'bg-primary text-white hover:bg-primary/90 shadow-sm'
+                  : 'text-text-muted bg-surface cursor-not-allowed'
+              )}
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           </form>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

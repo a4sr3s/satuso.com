@@ -149,3 +149,64 @@ export function getRateLimitStatus(): {
     limits: RATE_LIMITS,
   };
 }
+
+export interface STTResponse {
+  text: string;
+}
+
+export async function groqSTT(
+  apiKey: string,
+  audioBlob: Blob | ArrayBuffer,
+  mimeType: string = 'audio/webm'
+): Promise<STTResponse> {
+  const formData = new FormData();
+  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const file = new File(
+    [audioBlob instanceof ArrayBuffer ? new Uint8Array(audioBlob) : audioBlob],
+    `audio.${ext}`,
+    { type: mimeType }
+  );
+  formData.append('file', file);
+  formData.append('model', 'whisper-large-v3');
+  formData.append('response_format', 'json');
+
+  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`STT request failed (${response.status}): ${errorText}`);
+  }
+
+  return response.json() as Promise<STTResponse>;
+}
+
+export async function groqTTS(
+  apiKey: string,
+  text: string,
+  voice: string = 'tara'
+): Promise<ArrayBuffer> {
+  const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'playai-tts',
+      input: text,
+      voice: 'Arista-PlayAI',
+      response_format: 'wav',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`TTS request failed (${response.status}): ${errorText}`);
+  }
+
+  return response.arrayBuffer();
+}

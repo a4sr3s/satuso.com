@@ -19,14 +19,17 @@ import {
   Wrench,
   Crown,
   HeadphonesIcon,
+  CheckCircle,
+  Circle,
+  ListTodo,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
-import { dealsApi, activitiesApi, aiApi, companiesApi, contactsApi } from '@/lib/api';
-import type { ActivityType, DealTeamMember, DealTeamRole } from '@/types';
+import { dealsApi, activitiesApi, aiApi, companiesApi, contactsApi, tasksApi } from '@/lib/api';
+import type { ActivityType, DealTeamMember, DealTeamRole, TaskPriority } from '@/types';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
-import { StageBadge } from '@/components/ui/Badge';
+import { StageBadge, PriorityBadge } from '@/components/ui/Badge';
 import { SpinPanel } from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -68,6 +71,13 @@ export default function DealDetailPage() {
     stage: '',
     company_id: '',
     contact_id: '',
+  });
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    subject: '',
+    content: '',
+    due_date: '',
+    priority: 'medium' as TaskPriority,
   });
   const [activityForm, setActivityForm] = useState<{
     type: ActivityType;
@@ -115,12 +125,19 @@ export default function DealDetailPage() {
     enabled: showEditModal,
   });
 
+  const { data: tasksData } = useQuery({
+    queryKey: ['tasks', { deal_id: id }],
+    queryFn: () => tasksApi.list({ deal_id: id!, limit: '50' }),
+    enabled: !!id,
+  });
+
   const deal = data?.data;
   const spinSuggestions = suggestions?.data;
   const team = teamData?.data || [];
   const availableUsers = availableUsersData?.data || [];
   const companies = companiesData?.data?.items || [];
   const contacts = contactsData?.data?.items || [];
+  const dealTasks = tasksData?.data?.items || [];
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => dealsApi.update(id!, data),
@@ -195,6 +212,23 @@ export default function DealDetailPage() {
           queryClient.invalidateQueries({ queryKey: ['deals', id] });
         }
       }
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: tasksApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', { deal_id: id }] });
+      setShowTaskModal(false);
+      setTaskForm({ subject: '', content: '', due_date: '', priority: 'medium' });
+      toast.success('Task created');
+    },
+  });
+
+  const toggleTaskMutation = useMutation({
+    mutationFn: tasksApi.toggle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', { deal_id: id }] });
     },
   });
 
@@ -499,62 +533,121 @@ export default function DealDetailPage() {
           />
         </Card>
 
-        {/* Activity Timeline */}
-        <Card>
-          <CardHeader title="Activity Timeline" />
-          <div className="space-y-4">
-            {(!deal.activities || deal.activities.length === 0) ? (
-              <p className="text-sm text-text-muted text-center py-8">
-                No activities yet. Log your first interaction!
+        {/* Right Column: Activity Timeline + Tasks */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader title="Activity Timeline" />
+            <div className="space-y-4">
+              {(!deal.activities || deal.activities.length === 0) ? (
+                <p className="text-sm text-text-muted text-center py-8">
+                  No activities yet. Log your first interaction!
+                </p>
+              ) : (
+                deal.activities.slice(0, 10).map((activity: any) => {
+                  const Icon = getActivityIcon(activity.type);
+                  return (
+                    <div key={activity.id} className="flex gap-3">
+                      <div className="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
+                        <Icon className="h-4 w-4 text-text-muted" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-text-primary">
+                            {activity.subject || activity.type}
+                          </p>
+                          <span className="text-xs text-text-muted">
+                            {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                        {activity.content && (
+                          <p className="text-sm text-text-secondary mt-1 line-clamp-2">
+                            {activity.content}
+                          </p>
+                        )}
+                        {activity.spin_tags && (() => {
+                          try {
+                            const tags = JSON.parse(activity.spin_tags);
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {tags.map((tag: any, idx: number) => (
+                                  <span
+                                    key={idx}
+                                    className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded"
+                                  >
+                                    {tag.category?.[0]?.toUpperCase()}: {tag.text?.slice(0, 20)}...
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          } catch {
+                            return null;
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+
+          {/* Tasks */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-5 w-5 text-text-muted" />
+                <h3 className="text-sm font-semibold text-text-primary">Tasks</h3>
+                {dealTasks.length > 0 && (
+                  <span className="text-xs text-text-muted">
+                    ({dealTasks.filter((t: any) => !t.completed).length} pending)
+                  </span>
+                )}
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setShowTaskModal(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {dealTasks.length === 0 ? (
+              <p className="text-sm text-text-muted text-center py-4">
+                No tasks yet.
               </p>
             ) : (
-              deal.activities.slice(0, 10).map((activity: any) => {
-                const Icon = getActivityIcon(activity.type);
-                return (
-                  <div key={activity.id} className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
-                      <Icon className="h-4 w-4 text-text-muted" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-text-primary">
-                          {activity.subject || activity.type}
-                        </p>
-                        <span className="text-xs text-text-muted">
-                          {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      {activity.content && (
-                        <p className="text-sm text-text-secondary mt-1 line-clamp-2">
-                          {activity.content}
-                        </p>
+              <div className="space-y-2">
+                {dealTasks.map((task: any) => (
+                  <div
+                    key={task.id}
+                    className={`flex items-start gap-2 p-2 rounded-lg hover:bg-surface transition-colors ${task.completed ? 'opacity-60' : ''}`}
+                  >
+                    <button
+                      onClick={() => toggleTaskMutation.mutate(task.id)}
+                      className="mt-0.5 flex-shrink-0"
+                    >
+                      {task.completed ? (
+                        <CheckCircle className="h-4 w-4 text-success" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-text-muted hover:text-primary" />
                       )}
-                      {activity.spin_tags && (() => {
-                        try {
-                          const tags = JSON.parse(activity.spin_tags);
-                          return (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {tags.map((tag: any, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className="text-xs bg-primary-light text-primary px-2 py-0.5 rounded"
-                                >
-                                  {tag.category?.[0]?.toUpperCase()}: {tag.text?.slice(0, 20)}...
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        } catch {
-                          return null;
-                        }
-                      })()}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${task.completed ? 'text-text-muted line-through' : 'text-text-primary'}`}>
+                          {task.subject}
+                        </span>
+                        <PriorityBadge priority={task.priority} />
+                      </div>
+                      {task.due_date && (
+                        <span className="text-xs text-text-muted flex items-center gap-1 mt-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(task.due_date), 'MMM d')}
+                        </span>
+                      )}
                     </div>
                   </div>
-                );
-              })
+                ))}
+              </div>
             )}
-          </div>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       {/* Add Team Member Modal */}
@@ -863,6 +956,72 @@ export default function DealDetailPage() {
             </Button>
             <Button type="submit" isLoading={updateMutation.isPending}>
               Save Changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Create Task Modal */}
+      <Modal
+        isOpen={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        title="Add Task"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createTaskMutation.mutate({
+              subject: taskForm.subject,
+              content: taskForm.content || undefined,
+              due_date: taskForm.due_date || undefined,
+              priority: taskForm.priority,
+              deal_id: id,
+            });
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Task"
+            placeholder="What needs to be done?"
+            value={taskForm.subject}
+            onChange={(e) => setTaskForm({ ...taskForm, subject: e.target.value })}
+            required
+          />
+          <div>
+            <label className="label">Description</label>
+            <textarea
+              value={taskForm.content}
+              onChange={(e) => setTaskForm({ ...taskForm, content: e.target.value })}
+              className="input min-h-[80px]"
+              placeholder="Optional details..."
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Due Date"
+              type="date"
+              value={taskForm.due_date}
+              onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+            />
+            <div>
+              <label className="label">Priority</label>
+              <select
+                value={taskForm.priority}
+                onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskPriority })}
+                className="input"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={() => setShowTaskModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={createTaskMutation.isPending}>
+              Create Task
             </Button>
           </div>
         </form>

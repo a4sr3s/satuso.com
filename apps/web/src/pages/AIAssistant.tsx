@@ -58,8 +58,34 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { isRecording, error: recorderError, startRecording, stopRecording } = useVoiceRecorder();
   const { isPlaying, isTTSEnabled, toggleTTS, playChunks, stopPlayback } = useAudioPlayback();
+
+  // Ref to hold the send function for the VAD auto-stop callback
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
+
+  // Handle auto-stop from VAD (voice activity detection)
+  const handleVoiceAutoStop = useCallback(async (blob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      const result = await aiApi.stt(blob);
+      if (result.text && result.text.trim()) {
+        sendMessageRef.current(result.text);
+      }
+    } catch {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "I couldn't transcribe that audio. Please try again or type your message.",
+      }]);
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, []);
+
+  const { isRecording, error: recorderError, startRecording, stopRecording } = useVoiceRecorder({
+    onAutoStop: handleVoiceAutoStop,
+    silenceTimeout: 1500,
+  });
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
@@ -130,6 +156,9 @@ export default function AIAssistantPage() {
       return updated;
     });
   }, [chatMutation]);
+
+  // Keep ref in sync for VAD callback
+  sendMessageRef.current = sendMessage;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -313,7 +342,7 @@ export default function AIAssistantPage() {
             <div className="flex gap-3 justify-end">
               <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2">
                 <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm text-red-700">Recording... tap mic to stop</span>
+                <span className="text-sm text-red-700">Listening...</span>
               </div>
               <div className="w-8 h-8 rounded-full bg-surface flex items-center justify-center flex-shrink-0">
                 <User className="h-4 w-4 text-text-muted" />

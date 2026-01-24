@@ -12,7 +12,7 @@ tasks.use('*', clerkAuthMiddleware);
 
 // List tasks
 tasks.get('/', async (c) => {
-  const { page = '1', limit = '20', filter = 'all', ownerId } = c.req.query();
+  const { page = '1', limit = '20', filter = 'all', ownerId, deal_id } = c.req.query();
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const userId = c.get('userId');
   const user = c.get('user');
@@ -41,6 +41,12 @@ tasks.get('/', async (c) => {
   if (orgId) {
     query += ` AND t.org_id = ?`;
     params.push(orgId);
+  }
+
+  // Filter by deal
+  if (deal_id) {
+    query += ` AND t.deal_id = ?`;
+    params.push(deal_id);
   }
 
   // Filter by owner (default to current user for "my" tasks)

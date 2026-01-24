@@ -2,14 +2,18 @@ import { Hono } from 'hono';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
-import { groqChat, getRateLimitStatus } from '../_utils/groq';
-import { strictRateLimiter } from '../_middleware/rate-limit';
+import { groqChat, groqSTT, groqTTS, getRateLimitStatus } from '../_utils/groq';
+import { strictRateLimiter, aiAudioRateLimiter } from '../_middleware/rate-limit';
 
 const ai = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 ai.use('*', clerkAuthMiddleware);
-// Apply strict rate limiting to AI routes (expensive API calls)
-ai.use('*', strictRateLimiter);
+ai.use('/extract-spin', strictRateLimiter);
+ai.use('/spin-suggestions', strictRateLimiter);
+ai.use('/insights', strictRateLimiter);
+ai.use('/chat', strictRateLimiter);
+ai.use('/stt', strictRateLimiter);
+ai.use('/tts', aiAudioRateLimiter);
 
 // Helper to fetch compact CRM context for AI (optimized for token limits)
 async function getCRMContext(db: D1Database): Promise<string> {
@@ -278,22 +282,123 @@ Keep questions conversational and natural. Return ONLY the JSON, no other text.`
   }
 });
 
-// Natural language query - FULLY CONTEXT AWARE
-ai.post('/query', async (c) => {
-  const { query } = await c.req.json();
-
-  if (!query) {
-    return c.json({ success: false, error: 'Query is required' }, 400);
-  }
-
+// Get AI insights for dashboard
+ai.get('/insights', async (c) => {
   try {
-    // Fetch full CRM context
-    const crmContext = await getCRMContext(c.env.DB);
+    const deals = await c.env.DB.prepare(`
+      SELECT
+        d.id, d.name, d.value, d.stage, d.spin_progress,
+        d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
+        co.name as company_name,
+        CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
+        CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
+      FROM deals d
+      LEFT JOIN companies co ON d.company_id = co.id
+      WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+      ORDER BY d.value DESC
+      LIMIT 10
+    `).all();
+
+    let context = `## ACTIVE PIPELINE WITH SPIN STATUS\n`;
+
+    for (const deal of deals.results as any[]) {
+      const hasS = deal.spin_situation ? '✓' : '✗';
+      const hasP = deal.spin_problem ? '✓' : '✗';
+      const hasI = deal.spin_implication ? '✓' : '✗';
+      const hasN = deal.spin_need_payoff ? '✓' : '✗';
+      context += `• [${deal.id}] ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, SPIN[S:${hasS} P:${hasP} I:${hasI} N:${hasN}], ${deal.days_in_stage}d in stage\n`;
+    }
 
     const response = await groqChat(c.env.GROQ_API_KEY, [
       {
         role: 'system',
-        content: `You are an elite sales coach and VP of Sales with 20+ years closing enterprise deals. You're direct, strategic, and focused on WINNING. You help reps prioritize ruthlessly, identify risks early, and close deals faster.
+        content: `You are a SPIN selling expert coach. Analyze this pipeline and give 2-3 actionable insights based on SPIN methodology.
+
+SPIN FRAMEWORK:
+- S (Situation): Understanding customer's current state - needed early
+- P (Problem): Identifying pains/challenges - critical for urgency
+- I (Implication): Consequences of not solving - creates urgency
+- N (Need-Payoff): Value of solution - needed before proposal
+
+Return ONLY valid JSON array:
+[
+  {"type": "risk|suggestion", "title": "Max 6 words", "description": "One SPIN-focused action", "deal_id": "the_deal_id"}
+]
+
+IMPORTANT: Include the deal_id from the brackets [deal_id] for each insight.`,
+      },
+      {
+        role: 'user',
+        content: context,
+      },
+    ], { maxTokens: 500 });
+
+    let insights = [];
+    try {
+      const responseText = response.content || '';
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        insights = JSON.parse(jsonMatch[0]);
+      }
+    } catch (parseError) {
+      const weakDeal = (deals.results as any[]).find(d => d.spin_progress < 2);
+      if (weakDeal) {
+        insights = [{
+          type: 'risk',
+          title: 'Incomplete discovery',
+          description: `${weakDeal.name} needs Problem and Implication questions to build urgency.`,
+          deal_id: weakDeal.id,
+        }];
+      }
+    }
+
+    return c.json({ success: true, data: insights });
+  } catch (error) {
+    console.error('AI insights error:', error);
+    return c.json({ success: true, data: [] });
+  }
+});
+
+// Get rate limit status
+ai.get('/rate-limit-status', async (c) => {
+  const status = getRateLimitStatus();
+  return c.json({ success: true, data: status });
+});
+
+// ==========================================
+// Multi-turn Chat
+// ==========================================
+
+ai.post('/chat', async (c) => {
+  const { messages } = await c.req.json();
+
+  if (!messages || !Array.isArray(messages)) {
+    return c.json({ success: false, error: 'Messages array is required' }, 400);
+  }
+
+  if (messages.length > 20) {
+    return c.json({ success: false, error: 'Maximum 20 messages allowed' }, 400);
+  }
+
+  for (const msg of messages) {
+    if (!msg.role || !msg.content) {
+      return c.json({ success: false, error: 'Each message must have role and content' }, 400);
+    }
+    if (msg.content.length > 2000) {
+      return c.json({ success: false, error: 'Each message must be 2000 characters or less' }, 400);
+    }
+  }
+
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
+
+  try {
+    const crmContext = await getCRMContext(c.env.DB);
+
+    const systemMessage = {
+      role: 'system' as const,
+      content: `You are an elite sales coach and VP of Sales with 20+ years closing enterprise deals. You're direct, strategic, and focused on WINNING. You help reps prioritize ruthlessly, identify risks early, and close deals faster.
 
 ## YOUR CRM DATA
 ${crmContext}
@@ -313,20 +418,15 @@ ${crmContext}
 4. End with clear NEXT ACTIONS
 5. Keep it concise - busy reps need quick answers
 
-## WEEKLY PRIORITIES FRAMEWORK
-When asked about priorities, focus on:
-1. **Close This Week** - deals in negotiation with imminent close dates
-2. **Advance Stage** - proposals that need follow-up to move forward
-3. **At Risk** - deals with no activity, missing SPIN, or stuck
-4. **Build Pipeline** - contacts to nurture, new opportunities
-
 Always give your honest assessment. If a deal looks weak, say so. Your job is to help them WIN.`,
-      },
-      {
-        role: 'user',
-        content: query,
-      },
-    ], { maxTokens: 1024 });
+    };
+
+    const llmMessages = [systemMessage, ...messages.map((m: { role: string; content: string }) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))];
+
+    const response = await groqChat(c.env.GROQ_API_KEY, llmMessages, { maxTokens: 1024 });
 
     return c.json({
       success: true,
@@ -336,627 +436,80 @@ Always give your honest assessment. If a deal looks weak, say so. Your job is to
       },
     });
   } catch (error) {
-    console.error('AI query error:', error);
-    const errorMsg = error instanceof Error ? error.message : 'Failed to process query';
-
-    // Check if it's a rate limit error and return a friendly message
+    const errorMsg = error instanceof Error ? error.message : 'Failed to process chat';
     if (errorMsg.includes('Rate limit')) {
       return c.json({
         success: true,
-        data: {
-          response: "I'm currently at my request limit. Please wait about a minute and try again. The free tier allows 30 requests per minute and 6,000 tokens per minute.",
-        },
+        data: { response: "I'm currently at my request limit. Please wait about a minute and try again." },
       });
     }
-
     return c.json({ success: false, error: errorMsg }, 500);
   }
 });
 
-// Get AI insights for dashboard
-ai.get('/insights', async (c) => {
-  try {
-    // Get pipeline context for AI with SPIN details
-    const deals = await c.env.DB.prepare(`
-      SELECT
-        d.id, d.name, d.value, d.stage, d.spin_progress,
-        d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
-        co.name as company_name,
-        CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
-        CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
-      FROM deals d
-      LEFT JOIN companies co ON d.company_id = co.id
-      WHERE d.stage NOT IN ('closed_won', 'closed_lost')
-      ORDER BY d.value DESC
-      LIMIT 10
-    `).all();
-
-    // Build context for AI with SPIN focus
-    let context = `## ACTIVE PIPELINE WITH SPIN STATUS\n`;
-    const dealMap: Record<string, string> = {}; // name -> id mapping
-
-    for (const deal of deals.results as any[]) {
-      dealMap[deal.name] = deal.id;
-      const hasS = deal.spin_situation ? '✓' : '✗';
-      const hasP = deal.spin_problem ? '✓' : '✗';
-      const hasI = deal.spin_implication ? '✓' : '✗';
-      const hasN = deal.spin_need_payoff ? '✓' : '✗';
-
-      context += `• [${deal.id}] ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, SPIN[S:${hasS} P:${hasP} I:${hasI} N:${hasN}], ${deal.days_in_stage}d in stage\n`;
-    }
-
-    const response = await groqChat(c.env.GROQ_API_KEY, [
-      {
-        role: 'system',
-        content: `You are a SPIN selling expert coach. Analyze this pipeline and give 2-3 actionable insights based on SPIN methodology.
-
-SPIN FRAMEWORK:
-- S (Situation): Understanding customer's current state - needed early
-- P (Problem): Identifying pains/challenges - critical for urgency
-- I (Implication): Consequences of not solving - creates urgency
-- N (Need-Payoff): Value of solution - needed before proposal
-
-INSIGHT PRIORITIES:
-1. Deals missing Problem or Implication (can't create urgency)
-2. Deals in Proposal/Negotiation with incomplete SPIN (risk of stalling)
-3. High-value deals with weak discovery
-4. Deals stuck too long in a stage
-
-Return ONLY valid JSON array:
-[
-  {"type": "risk|suggestion", "title": "Max 6 words", "description": "One SPIN-focused action", "deal_id": "the_deal_id"}
-]
-
-IMPORTANT: Include the deal_id from the brackets [deal_id] for each insight.
-Be specific about which SPIN element is missing and why it matters.`,
-      },
-      {
-        role: 'user',
-        content: context,
-      },
-    ], { maxTokens: 500 });
-
-    let insights = [];
-    try {
-      const responseText = response.content || '';
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        insights = JSON.parse(jsonMatch[0]);
-      }
-    } catch (parseError) {
-      console.warn('Failed to parse AI insights:', parseError);
-      // Fallback to SPIN-based insight
-      const weakDeal = (deals.results as any[]).find(d => d.spin_progress < 2);
-      if (weakDeal) {
-        insights = [
-          {
-            type: 'risk',
-            title: 'Incomplete discovery',
-            description: `${weakDeal.name} needs Problem and Implication questions to build urgency.`,
-            deal_id: weakDeal.id,
-          },
-        ];
-      }
-    }
-
-    return c.json({ success: true, data: insights });
-  } catch (error) {
-    console.error('AI insights error:', error);
-    return c.json({ success: true, data: [] });
-  }
-});
-
-// Get rate limit status
-ai.get('/rate-limit-status', async (c) => {
-  const status = getRateLimitStatus();
-  return c.json({ success: true, data: status });
-});
-
 // ==========================================
-// Entity Actions via Conversation (Create + Delete)
+// Speech-to-Text
 // ==========================================
 
-import { createContactRecord, createCompanyRecord, createDealRecord } from '../_services/entity-service';
-
-interface EntitySession {
-  action: 'create' | 'delete';
-  entityType: 'contact' | 'company' | 'deal' | null;
-  fields: Record<string, any>;
-  resolvedRefs: {
-    companyId?: string;
-    companyName?: string;
-    contactId?: string;
-    contactName?: string;
-  };
-  deleteTarget?: { id: string; name: string; entityType: string; details?: string };
-  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
-  readyToConfirm: boolean;
-}
-
-const ENTITY_ACTION_SYSTEM_PROMPT = `You are a CRM assistant that helps users create and delete contacts, companies, and deals through conversation.
-
-Your job is to:
-1. Determine the ACTION: "create" or "delete"
-2. Determine which entity type (contact, company, or deal)
-3. For CREATE: extract fields, ask follow-ups for missing required info
-4. For DELETE: extract the entity name/reference to look up
-
-ENTITY FIELDS (for create):
-- Contact: name (required), email, phone, title, companyRef (company name to look up)
-- Company: name (required), domain, industry, employee_count, website, description
-- Deal: name (required), value (number), stage (lead/qualified/discovery/proposal/negotiation), close_date, companyRef, contactRef
-
-RULES:
-- For CREATE contacts: always ask for email if not provided
-- For CREATE deals: always ask for value if not provided
-- Parse monetary values: "50k" = 50000, "$1M" = 1000000
-- If user mentions a company or contact name for a reference, include it in companyRef/contactRef
-- Set readyToConfirm=true when you have the required field (name) AND the user signals they are done
-- IMPORTANT: If the user says "that's all", "thats all", "done", "nothing else", "no", "nope", "that is all", "I'm done", "go ahead", "create it", "looks good", or any similar completion signal, you MUST set readyToConfirm=true and followUpQuestion=null
-- Also set readyToConfirm=true if you have all the key fields filled (name + 2 or more optional fields)
-- For DELETE: set readyToConfirm=true as soon as you have the entity name/reference to look up. Put the name in entityRef.
-- Keywords indicating delete: "delete", "remove", "get rid of", "drop", "trash", "kill"
-- Keywords indicating create: "create", "add", "new", "make"
-
-Return ONLY valid JSON in this format:
-{
-  "action": "create" | "delete",
-  "entityType": "contact" | "company" | "deal" | null,
-  "newFields": { extracted field values from the LATEST message only },
-  "entityRef": "name of entity to delete" or null,
-  "companyRef": "company name to look up" or null,
-  "contactRef": "contact name to look up" or null,
-  "followUpQuestion": "question to ask next" or null,
-  "readyToConfirm": boolean
-}
-
-IMPORTANT: Only include fields explicitly mentioned. Do not invent values.`;
-
-async function resolveCompanyRef(db: D1Database, name: string, orgId?: string): Promise<Array<{ id: string; name: string }>> {
-  const query = orgId
-    ? `SELECT id, name FROM companies WHERE name LIKE ? AND org_id = ? LIMIT 5`
-    : `SELECT id, name FROM companies WHERE name LIKE ? LIMIT 5`;
-  const params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
-  const results = await db.prepare(query).bind(...params).all();
-  return results.results as Array<{ id: string; name: string }>;
-}
-
-async function resolveContactRef(db: D1Database, name: string, orgId?: string): Promise<Array<{ id: string; name: string }>> {
-  const query = orgId
-    ? `SELECT id, name FROM contacts WHERE name LIKE ? AND org_id = ? LIMIT 5`
-    : `SELECT id, name FROM contacts WHERE name LIKE ? LIMIT 5`;
-  const params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
-  const results = await db.prepare(query).bind(...params).all();
-  return results.results as Array<{ id: string; name: string }>;
-}
-
-// Helper to find entities by name for deletion
-async function findEntityByName(db: D1Database, entityType: string, name: string, orgId?: string): Promise<Array<{ id: string; name: string; details: string }>> {
-  let query: string;
-  let params: any[];
-
-  if (entityType === 'deal') {
-    query = orgId
-      ? `SELECT id, name, value, stage FROM deals WHERE name LIKE ? AND org_id = ? LIMIT 5`
-      : `SELECT id, name, value, stage FROM deals WHERE name LIKE ? LIMIT 5`;
-    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
-    const results = await db.prepare(query).bind(...params).all();
-    return (results.results as any[]).map(d => ({
-      id: d.id,
-      name: d.name,
-      details: `$${(d.value || 0).toLocaleString()} - ${d.stage}`,
-    }));
-  } else if (entityType === 'contact') {
-    query = orgId
-      ? `SELECT id, name, email, title FROM contacts WHERE name LIKE ? AND org_id = ? LIMIT 5`
-      : `SELECT id, name, email, title FROM contacts WHERE name LIKE ? LIMIT 5`;
-    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
-    const results = await db.prepare(query).bind(...params).all();
-    return (results.results as any[]).map(c => ({
-      id: c.id,
-      name: c.name,
-      details: c.email || c.title || '',
-    }));
-  } else {
-    query = orgId
-      ? `SELECT id, name, industry FROM companies WHERE name LIKE ? AND org_id = ? LIMIT 5`
-      : `SELECT id, name, industry FROM companies WHERE name LIKE ? LIMIT 5`;
-    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
-    const results = await db.prepare(query).bind(...params).all();
-    return (results.results as any[]).map(c => ({
-      id: c.id,
-      name: c.name,
-      details: c.industry || '',
-    }));
-  }
-}
-
-// Conversational entity action endpoint (create + delete)
-ai.post('/entity-create', async (c) => {
-  const { message, sessionId } = await c.req.json();
-  const userId = c.get('userId');
-  const user = c.get('user');
-  const orgId = user.organization_id;
-
-  if (!message) {
-    return c.json({ success: false, error: 'Message is required' }, 400);
-  }
-
-  if (message.length > 2000) {
-    return c.json({ success: false, error: 'Message too long' }, 400);
-  }
-
+ai.post('/stt', async (c) => {
   if (!c.env.GROQ_API_KEY) {
     return c.json({ success: false, error: 'AI service is not configured' }, 500);
   }
 
-  const kvKey = `entity-session:${orgId || 'none'}:${userId}:${sessionId || 'new'}`;
+  try {
+    const formData = await c.req.formData();
+    const audioFile = formData.get('audio') as unknown as { arrayBuffer: () => Promise<ArrayBuffer>; size: number; type: string } | null;
+
+    if (!audioFile || typeof audioFile === 'string' || !audioFile.arrayBuffer) {
+      return c.json({ success: false, error: 'Audio file is required' }, 400);
+    }
+
+    if (audioFile.size > 5 * 1024 * 1024) {
+      return c.json({ success: false, error: 'Audio file must be under 5MB' }, 400);
+    }
+
+    const audioBuffer = await audioFile.arrayBuffer();
+    const result = await groqSTT(c.env.GROQ_API_KEY, audioBuffer, audioFile.type || 'audio/webm');
+
+    return c.json({ success: true, data: { text: result.text } });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to transcribe audio';
+    console.error('AI STT error:', error);
+    return c.json({ success: false, error: errorMsg }, 500);
+  }
+});
+
+// ==========================================
+// Text-to-Speech
+// ==========================================
+
+ai.post('/tts', async (c) => {
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
 
   try {
-    // Load or create session
-    let session: EntitySession;
-    if (sessionId) {
-      const stored = await c.env.KV.get(kvKey, 'json');
-      if (!stored) {
-        return c.json({
-          success: true,
-          data: {
-            type: 'error' as const,
-            message: 'Session expired. Please start over.',
-            sessionId: null,
-          },
-        });
-      }
-      session = stored as EntitySession;
-    } else {
-      session = {
-        action: 'create',
-        entityType: null,
-        fields: {},
-        resolvedRefs: {},
-        conversationHistory: [],
-        readyToConfirm: false,
-      };
+    const { text, voice } = await c.req.json();
+
+    if (!text || typeof text !== 'string') {
+      return c.json({ success: false, error: 'Text is required' }, 400);
     }
 
-    // Handle special commands
-    if (message === '__CONFIRM__') {
-      if (!session.readyToConfirm || !session.entityType) {
-        return c.json({
-          success: true,
-          data: { type: 'error' as const, message: 'Nothing to confirm.', sessionId },
-        });
-      }
-
-      // Create the entity
-      let created: any;
-      try {
-        if (session.entityType === 'contact') {
-          const data: any = { name: session.fields.name };
-          if (session.fields.email) data.email = session.fields.email;
-          if (session.fields.phone) data.phone = session.fields.phone;
-          if (session.fields.title) data.title = session.fields.title;
-          if (session.resolvedRefs.companyId) data.companyId = session.resolvedRefs.companyId;
-          created = await createContactRecord(c.env.DB, data, userId, orgId);
-        } else if (session.entityType === 'company') {
-          const data: any = { name: session.fields.name };
-          if (session.fields.domain) data.domain = session.fields.domain;
-          if (session.fields.industry) data.industry = session.fields.industry;
-          if (session.fields.employee_count) data.employee_count = session.fields.employee_count;
-          if (session.fields.website) data.website = session.fields.website;
-          if (session.fields.description) data.description = session.fields.description;
-          created = await createCompanyRecord(c.env.DB, data, userId, orgId);
-        } else if (session.entityType === 'deal') {
-          const data: any = { name: session.fields.name };
-          if (session.fields.value) data.value = session.fields.value;
-          if (session.fields.stage) data.stage = session.fields.stage;
-          if (session.fields.close_date) data.close_date = session.fields.close_date;
-          if (session.resolvedRefs.companyId) data.company_id = session.resolvedRefs.companyId;
-          if (session.resolvedRefs.contactId) data.contact_id = session.resolvedRefs.contactId;
-          created = await createDealRecord(c.env.DB, data, userId, orgId);
-        }
-      } catch (validationError: any) {
-        return c.json({
-          success: true,
-          data: {
-            type: 'error' as const,
-            message: `Validation failed: ${validationError.message || 'Invalid data'}`,
-            sessionId,
-          },
-        });
-      }
-
-      // Clean up session
-      await c.env.KV.delete(kvKey);
-
-      return c.json({
-        success: true,
-        data: {
-          type: 'created' as const,
-          entityType: session.entityType,
-          entity: created,
-          sessionId: null,
-        },
-      });
+    if (text.length > 200) {
+      return c.json({ success: false, error: 'Text must be 200 characters or less' }, 400);
     }
 
-    if (message === '__DELETE_CONFIRM__') {
-      if (!session.deleteTarget || !session.entityType) {
-        return c.json({
-          success: true,
-          data: { type: 'error' as const, message: 'Nothing to delete.', sessionId },
-        });
-      }
+    const audioBuffer = await groqTTS(c.env.GROQ_API_KEY, text, voice);
 
-      const table = session.entityType === 'contact' ? 'contacts' : session.entityType === 'company' ? 'companies' : 'deals';
-      await c.env.DB.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(session.deleteTarget.id).run();
-
-      await c.env.KV.delete(kvKey);
-
-      return c.json({
-        success: true,
-        data: {
-          type: 'deleted' as const,
-          entityType: session.entityType,
-          entity: { id: session.deleteTarget.id, name: session.deleteTarget.name },
-          sessionId: null,
-        },
-      });
-    }
-
-    if (message === '__CANCEL__') {
-      if (sessionId) {
-        await c.env.KV.delete(kvKey);
-      }
-      return c.json({
-        success: true,
-        data: {
-          type: 'cancelled' as const,
-          message: 'Cancelled.',
-          sessionId: null,
-        },
-      });
-    }
-
-    // Add user message to conversation history
-    session.conversationHistory.push({ role: 'user', content: message });
-
-    // Build messages for LLM
-    const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: ENTITY_ACTION_SYSTEM_PROMPT },
-    ];
-
-    // Include conversation history for context
-    if (session.conversationHistory.length > 1) {
-      const historyContext = session.conversationHistory
-        .map(m => `${m.role}: ${m.content}`)
-        .join('\n');
-      llmMessages.push({
-        role: 'user',
-        content: `Previous conversation:\n${historyContext}\n\nCurrent action: ${session.action}\nCurrent accumulated fields: ${JSON.stringify(session.fields)}\nEntity type so far: ${session.entityType || 'undetermined'}\n\nBased on the full conversation above, extract any NEW fields from the latest user message and determine next steps.`,
-      });
-    } else {
-      llmMessages.push({ role: 'user', content: message });
-    }
-
-    // Call LLM
-    const response = await groqChat(c.env.GROQ_API_KEY, llmMessages, {
-      maxTokens: 256,
-      temperature: 0.3,
-    });
-
-    // Parse LLM response
-    let llmResult: {
-      action: 'create' | 'delete';
-      entityType: 'contact' | 'company' | 'deal' | null;
-      newFields: Record<string, any>;
-      entityRef: string | null;
-      companyRef: string | null;
-      contactRef: string | null;
-      followUpQuestion: string | null;
-      readyToConfirm: boolean;
-    };
-
-    try {
-      const jsonMatch = (response.content || '').match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found');
-      llmResult = JSON.parse(jsonMatch[0]);
-    } catch {
-      // Fallback: ask user to rephrase
-      const { nanoid } = await import('nanoid');
-      const newSessionId = sessionId || nanoid();
-      const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-      return c.json({
-        success: true,
-        data: {
-          type: 'question' as const,
-          message: "I had trouble understanding that. Could you rephrase? For example: \"Create a contact named John Smith with email john@example.com\"",
-          sessionId: newSessionId,
-        },
-      });
-    }
-
-    // Update session with new data
-    if (llmResult.action) {
-      session.action = llmResult.action;
-    }
-    if (llmResult.entityType) {
-      session.entityType = llmResult.entityType;
-    }
-    if (llmResult.newFields) {
-      session.fields = { ...session.fields, ...llmResult.newFields };
-    }
-    session.readyToConfirm = llmResult.readyToConfirm;
-
-    const { nanoid } = await import('nanoid');
-
-    // Handle DELETE action
-    if (session.action === 'delete') {
-      const entityRef = llmResult.entityRef || session.fields.name;
-      if (!entityRef || !session.entityType) {
-        const newSessionId = sessionId || nanoid();
-        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-        session.conversationHistory.push({ role: 'assistant', content: llmResult.followUpQuestion || 'Which entity would you like to delete? Please provide the name.' });
-        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-        return c.json({
-          success: true,
-          data: {
-            type: 'question' as const,
-            message: llmResult.followUpQuestion || 'Which entity would you like to delete? Please provide the name.',
-            sessionId: newSessionId,
-          },
-        });
-      }
-
-      // Look up entity by name
-      const matches = await findEntityByName(c.env.DB, session.entityType, entityRef, orgId);
-
-      if (matches.length === 0) {
-        const newSessionId = sessionId || nanoid();
-        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-        const msg = `I couldn't find a ${session.entityType} matching "${entityRef}". Could you check the name and try again?`;
-        session.conversationHistory.push({ role: 'assistant', content: msg });
-        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-        return c.json({
-          success: true,
-          data: { type: 'question' as const, message: msg, sessionId: newSessionId },
-        });
-      }
-
-      if (matches.length > 1) {
-        const newSessionId = sessionId || nanoid();
-        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-        const options = matches.map(m => `${m.name}${m.details ? ` (${m.details})` : ''}`).join(', ');
-        const msg = `I found multiple ${session.entityType}s matching "${entityRef}": ${options}. Which one?`;
-        session.conversationHistory.push({ role: 'assistant', content: msg });
-        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-        return c.json({
-          success: true,
-          data: { type: 'question' as const, message: msg, sessionId: newSessionId },
-        });
-      }
-
-      // Single match - show delete confirmation
-      session.deleteTarget = { id: matches[0].id, name: matches[0].name, entityType: session.entityType, details: matches[0].details };
-      session.readyToConfirm = true;
-      const newSessionId = sessionId || nanoid();
-      const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-      return c.json({
-        success: true,
-        data: {
-          type: 'delete_confirm' as const,
-          entityType: session.entityType,
-          entity: { id: matches[0].id, name: matches[0].name, details: matches[0].details },
-          message: `Are you sure you want to delete ${session.entityType} "${matches[0].name}"${matches[0].details ? ` (${matches[0].details})` : ''}?`,
-          sessionId: newSessionId,
-        },
-      });
-    }
-
-    // Handle CREATE action - resolve references
-    if (llmResult.companyRef && !session.resolvedRefs.companyId) {
-      const matches = await resolveCompanyRef(c.env.DB, llmResult.companyRef, orgId);
-      if (matches.length === 1) {
-        session.resolvedRefs.companyId = matches[0].id;
-        session.resolvedRefs.companyName = matches[0].name;
-      } else if (matches.length > 1) {
-        const options = matches.map(m => m.name).join(', ');
-        const newSessionId = sessionId || nanoid();
-        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-        return c.json({
-          success: true,
-          data: {
-            type: 'question' as const,
-            message: `I found multiple companies matching "${llmResult.companyRef}": ${options}. Which one did you mean?`,
-            sessionId: newSessionId,
-          },
-        });
-      }
-    }
-
-    if (llmResult.contactRef && !session.resolvedRefs.contactId) {
-      const matches = await resolveContactRef(c.env.DB, llmResult.contactRef, orgId);
-      if (matches.length === 1) {
-        session.resolvedRefs.contactId = matches[0].id;
-        session.resolvedRefs.contactName = matches[0].name;
-      } else if (matches.length > 1) {
-        const options = matches.map(m => m.name).join(', ');
-        const newSessionId = sessionId || nanoid();
-        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-        return c.json({
-          success: true,
-          data: {
-            type: 'question' as const,
-            message: `I found multiple contacts matching "${llmResult.contactRef}": ${options}. Which one did you mean?`,
-            sessionId: newSessionId,
-          },
-        });
-      }
-    }
-
-    // Save session
-    const newSessionId = sessionId || nanoid();
-    const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
-    await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-    // Return confirm for create
-    if (session.readyToConfirm && session.entityType) {
-      const confirmMsg = `I have all the details. Ready to create this ${session.entityType}.`;
-      session.conversationHistory.push({ role: 'assistant', content: confirmMsg });
-      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-      return c.json({
-        success: true,
-        data: {
-          type: 'confirm' as const,
-          entityType: session.entityType,
-          fields: session.fields,
-          resolvedRefs: session.resolvedRefs,
-          message: confirmMsg,
-          sessionId: newSessionId,
-        },
-      });
-    }
-
-    // Ask follow-up question
-    const followUp = llmResult.followUpQuestion || `What else would you like to add to this ${session.entityType || 'record'}?`;
-    session.conversationHistory.push({ role: 'assistant', content: followUp });
-    await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
-
-    return c.json({
-      success: true,
-      data: {
-        type: 'question' as const,
-        message: followUp,
-        sessionId: newSessionId,
+    return new Response(audioBuffer, {
+      headers: {
+        'Content-Type': 'audio/wav',
+        'Content-Length': audioBuffer.byteLength.toString(),
       },
     });
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Failed to process request';
-    console.error('AI entity creation error:', error);
-
-    if (errorMsg.includes('Rate limit')) {
-      return c.json({
-        success: true,
-        data: {
-          type: 'error' as const,
-          message: "I'm at my request limit. Please wait a moment and try again.",
-          sessionId: sessionId || null,
-        },
-      });
-    }
-
+    const errorMsg = error instanceof Error ? error.message : 'Failed to generate speech';
+    console.error('AI TTS error:', error);
     return c.json({ success: false, error: errorMsg }, 500);
   }
 });

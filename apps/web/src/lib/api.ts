@@ -26,7 +26,6 @@ import type {
   CreateWorkboardData,
   DealTeamMember,
   AddDealTeamMemberData,
-  EntityCreateResponse,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -265,9 +264,6 @@ export const aiApi = {
   spinSuggestions: (dealId?: string, industry?: string, companySize?: string, currentStage?: string) =>
     api.post<ApiResponse<SpinSuggestions>>('/ai/spin-suggestions', { dealId, industry, companySize, currentStage }),
 
-  query: (query: string) =>
-    api.post<ApiResponse<AIQueryResult>>('/ai/query', { query }),
-
   chat: (messages: ChatMessage[]) =>
     api.post<ApiResponse<AIQueryResult>>('/ai/chat', { messages }),
 
@@ -309,9 +305,6 @@ export const aiApi = {
 
   insights: () =>
     api.get<ApiResponse<AIInsight[]>>('/ai/insights'),
-
-  entityCreate: (message: string, sessionId?: string) =>
-    api.post<ApiResponse<EntityCreateResponse>>('/ai/entity-create', { message, sessionId }),
 };
 
 // Search API

@@ -13,7 +13,7 @@ import {
 import { isToday, isPast } from 'date-fns';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
-import { tasksApi } from '@/lib/api';
+import { tasksApi, dealsApi } from '@/lib/api';
 import type { TaskCounts, TaskPriority } from '@/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -37,6 +37,7 @@ export default function TasksPage() {
     content: '',
     due_date: '',
     priority: 'medium' as TaskPriority,
+    deal_id: '',
   });
 
   const { data: countsData } = useQuery({
@@ -49,12 +50,20 @@ export default function TasksPage() {
     queryFn: () => tasksApi.list({ filter: activeTab, limit: '100' }),
   });
 
+  const { data: dealsData } = useQuery({
+    queryKey: ['deals', 'list-for-tasks'],
+    queryFn: () => dealsApi.list({ limit: '100' }),
+    enabled: showNewModal,
+  });
+
+  const deals = dealsData?.data?.items || [];
+
   const createMutation = useMutation({
     mutationFn: tasksApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowNewModal(false);
-      setFormData({ subject: '', content: '', due_date: '', priority: 'medium' as TaskPriority });
+      setFormData({ subject: '', content: '', due_date: '', priority: 'medium' as TaskPriority, deal_id: '' });
       toast.success(t('tasks:toast.created'));
     },
     onError: (error: Error) => {
@@ -98,6 +107,7 @@ export default function TasksPage() {
       content: formData.content || undefined,
       due_date: formData.due_date || undefined,
       priority: formData.priority,
+      deal_id: formData.deal_id || undefined,
     });
   };
 
@@ -262,6 +272,21 @@ export default function TasksPage() {
                 <option value="high">{t('common:priority.high')}</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label className="label">Deal</label>
+            <select
+              value={formData.deal_id}
+              onChange={(e) => setFormData({ ...formData, deal_id: e.target.value })}
+              className="input"
+            >
+              <option value="">No deal</option>
+              {deals.map((deal: any) => (
+                <option key={deal.id} value={deal.id}>
+                  {deal.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button

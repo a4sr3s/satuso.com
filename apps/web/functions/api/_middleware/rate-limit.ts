@@ -107,3 +107,12 @@ export const readRateLimiter = rateLimiter({
   windowMs: 60 * 1000, // 200 requests per minute
   keyPrefix: 'rate:read:',
 });
+
+/**
+ * Rate limiter for AI audio endpoints (TTS)
+ */
+export const aiAudioRateLimiter = rateLimiter({
+  maxRequests: 30,
+  windowMs: 60 * 1000, // 30 requests per minute
+  keyPrefix: 'rate:ai-audio:',
+});

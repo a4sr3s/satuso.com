@@ -61,9 +61,10 @@ export default function WorkboardsPage() {
     queryFn: () => workboardsApi.list(),
   });
 
-  const { data: membersData, isLoading: membersLoading } = useQuery({
-    queryKey: ['workboard-users'],
-    queryFn: () => api.get<ApiResponse<Array<{ id: string; name: string; email: string }>>>('/workboards/users'),
+  const { data: repsData, isLoading: repsLoading } = useQuery({
+    queryKey: ['workboard-reps'],
+    queryFn: () => api.get<ApiResponse<Array<{ id: string; name: string }>>>('/workboards/reps'),
+    enabled: !!repPickerTemplate,
   });
 
   const createMutation = useMutation({
@@ -94,7 +95,7 @@ export default function WorkboardsPage() {
   });
 
   const workboards = data?.data?.items || [];
-  const members = membersData?.data || [];
+  const reps = repsData?.data || [];
 
   const handleTemplateSelect = (template: WorkboardTemplate) => {
     if (template.id === 'blank_report') {
@@ -309,12 +310,12 @@ export default function WorkboardsPage() {
               value={selectedRepName}
               onChange={(e) => setSelectedRepName(e.target.value)}
               className="input"
-              disabled={membersLoading}
+              disabled={repsLoading}
             >
-              <option value="">{membersLoading ? 'Loading...' : 'Choose a rep...'}</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.name}>
-                  {member.name}
+              <option value="">{repsLoading ? 'Loading...' : 'Choose a rep...'}</option>
+              {reps.map((rep) => (
+                <option key={rep.id} value={rep.name}>
+                  {rep.name}
                 </option>
               ))}
             </select>

@@ -19,16 +19,15 @@ const workboards = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 workboards.use('*', clerkAuthMiddleware);
 
-// List users (for rep picker)
-workboards.get('/users', async (c) => {
-  const user = c.get('user');
-  if (!user.organization_id) {
-    return c.json({ success: true, data: [] });
-  }
-
-  const results = await c.env.DB.prepare(
-    'SELECT id, name, email FROM users WHERE organization_id = ? ORDER BY name ASC'
-  ).bind(user.organization_id).all();
+// List deal owners (for rep picker)
+workboards.get('/reps', async (c) => {
+  const results = await c.env.DB.prepare(`
+    SELECT DISTINCT u.id, u.name
+    FROM deals d
+    JOIN users u ON d.owner_id = u.id
+    WHERE d.owner_id IS NOT NULL
+    ORDER BY u.name ASC
+  `).all();
 
   return c.json({ success: true, data: results.results });
 });

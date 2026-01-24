@@ -413,7 +413,7 @@ workboards.delete('/:id', async (c) => {
     return c.json({ success: false, error: 'Workboard not found' }, 404);
   }
 
-  if (existing.owner_id !== userId) {
+  if (existing.owner_id !== userId && !existing.is_default) {
     return c.json({ success: false, error: 'Not authorized to delete this workboard' }, 403);
   }
 

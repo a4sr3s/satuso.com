@@ -19,6 +19,20 @@ const workboards = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 workboards.use('*', clerkAuthMiddleware);
 
+// List users (for rep picker)
+workboards.get('/users', async (c) => {
+  const user = c.get('user');
+  if (!user.organization_id) {
+    return c.json({ success: true, data: [] });
+  }
+
+  const results = await c.env.DB.prepare(
+    'SELECT id, name, email FROM users WHERE organization_id = ? ORDER BY name ASC'
+  ).bind(user.organization_id).all();
+
+  return c.json({ success: true, data: results.results });
+});
+
 // List workboards
 workboards.get('/', async (c) => {
   const { entity_type } = c.req.query();

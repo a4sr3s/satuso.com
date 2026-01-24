@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
-import { workboardsApi, organizationsApi } from '@/lib/api';
-import type { Workboard, WorkboardEntityType, CreateWorkboardData } from '@/types';
+import { workboardsApi, api } from '@/lib/api';
+import type { ApiResponse, Workboard, WorkboardEntityType, CreateWorkboardData } from '@/types';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
@@ -62,8 +62,8 @@ export default function WorkboardsPage() {
   });
 
   const { data: membersData, isLoading: membersLoading } = useQuery({
-    queryKey: ['organization-members'],
-    queryFn: () => organizationsApi.getMembers(),
+    queryKey: ['workboard-users'],
+    queryFn: () => api.get<ApiResponse<Array<{ id: string; name: string; email: string }>>>('/workboards/users'),
   });
 
   const createMutation = useMutation({

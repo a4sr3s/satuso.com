@@ -47,11 +47,25 @@ export default function ForecastChart({ data }: ForecastChartProps) {
               <XAxis dataKey="monthLabel" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={formatDollar} tick={{ fontSize: 12 }} width={55} />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  const owner = chart.owners.find(o => `owner_${o.id}` === name);
-                  return [formatDollar(value), owner?.name || name];
+                cursor={false}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div className="bg-white border border-border-light rounded-lg shadow-lg px-3 py-2">
+                      <p className="text-xs font-medium text-text-secondary mb-1">{label}</p>
+                      {payload.map((entry: any) => {
+                        const owner = chart.owners.find(o => `owner_${o.id}` === entry.dataKey);
+                        return (
+                          <div key={entry.dataKey} className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: entry.fill }} />
+                            <span className="text-xs text-text-primary">{owner?.name}</span>
+                            <span className="text-xs font-semibold text-text-primary ml-auto pl-3">{formatDollar(entry.value)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 }}
-                labelFormatter={(label: string) => `Month: ${label}`}
               />
               <Legend
                 formatter={(value: string) => {

@@ -61,10 +61,9 @@ export default function WorkboardsPage() {
     queryFn: () => workboardsApi.list(),
   });
 
-  const { data: membersData } = useQuery({
+  const { data: membersData, isLoading: membersLoading } = useQuery({
     queryKey: ['organization-members'],
     queryFn: () => organizationsApi.getMembers(),
-    enabled: !!repPickerTemplate,
   });
 
   const createMutation = useMutation({
@@ -310,8 +309,9 @@ export default function WorkboardsPage() {
               value={selectedRepName}
               onChange={(e) => setSelectedRepName(e.target.value)}
               className="input"
+              disabled={membersLoading}
             >
-              <option value="">Choose a rep...</option>
+              <option value="">{membersLoading ? 'Loading...' : 'Choose a rep...'}</option>
               {members.map((member) => (
                 <option key={member.id} value={member.name}>
                   {member.name}

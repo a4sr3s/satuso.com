@@ -452,4 +452,368 @@ ai.get('/rate-limit-status', async (c) => {
   return c.json({ success: true, data: status });
 });
 
+// ==========================================
+// Entity Creation via Conversation
+// ==========================================
+
+import { createContactRecord, createCompanyRecord, createDealRecord } from '../_services/entity-service';
+
+interface EntitySession {
+  entityType: 'contact' | 'company' | 'deal' | null;
+  fields: Record<string, any>;
+  resolvedRefs: {
+    companyId?: string;
+    companyName?: string;
+    contactId?: string;
+    contactName?: string;
+  };
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+  readyToConfirm: boolean;
+}
+
+const ENTITY_CREATE_SYSTEM_PROMPT = `You are a CRM assistant that helps users create contacts, companies, and deals through conversation.
+
+Your job is to:
+1. Determine which entity type the user wants to create (contact, company, or deal)
+2. Extract any fields they've already provided
+3. Ask follow-up questions for missing required/important fields
+4. When you have enough info, indicate readiness to confirm
+
+ENTITY FIELDS:
+- Contact: name (required), email, phone, title, companyRef (company name to look up)
+- Company: name (required), domain, industry, employee_count, website, description
+- Deal: name (required), value (number), stage (lead/qualified/discovery/proposal/negotiation), close_date, companyRef, contactRef
+
+RULES:
+- For contacts: always ask for email if not provided
+- For deals: always ask for value if not provided
+- Parse monetary values: "50k" = 50000, "$1M" = 1000000
+- If user mentions a company or contact name for a reference, include it in companyRef/contactRef
+- Set readyToConfirm=true when you have the required fields plus at least one optional field filled
+
+Return ONLY valid JSON in this format:
+{
+  "entityType": "contact" | "company" | "deal" | null,
+  "newFields": { extracted field values from the LATEST message only },
+  "companyRef": "company name to look up" or null,
+  "contactRef": "contact name to look up" or null,
+  "followUpQuestion": "question to ask next" or null,
+  "readyToConfirm": boolean
+}
+
+IMPORTANT: Only include fields explicitly mentioned. Do not invent values.`;
+
+async function resolveCompanyRef(db: D1Database, name: string, orgId?: string): Promise<Array<{ id: string; name: string }>> {
+  const query = orgId
+    ? `SELECT id, name FROM companies WHERE name LIKE ? AND org_id = ? LIMIT 5`
+    : `SELECT id, name FROM companies WHERE name LIKE ? LIMIT 5`;
+  const params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
+  const results = await db.prepare(query).bind(...params).all();
+  return results.results as Array<{ id: string; name: string }>;
+}
+
+async function resolveContactRef(db: D1Database, name: string, orgId?: string): Promise<Array<{ id: string; name: string }>> {
+  const query = orgId
+    ? `SELECT id, name FROM contacts WHERE name LIKE ? AND org_id = ? LIMIT 5`
+    : `SELECT id, name FROM contacts WHERE name LIKE ? LIMIT 5`;
+  const params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
+  const results = await db.prepare(query).bind(...params).all();
+  return results.results as Array<{ id: string; name: string }>;
+}
+
+// Conversational entity creation endpoint
+ai.post('/entity-create', async (c) => {
+  const { message, sessionId } = await c.req.json();
+  const userId = c.get('userId');
+  const user = c.get('user');
+  const orgId = user.organization_id;
+
+  if (!message) {
+    return c.json({ success: false, error: 'Message is required' }, 400);
+  }
+
+  if (message.length > 2000) {
+    return c.json({ success: false, error: 'Message too long' }, 400);
+  }
+
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
+
+  const kvKey = `entity-session:${orgId || 'none'}:${userId}:${sessionId || 'new'}`;
+
+  try {
+    // Load or create session
+    let session: EntitySession;
+    if (sessionId) {
+      const stored = await c.env.KV.get(kvKey, 'json');
+      if (!stored) {
+        return c.json({
+          success: true,
+          data: {
+            type: 'error' as const,
+            message: 'Session expired. Please start over.',
+            sessionId: null,
+          },
+        });
+      }
+      session = stored as EntitySession;
+    } else {
+      session = {
+        entityType: null,
+        fields: {},
+        resolvedRefs: {},
+        conversationHistory: [],
+        readyToConfirm: false,
+      };
+    }
+
+    // Handle special commands
+    if (message === '__CONFIRM__') {
+      if (!session.readyToConfirm || !session.entityType) {
+        return c.json({
+          success: true,
+          data: { type: 'error' as const, message: 'Nothing to confirm.', sessionId },
+        });
+      }
+
+      // Create the entity
+      let created: any;
+      try {
+        if (session.entityType === 'contact') {
+          const data: any = { name: session.fields.name };
+          if (session.fields.email) data.email = session.fields.email;
+          if (session.fields.phone) data.phone = session.fields.phone;
+          if (session.fields.title) data.title = session.fields.title;
+          if (session.resolvedRefs.companyId) data.companyId = session.resolvedRefs.companyId;
+          created = await createContactRecord(c.env.DB, data, userId, orgId);
+        } else if (session.entityType === 'company') {
+          const data: any = { name: session.fields.name };
+          if (session.fields.domain) data.domain = session.fields.domain;
+          if (session.fields.industry) data.industry = session.fields.industry;
+          if (session.fields.employee_count) data.employee_count = session.fields.employee_count;
+          if (session.fields.website) data.website = session.fields.website;
+          if (session.fields.description) data.description = session.fields.description;
+          created = await createCompanyRecord(c.env.DB, data, userId, orgId);
+        } else if (session.entityType === 'deal') {
+          const data: any = { name: session.fields.name };
+          if (session.fields.value) data.value = session.fields.value;
+          if (session.fields.stage) data.stage = session.fields.stage;
+          if (session.fields.close_date) data.close_date = session.fields.close_date;
+          if (session.resolvedRefs.companyId) data.company_id = session.resolvedRefs.companyId;
+          if (session.resolvedRefs.contactId) data.contact_id = session.resolvedRefs.contactId;
+          created = await createDealRecord(c.env.DB, data, userId, orgId);
+        }
+      } catch (validationError: any) {
+        return c.json({
+          success: true,
+          data: {
+            type: 'error' as const,
+            message: `Validation failed: ${validationError.message || 'Invalid data'}`,
+            sessionId,
+          },
+        });
+      }
+
+      // Clean up session
+      await c.env.KV.delete(kvKey);
+
+      return c.json({
+        success: true,
+        data: {
+          type: 'created' as const,
+          entityType: session.entityType,
+          entity: created,
+          sessionId: null,
+        },
+      });
+    }
+
+    if (message === '__CANCEL__') {
+      if (sessionId) {
+        await c.env.KV.delete(kvKey);
+      }
+      return c.json({
+        success: true,
+        data: {
+          type: 'cancelled' as const,
+          message: 'Creation cancelled.',
+          sessionId: null,
+        },
+      });
+    }
+
+    // Add user message to conversation history
+    session.conversationHistory.push({ role: 'user', content: message });
+
+    // Build messages for LLM
+    const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: ENTITY_CREATE_SYSTEM_PROMPT },
+    ];
+
+    // Include conversation history for context
+    if (session.conversationHistory.length > 1) {
+      const historyContext = session.conversationHistory
+        .map(m => `${m.role}: ${m.content}`)
+        .join('\n');
+      llmMessages.push({
+        role: 'user',
+        content: `Previous conversation:\n${historyContext}\n\nCurrent accumulated fields: ${JSON.stringify(session.fields)}\nEntity type so far: ${session.entityType || 'undetermined'}\n\nBased on the full conversation above, extract any NEW fields from the latest user message and determine next steps.`,
+      });
+    } else {
+      llmMessages.push({ role: 'user', content: message });
+    }
+
+    // Call LLM
+    const response = await groqChat(c.env.GROQ_API_KEY, llmMessages, {
+      maxTokens: 256,
+      temperature: 0.3,
+    });
+
+    // Parse LLM response
+    let llmResult: {
+      entityType: 'contact' | 'company' | 'deal' | null;
+      newFields: Record<string, any>;
+      companyRef: string | null;
+      contactRef: string | null;
+      followUpQuestion: string | null;
+      readyToConfirm: boolean;
+    };
+
+    try {
+      const jsonMatch = (response.content || '').match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON found');
+      llmResult = JSON.parse(jsonMatch[0]);
+    } catch {
+      // Fallback: ask user to rephrase
+      const { nanoid } = await import('nanoid');
+      const newSessionId = sessionId || nanoid();
+      const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+      return c.json({
+        success: true,
+        data: {
+          type: 'question' as const,
+          message: "I had trouble understanding that. Could you rephrase? For example: \"Create a contact named John Smith with email john@example.com\"",
+          sessionId: newSessionId,
+        },
+      });
+    }
+
+    // Update session with new data
+    if (llmResult.entityType) {
+      session.entityType = llmResult.entityType;
+    }
+    if (llmResult.newFields) {
+      session.fields = { ...session.fields, ...llmResult.newFields };
+    }
+
+    // Resolve company reference
+    if (llmResult.companyRef && !session.resolvedRefs.companyId) {
+      const matches = await resolveCompanyRef(c.env.DB, llmResult.companyRef, orgId);
+      if (matches.length === 1) {
+        session.resolvedRefs.companyId = matches[0].id;
+        session.resolvedRefs.companyName = matches[0].name;
+      } else if (matches.length > 1) {
+        const { nanoid } = await import('nanoid');
+        const options = matches.map(m => m.name).join(', ');
+        const newSessionId = sessionId || nanoid();
+        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+        return c.json({
+          success: true,
+          data: {
+            type: 'question' as const,
+            message: `I found multiple companies matching "${llmResult.companyRef}": ${options}. Which one did you mean?`,
+            sessionId: newSessionId,
+          },
+        });
+      }
+    }
+
+    // Resolve contact reference
+    if (llmResult.contactRef && !session.resolvedRefs.contactId) {
+      const matches = await resolveContactRef(c.env.DB, llmResult.contactRef, orgId);
+      if (matches.length === 1) {
+        session.resolvedRefs.contactId = matches[0].id;
+        session.resolvedRefs.contactName = matches[0].name;
+      } else if (matches.length > 1) {
+        const { nanoid } = await import('nanoid');
+        const options = matches.map(m => m.name).join(', ');
+        const newSessionId = sessionId || nanoid();
+        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+        return c.json({
+          success: true,
+          data: {
+            type: 'question' as const,
+            message: `I found multiple contacts matching "${llmResult.contactRef}": ${options}. Which one did you mean?`,
+            sessionId: newSessionId,
+          },
+        });
+      }
+    }
+
+    session.readyToConfirm = llmResult.readyToConfirm;
+
+    // Save session
+    const { nanoid } = await import('nanoid');
+    const newSessionId = sessionId || nanoid();
+    const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+    await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+    // Return appropriate response
+    if (session.readyToConfirm && session.entityType) {
+      const confirmMsg = `I have all the details. Ready to create this ${session.entityType}.`;
+      session.conversationHistory.push({ role: 'assistant', content: confirmMsg });
+      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+      return c.json({
+        success: true,
+        data: {
+          type: 'confirm' as const,
+          entityType: session.entityType,
+          fields: session.fields,
+          resolvedRefs: session.resolvedRefs,
+          message: confirmMsg,
+          sessionId: newSessionId,
+        },
+      });
+    }
+
+    // Ask follow-up question
+    const followUp = llmResult.followUpQuestion || `What else would you like to add to this ${session.entityType || 'record'}?`;
+    session.conversationHistory.push({ role: 'assistant', content: followUp });
+    await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+    return c.json({
+      success: true,
+      data: {
+        type: 'question' as const,
+        message: followUp,
+        sessionId: newSessionId,
+      },
+    });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to process request';
+    console.error('AI entity creation error:', error);
+
+    if (errorMsg.includes('Rate limit')) {
+      return c.json({
+        success: true,
+        data: {
+          type: 'error' as const,
+          message: "I'm at my request limit. Please wait a moment and try again.",
+          sessionId: sessionId || null,
+        },
+      });
+    }
+
+    return c.json({ success: false, error: errorMsg }, 500);
+  }
+});
+
 export default ai;

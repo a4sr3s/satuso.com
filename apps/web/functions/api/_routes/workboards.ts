@@ -21,13 +21,17 @@ workboards.use('*', clerkAuthMiddleware);
 
 // List deal owners (for rep picker)
 workboards.get('/reps', async (c) => {
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
+
   const results = await c.env.DB.prepare(`
     SELECT DISTINCT u.id, u.name
     FROM deals d
     JOIN users u ON d.owner_id = u.id
     WHERE d.owner_id IS NOT NULL
+      AND u.organization_id = ?
     ORDER BY u.name ASC
-  `).all();
+  `).bind(orgParam).all();
 
   return c.json({ success: true, data: results.results });
 });
@@ -36,6 +40,8 @@ workboards.get('/reps', async (c) => {
 workboards.get('/', async (c) => {
   const { entity_type } = c.req.query();
   const userId = c.get('userId');
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
 
   let query = `
     SELECT
@@ -43,9 +49,10 @@ workboards.get('/', async (c) => {
       u.name as owner_name
     FROM workboards w
     LEFT JOIN users u ON w.owner_id = u.id
-    WHERE (w.owner_id = ? OR w.is_default = 1 OR w.is_shared = 1)
+    WHERE w.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
+      AND (w.owner_id = ? OR w.is_default = 1 OR w.is_shared = 1)
   `;
-  const params: any[] = [userId];
+  const params: any[] = [orgParam, userId];
 
   if (entity_type) {
     query += ` AND w.entity_type = ?`;
@@ -74,14 +81,19 @@ workboards.get('/:id', async (c) => {
   const { id } = c.req.param();
   const userId = c.get('userId');
 
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
+
   const workboard = await c.env.DB.prepare(`
     SELECT
       w.*,
       u.name as owner_name
     FROM workboards w
     LEFT JOIN users u ON w.owner_id = u.id
-    WHERE w.id = ? AND (w.owner_id = ? OR w.is_default = 1 OR w.is_shared = 1)
-  `).bind(id, userId).first();
+    WHERE w.id = ?
+      AND w.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
+      AND (w.owner_id = ? OR w.is_default = 1 OR w.is_shared = 1)
+  `).bind(id, orgParam, userId).first();
 
   if (!workboard) {
     return c.json({ success: false, error: 'Workboard not found' }, 404);

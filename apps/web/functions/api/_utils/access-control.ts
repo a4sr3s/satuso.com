@@ -10,6 +10,7 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  organization_id?: string;
 }
 
 /**
@@ -24,11 +25,6 @@ export async function canAccessResource(
   resourceType: 'contact' | 'company' | 'deal' | 'task' | 'activity',
   resourceId: string
 ): Promise<boolean> {
-  // Admins have full access
-  if (user.role === 'admin') {
-    return true;
-  }
-
   const tableMap: Record<string, string> = {
     contact: 'contacts',
     company: 'companies',
@@ -39,7 +35,7 @@ export async function canAccessResource(
 
   const table = tableMap[resourceType];
 
-  // Check ownership
+  // Check ownership and org membership
   const resource = await db
     .prepare(`SELECT owner_id FROM ${table} WHERE id = ?`)
     .bind(resourceId)
@@ -47,6 +43,23 @@ export async function canAccessResource(
 
   if (!resource) {
     return false; // Resource doesn't exist
+  }
+
+  // Verify the resource belongs to the same organization
+  if (user.organization_id) {
+    const ownerOrg = await db
+      .prepare('SELECT organization_id FROM users WHERE id = ?')
+      .bind(resource.owner_id)
+      .first<{ organization_id: string | null }>();
+
+    if (ownerOrg?.organization_id !== user.organization_id) {
+      return false; // Cross-org access denied
+    }
+  }
+
+  // Admins have full access within their org
+  if (user.role === 'admin') {
+    return true;
   }
 
   if (resource.owner_id === user.id) {
@@ -83,14 +96,21 @@ export async function canAccessResource(
 /**
  * Get a WHERE clause filter for listing resources
  * Returns SQL fragment and params array
+ * All queries are scoped to the user's organization
  */
 export function getAccessFilter(
   user: User,
   ownerIdColumn: string = 'owner_id'
 ): { sql: string; params: string[] } {
-  // Admins see everything
+  // Always scope to organization first
+  const orgFilter = user.organization_id
+    ? ` AND ${ownerIdColumn} IN (SELECT id FROM users WHERE organization_id = ?)`
+    : ` AND ${ownerIdColumn} = ?`;
+  const orgParam = user.organization_id || user.id;
+
+  // Admins see everything within their org
   if (user.role === 'admin') {
-    return { sql: '', params: [] };
+    return { sql: orgFilter, params: [orgParam] };
   }
 
   // Others see only their own resources
@@ -102,17 +122,24 @@ export function getAccessFilter(
 
 /**
  * Get access filter for deals that includes deal_team membership
+ * All queries are scoped to the user's organization
  */
 export function getDealAccessFilter(user: User): { sql: string; params: string[] } {
-  // Admins see everything
+  // Always scope to organization
+  const orgFilter = user.organization_id
+    ? ` AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)`
+    : ` AND d.owner_id = ?`;
+  const orgParam = user.organization_id || user.id;
+
+  // Admins see everything within their org
   if (user.role === 'admin') {
-    return { sql: '', params: [] };
+    return { sql: orgFilter, params: [orgParam] };
   }
 
-  // Users see deals they own OR are team members of
+  // Users see deals they own OR are team members of (still org-scoped)
   return {
-    sql: ` AND (d.owner_id = ? OR d.id IN (SELECT deal_id FROM deal_team WHERE user_id = ?))`,
-    params: [user.id, user.id],
+    sql: `${orgFilter} AND (d.owner_id = ? OR d.id IN (SELECT deal_id FROM deal_team WHERE user_id = ?))`,
+    params: [orgParam, user.id, user.id],
   };
 }
 

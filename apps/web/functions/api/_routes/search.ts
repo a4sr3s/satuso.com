@@ -9,30 +9,34 @@ search.use('*', clerkAuthMiddleware);
 // Global search
 search.get('/', async (c) => {
   const { q, limit = '10' } = c.req.query();
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
 
   if (!q || q.length < 2) {
     return c.json({ success: true, data: [] });
   }
 
-  const searchTerm = `%${q}%`;
+  const searchTerm = `%${q.slice(0, 100)}%`; // Cap search term length
   const limitNum = Math.min(parseInt(limit), 50);
   const perTypeLimit = Math.ceil(limitNum / 4);
+
+  const orgFilter = `AND owner_id IN (SELECT id FROM users WHERE organization_id = ?)`;
 
   // Search contacts
   const contacts = await c.env.DB.prepare(`
     SELECT id, name, email as subtitle, 'contact' as type
     FROM contacts
-    WHERE name LIKE ? OR email LIKE ?
+    WHERE (name LIKE ? OR email LIKE ?) ${orgFilter}
     LIMIT ?
-  `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  `).bind(searchTerm, searchTerm, orgParam, perTypeLimit).all();
 
   // Search companies
   const companies = await c.env.DB.prepare(`
     SELECT id, name, domain as subtitle, 'company' as type
     FROM companies
-    WHERE name LIKE ? OR domain LIKE ?
+    WHERE (name LIKE ? OR domain LIKE ?) ${orgFilter}
     LIMIT ?
-  `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  `).bind(searchTerm, searchTerm, orgParam, perTypeLimit).all();
 
   // Search deals
   const deals = await c.env.DB.prepare(`
@@ -40,16 +44,17 @@ search.get('/', async (c) => {
     FROM deals d
     LEFT JOIN companies co ON d.company_id = co.id
     WHERE d.name LIKE ?
+      AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     LIMIT ?
-  `).bind(searchTerm, perTypeLimit).all();
+  `).bind(searchTerm, orgParam, perTypeLimit).all();
 
   // Search activities
   const activities = await c.env.DB.prepare(`
     SELECT id, subject as name, type as subtitle, 'activity' as type
     FROM activities
-    WHERE subject LIKE ? OR content LIKE ?
+    WHERE (subject LIKE ? OR content LIKE ?) ${orgFilter}
     LIMIT ?
-  `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  `).bind(searchTerm, searchTerm, orgParam, perTypeLimit).all();
 
   // Combine and format results
   const results = [
@@ -98,14 +103,21 @@ search.get('/recent', async (c) => {
     return c.json({ success: true, data: JSON.parse(cached) });
   }
 
-  // Fallback: get recently created items
+  // Fallback: get recently created items within org
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
+
   const recentContacts = await c.env.DB.prepare(`
-    SELECT id, name, 'contact' as type FROM contacts ORDER BY updated_at DESC LIMIT 3
-  `).all();
+    SELECT id, name, 'contact' as type FROM contacts
+    WHERE owner_id IN (SELECT id FROM users WHERE organization_id = ?)
+    ORDER BY updated_at DESC LIMIT 3
+  `).bind(orgParam).all();
 
   const recentDeals = await c.env.DB.prepare(`
-    SELECT id, name, 'deal' as type FROM deals ORDER BY updated_at DESC LIMIT 3
-  `).all();
+    SELECT id, name, 'deal' as type FROM deals
+    WHERE owner_id IN (SELECT id FROM users WHERE organization_id = ?)
+    ORDER BY updated_at DESC LIMIT 3
+  `).bind(orgParam).all();
 
   const results = [
     ...recentContacts.results.map((r: any) => ({

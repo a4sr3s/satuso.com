@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { handle } from 'hono/cloudflare-pages';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
-import { cors } from 'hono/cors';
+import { createCorsMiddleware } from './_middleware/cors';
 
 // Import route modules - these will be copied during build
 import auth from './_routes/auth';
@@ -42,14 +42,10 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>().basePath('/api')
 // Middleware
 app.use('*', logger());
 app.use('*', prettyJSON());
-app.use('*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length'],
-  maxAge: 86400,
-  credentials: true,
-}));
+app.use('*', async (c, next) => {
+  const corsHandler = createCorsMiddleware(c.env);
+  return corsHandler(c, next);
+});
 
 // Health check
 app.get('/health', (c) => {

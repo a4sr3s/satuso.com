@@ -16,7 +16,9 @@ ai.use('/stt', strictRateLimiter);
 ai.use('/tts', aiAudioRateLimiter);
 
 // Helper to fetch compact CRM context for AI (optimized for token limits)
-async function getCRMContext(db: D1Database): Promise<string> {
+async function getCRMContext(db: D1Database, orgId: string): Promise<string> {
+  const orgFilter = `AND owner_id IN (SELECT id FROM users WHERE organization_id = ?)`;
+
   // Fetch deals with key info only
   const deals = await db.prepare(`
     SELECT
@@ -26,35 +28,39 @@ async function getCRMContext(db: D1Database): Promise<string> {
     FROM deals d
     LEFT JOIN contacts c ON d.contact_id = c.id
     LEFT JOIN companies co ON d.company_id = co.id
+    WHERE d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     ORDER BY d.value DESC
     LIMIT 20
-  `).all();
+  `).bind(orgId).all();
 
   // Fetch contacts summary
   const contacts = await db.prepare(`
     SELECT c.id, c.name, c.email, c.title, co.name as company_name
     FROM contacts c
     LEFT JOIN companies co ON c.company_id = co.id
+    WHERE c.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     ORDER BY c.created_at DESC
     LIMIT 15
-  `).all();
+  `).bind(orgId).all();
 
   // Fetch companies summary
   const companies = await db.prepare(`
     SELECT co.id, co.name, co.industry,
       (SELECT COUNT(*) FROM deals WHERE company_id = co.id) as deal_count
     FROM companies co
+    WHERE co.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     ORDER BY co.name
     LIMIT 15
-  `).all();
+  `).bind(orgId).all();
 
   // Fetch pipeline metrics
   const pipelineMetrics = await db.prepare(`
     SELECT stage, COUNT(*) as count, SUM(value) as total_value
     FROM deals
     WHERE stage NOT IN ('closed_won', 'closed_lost')
+      ${orgFilter}
     GROUP BY stage
-  `).all();
+  `).bind(orgId).all();
 
   // Build compact context
   let context = `## CRM DATA
@@ -394,7 +400,8 @@ ai.post('/chat', async (c) => {
   }
 
   try {
-    const crmContext = await getCRMContext(c.env.DB);
+    const user = c.get('user');
+    const crmContext = await getCRMContext(c.env.DB, user.organization_id || user.id);
 
     const systemMessage = {
       role: 'system' as const,

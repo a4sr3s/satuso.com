@@ -13,6 +13,8 @@ activities.use('*', clerkAuthMiddleware);
 activities.get('/', async (c) => {
   const { page = '1', limit = '20', type, dealId, contactId, companyId, ownerId } = c.req.query();
   const offset = (parseInt(page) - 1) * parseInt(limit);
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
 
   let query = `
     SELECT
@@ -26,9 +28,9 @@ activities.get('/', async (c) => {
     LEFT JOIN contacts c ON a.contact_id = c.id
     LEFT JOIN companies co ON a.company_id = co.id
     LEFT JOIN users u ON a.owner_id = u.id
-    WHERE 1=1
+    WHERE a.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
   `;
-  const params: any[] = [];
+  const params: any[] = [orgParam];
 
   if (type) {
     query += ` AND a.type = ?`;
@@ -81,7 +83,8 @@ activities.get('/', async (c) => {
 // Get recent activity feed
 activities.get('/feed', async (c) => {
   const { limit = '20' } = c.req.query();
-  const userId = c.get('userId');
+  const user = c.get('user');
+  const orgParam = user.organization_id || user.id;
 
   const results = await c.env.DB.prepare(`
     SELECT
@@ -95,9 +98,10 @@ activities.get('/feed', async (c) => {
     LEFT JOIN contacts c ON a.contact_id = c.id
     LEFT JOIN companies co ON a.company_id = co.id
     LEFT JOIN users u ON a.owner_id = u.id
+    WHERE a.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     ORDER BY a.created_at DESC
     LIMIT ?
-  `).bind(parseInt(limit)).all();
+  `).bind(orgParam, parseInt(limit)).all();
 
   return c.json({ success: true, data: results.results });
 });

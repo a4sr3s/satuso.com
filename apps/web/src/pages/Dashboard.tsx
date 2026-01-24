@@ -144,26 +144,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Forecast Section */}
-      {forecastData && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MetricCard
-              title="Closing Next Month"
-              value={forecastData.summary.nextMonth.weightedValue}
-              format="currency"
-            />
-            <MetricCard
-              title="Closing Next Quarter"
-              value={forecastData.summary.nextQuarter.weightedValue}
-              format="currency"
-            />
-          </div>
-          {forecastData.chart.data.length > 0 && (
-            <ForecastChart data={forecastData.chart} />
-          )}
-        </>
-      )}
+      {/* Forecast */}
+      {forecastData && <ForecastChart data={forecastData} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Activity Feed */}

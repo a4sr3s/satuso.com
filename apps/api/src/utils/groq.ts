@@ -149,3 +149,141 @@ export function getRateLimitStatus(): {
     limits: RATE_LIMITS,
   };
 }
+
+// ==========================================
+// Audio: Speech-to-Text (Whisper)
+// ==========================================
+
+export interface STTResponse {
+  text: string;
+}
+
+export async function groqSTT(
+  apiKey: string,
+  audioBlob: Blob | ArrayBuffer,
+  mimeType: string = 'audio/webm'
+): Promise<STTResponse> {
+  const formData = new FormData();
+  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const file = new File(
+    [audioBlob instanceof ArrayBuffer ? new Uint8Array(audioBlob) : audioBlob],
+    `audio.${ext}`,
+    { type: mimeType }
+  );
+  formData.append('file', file);
+  formData.append('model', 'whisper-large-v3');
+  formData.append('response_format', 'json');
+
+  const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`STT request failed (${response.status}): ${errorText}`);
+  }
+
+  return response.json() as Promise<STTResponse>;
+}
+
+// ==========================================
+// Audio: Text-to-Speech (Orpheus)
+// ==========================================
+
+export async function groqTTS(
+  apiKey: string,
+  text: string,
+  voice: string = 'tara'
+): Promise<ArrayBuffer> {
+  const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'playai-tts',
+      input: text,
+      voice: `Arista-PlayAI`,
+      response_format: 'wav',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`TTS request failed (${response.status}): ${errorText}`);
+  }
+
+  return response.arrayBuffer();
+}
+
+// ==========================================
+// Text Chunking for TTS
+// ==========================================
+
+export function chunkTextForTTS(text: string, maxLen: number = 200): string[] {
+  // Strip markdown formatting
+  let clean = text
+    .replace(/#{1,6}\s+/g, '') // headers
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // bold
+    .replace(/\*([^*]+)\*/g, '$1') // italic
+    .replace(/`([^`]+)`/g, '$1') // inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+    .replace(/^[-*•]\s+/gm, '') // bullets
+    .replace(/^\d+\.\s+/gm, '') // numbered lists
+    .trim();
+
+  if (clean.length <= maxLen) {
+    return clean ? [clean] : [];
+  }
+
+  const chunks: string[] = [];
+  let remaining = clean;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining.trim());
+      break;
+    }
+
+    let splitAt = -1;
+    // Try sentence boundaries first
+    const sentenceEnders = ['. ', '! ', '? '];
+    for (const ender of sentenceEnders) {
+      const idx = remaining.lastIndexOf(ender, maxLen);
+      if (idx > 0 && idx > splitAt) {
+        splitAt = idx + ender.length - 1; // include the punctuation
+      }
+    }
+
+    // Try comma boundaries
+    if (splitAt === -1) {
+      const commaIdx = remaining.lastIndexOf(', ', maxLen);
+      if (commaIdx > 0) {
+        splitAt = commaIdx + 1;
+      }
+    }
+
+    // Fall back to word boundaries
+    if (splitAt === -1) {
+      const spaceIdx = remaining.lastIndexOf(' ', maxLen);
+      if (spaceIdx > 0) {
+        splitAt = spaceIdx;
+      } else {
+        splitAt = maxLen; // hard cut if no spaces
+      }
+    }
+
+    const chunk = remaining.slice(0, splitAt + 1).trim();
+    if (chunk) {
+      chunks.push(chunk);
+    }
+    remaining = remaining.slice(splitAt + 1).trim();
+  }
+
+  return chunks.filter(c => c.length > 0);
+}

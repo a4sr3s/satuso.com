@@ -18,6 +18,7 @@ import TasksPage from '@/pages/Tasks';
 import SettingsPage from '@/pages/Settings';
 import WorkboardsPage from '@/pages/Workboards';
 import WorkboardViewPage from '@/pages/WorkboardView';
+import AIAssistantPage from '@/pages/AIAssistant';
 
 // Full page loader for auth state
 function FullPageLoader() {
@@ -83,7 +84,7 @@ function App() {
           <Route path="deals" element={<DealsPage />} />
           <Route path="deals/:id" element={<DealDetailPage />} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="ai" element={<Navigate to="/" replace />} />
+          <Route path="ai" element={<AIAssistantPage />} />
           <Route path="workboards" element={<WorkboardsPage />} />
           <Route path="workboards/:id" element={<WorkboardViewPage />} />
           <Route path="settings/*" element={<SettingsPage />} />

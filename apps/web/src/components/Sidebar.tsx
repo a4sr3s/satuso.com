@@ -11,6 +11,7 @@ import {
   Search,
   ChevronRight,
   Table2,
+  Sparkles,
 } from 'lucide-react';
 
 function NavItem({ item, compact = false }: { item: { name: string; href: string; icon: React.ElementType }; compact?: boolean }) {
@@ -68,6 +69,7 @@ export default function Sidebar() {
 
   const productivityNav = [
     { name: t('common:nav.tasks'), href: '/tasks', icon: CheckSquare },
+    { name: 'AI Chat', href: '/ai', icon: Sparkles },
   ];
 
   return (

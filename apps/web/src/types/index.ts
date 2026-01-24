@@ -226,6 +226,11 @@ export interface AIQueryResult {
   };
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export type EntityCreateResponseType = 'question' | 'confirm' | 'created' | 'cancelled' | 'error' | 'delete_confirm' | 'deleted';
 
 export interface EntityCreateResponse {

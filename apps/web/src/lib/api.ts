@@ -11,6 +11,7 @@ import type {
   TaskCounts,
   AIInsight,
   AIQueryResult,
+  ChatMessage,
   SpinData,
   SpinSuggestions,
   SearchResult,
@@ -244,6 +245,18 @@ export const dashboardApi = {
     api.get<ApiResponse<Deal[]>>('/dashboard/at-risk'),
 };
 
+// Helper to get auth headers for custom fetch calls
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  if (getAuthToken) {
+    const token = await getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 // AI API
 export const aiApi = {
   extractSpin: (text: string, dealId?: string) =>
@@ -254,6 +267,45 @@ export const aiApi = {
 
   query: (query: string) =>
     api.post<ApiResponse<AIQueryResult>>('/ai/query', { query }),
+
+  chat: (messages: ChatMessage[]) =>
+    api.post<ApiResponse<AIQueryResult>>('/ai/chat', { messages }),
+
+  stt: async (audioBlob: Blob): Promise<{ text: string }> => {
+    const authHeaders = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('audio', audioBlob);
+
+    const response = await fetch(`${API_BASE}/ai/stt`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'STT request failed');
+    }
+    return data.data;
+  },
+
+  tts: async (text: string, voice?: string): Promise<ArrayBuffer> => {
+    const authHeaders = await getAuthHeaders();
+    const response = await fetch(`${API_BASE}/ai/tts`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text, voice }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'TTS request failed');
+    }
+    return response.arrayBuffer();
+  },
 
   insights: () =>
     api.get<ApiResponse<AIInsight[]>>('/ai/insights'),

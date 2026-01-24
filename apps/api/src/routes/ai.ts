@@ -3,16 +3,24 @@ import { nanoid } from 'nanoid';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { Env, Variables } from '../types';
 import { clerkAuthMiddleware } from '../middleware/clerk-auth';
-import { groqChat, getRateLimitStatus } from '../utils/groq';
-import { strictRateLimiter } from '../middleware/rate-limit';
+import { groqChat, groqSTT, groqTTS, getRateLimitStatus } from '../utils/groq';
+import { strictRateLimiter, aiAudioRateLimiter } from '../middleware/rate-limit';
 import { logger } from '../utils/logger';
 import { createContactRecord, createCompanyRecord, createDealRecord } from '../services/entity-service';
 
 const ai = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 ai.use('*', clerkAuthMiddleware);
-// Apply strict rate limiting to AI routes (expensive API calls)
-ai.use('*', strictRateLimiter);
+// Apply strict rate limiting to most AI routes (expensive API calls)
+// TTS uses a separate, higher-limit rate limiter
+ai.use('/extract-spin', strictRateLimiter);
+ai.use('/spin-suggestions', strictRateLimiter);
+ai.use('/query', strictRateLimiter);
+ai.use('/insights', strictRateLimiter);
+ai.use('/entity-create', strictRateLimiter);
+ai.use('/chat', strictRateLimiter);
+ai.use('/stt', strictRateLimiter);
+ai.use('/tts', aiAudioRateLimiter);
 
 // Helper to fetch compact CRM context for AI (optimized for token limits)
 // Filters by org_id when provided to ensure data isolation
@@ -531,6 +539,162 @@ Be specific about which SPIN element is missing and why it matters.`,
 ai.get('/rate-limit-status', async (c) => {
   const status = getRateLimitStatus();
   return c.json({ success: true, data: status });
+});
+
+// ==========================================
+// Multi-turn Chat
+// ==========================================
+
+ai.post('/chat', async (c) => {
+  const { messages } = await c.req.json();
+  const orgId = c.get('orgId');
+
+  if (!messages || !Array.isArray(messages)) {
+    return c.json({ success: false, error: 'Messages array is required' }, 400);
+  }
+
+  if (messages.length > 20) {
+    return c.json({ success: false, error: 'Maximum 20 messages allowed' }, 400);
+  }
+
+  for (const msg of messages) {
+    if (!msg.role || !msg.content) {
+      return c.json({ success: false, error: 'Each message must have role and content' }, 400);
+    }
+    if (msg.content.length > 2000) {
+      return c.json({ success: false, error: 'Each message must be 2000 characters or less' }, 400);
+    }
+  }
+
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
+
+  try {
+    const crmContext = await getCRMContext(c.env.DB, orgId);
+
+    const systemMessage = {
+      role: 'system' as const,
+      content: `You are an elite sales coach and VP of Sales with 20+ years closing enterprise deals. You're direct, strategic, and focused on WINNING. You help reps prioritize ruthlessly, identify risks early, and close deals faster.
+
+## YOUR CRM DATA
+${crmContext}
+
+## YOUR COACHING STYLE
+- Be DIRECT and ACTION-ORIENTED - tell them exactly what to do
+- Prioritize by REVENUE IMPACT - always focus on biggest opportunities first
+- Call out RISKS and BLOCKERS proactively
+- Use SPIN methodology (Situation, Problem, Implication, Need-Payoff)
+- Give specific NEXT STEPS with names and actions
+- Challenge weak pipeline and missing discovery data
+
+## RESPONSE FORMAT (CRITICAL)
+1. Use markdown with **bold** for names, numbers, priorities
+2. Each item on its OWN LINE with bullet points
+3. Use ## headers to organize
+4. End with clear NEXT ACTIONS
+5. Keep it concise - busy reps need quick answers
+
+Always give your honest assessment. If a deal looks weak, say so. Your job is to help them WIN.`,
+    };
+
+    const llmMessages = [systemMessage, ...messages.map((m: { role: string; content: string }) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))];
+
+    const response = await groqChat(c.env.GROQ_API_KEY, llmMessages, { maxTokens: 1024 });
+
+    return c.json({
+      success: true,
+      data: {
+        response: response.content,
+        usage: response.usage,
+      },
+    });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to process chat';
+    logger.error('AI chat failed', error, { action: 'ai_error', endpoint: 'chat' });
+
+    if (errorMsg.includes('Rate limit')) {
+      return c.json({
+        success: true,
+        data: {
+          response: "I'm currently at my request limit. Please wait about a minute and try again.",
+        },
+      });
+    }
+
+    return c.json({ success: false, error: errorMsg }, 500);
+  }
+});
+
+// ==========================================
+// Speech-to-Text
+// ==========================================
+
+ai.post('/stt', async (c) => {
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
+
+  try {
+    const formData = await c.req.formData();
+    const audioFile = formData.get('audio') as unknown as { arrayBuffer: () => Promise<ArrayBuffer>; size: number; type: string } | null;
+
+    if (!audioFile || typeof audioFile === 'string' || !audioFile.arrayBuffer) {
+      return c.json({ success: false, error: 'Audio file is required' }, 400);
+    }
+
+    // 5MB limit
+    if (audioFile.size > 5 * 1024 * 1024) {
+      return c.json({ success: false, error: 'Audio file must be under 5MB' }, 400);
+    }
+
+    const audioBuffer = await audioFile.arrayBuffer();
+    const result = await groqSTT(c.env.GROQ_API_KEY, audioBuffer, audioFile.type || 'audio/webm');
+
+    return c.json({ success: true, data: { text: result.text } });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to transcribe audio';
+    logger.error('AI STT failed', error, { action: 'ai_error', endpoint: 'stt' });
+    return c.json({ success: false, error: errorMsg }, 500);
+  }
+});
+
+// ==========================================
+// Text-to-Speech
+// ==========================================
+
+ai.post('/tts', async (c) => {
+  if (!c.env.GROQ_API_KEY) {
+    return c.json({ success: false, error: 'AI service is not configured' }, 500);
+  }
+
+  try {
+    const { text, voice } = await c.req.json();
+
+    if (!text || typeof text !== 'string') {
+      return c.json({ success: false, error: 'Text is required' }, 400);
+    }
+
+    if (text.length > 200) {
+      return c.json({ success: false, error: 'Text must be 200 characters or less' }, 400);
+    }
+
+    const audioBuffer = await groqTTS(c.env.GROQ_API_KEY, text, voice);
+
+    return new Response(audioBuffer, {
+      headers: {
+        'Content-Type': 'audio/wav',
+        'Content-Length': audioBuffer.byteLength.toString(),
+      },
+    });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Failed to generate speech';
+    logger.error('AI TTS failed', error, { action: 'ai_error', endpoint: 'tts' });
+    return c.json({ success: false, error: errorMsg }, 500);
+  }
 });
 
 // ==========================================

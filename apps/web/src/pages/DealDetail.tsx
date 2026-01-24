@@ -62,7 +62,7 @@ export default function DealDetailPage() {
   const [showAssignSEModal, setShowAssignSEModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [pendingStageMove, setPendingStageMove] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<DealTeamRole>('technical');
+  const [selectedRole, setSelectedRole] = useState<DealTeamRole>('owner');
   const [confirmStageMove, setConfirmStageMove] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',

@@ -100,16 +100,23 @@ export default function AIAssistantPage() {
 
   const { isTTSEnabled, toggleTTS, playChunks, stopPlayback, isPlaying } = useAudioPlayback();
 
-  // Ref to hold the send function for the VAD auto-stop callback
+  // Refs to hold functions for the VAD auto-stop callback (avoids circular deps)
   const sendMessageRef = useRef<(text: string) => void>(() => {});
+  const startRecordingRef = useRef<() => Promise<void>>(async () => {});
 
   // Handle auto-stop from VAD (voice activity detection)
+  // This fires when the user speaks and then goes silent — barge-in interrupts TTS
   const handleVoiceAutoStop = useCallback(async (blob: Blob) => {
+    // Interrupt TTS if it's currently playing (barge-in)
+    stopPlayback();
     setIsTranscribing(true);
     try {
       const result = await aiApi.stt(blob);
       if (result.text && result.text.trim()) {
         sendMessageRef.current(result.text);
+      } else if (conversationModeRef.current) {
+        // Empty transcription — resume listening
+        startRecordingRef.current();
       }
     } catch {
       setMessages(prev => [...prev, {
@@ -117,10 +124,13 @@ export default function AIAssistantPage() {
         role: 'assistant',
         content: "I couldn't transcribe that audio. Please try again or type your message.",
       }]);
+      if (conversationModeRef.current) {
+        startRecordingRef.current();
+      }
     } finally {
       setIsTranscribing(false);
     }
-  }, []);
+  }, [stopPlayback]);
 
   const { isRecording, error: recorderError, startRecording, stopRecording } = useVoiceRecorder({
     onAutoStop: handleVoiceAutoStop,
@@ -153,13 +163,9 @@ export default function AIAssistantPage() {
     inputRef.current?.focus();
   };
 
-  const resumeListening = useCallback(async () => {
+  const resumeListening = useCallback(() => {
     if (conversationModeRef.current) {
-      // Small delay before re-listening to avoid picking up TTS audio
-      await new Promise(r => setTimeout(r, 400));
-      if (conversationModeRef.current) {
-        await startRecording();
-      }
+      startRecording();
     }
   }, [startRecording]);
 
@@ -177,12 +183,18 @@ export default function AIAssistantPage() {
       setStreamingId(msgId);
 
       if (isTTSEnabled || conversationModeRef.current) {
+        // Start listening immediately for barge-in (echo cancellation handles speaker audio)
+        if (conversationModeRef.current) {
+          startRecording();
+        }
         const chunks = chunkText(responseText);
         if (chunks.length > 0) {
           await playChunks(chunks);
         }
-        // After TTS finishes, resume listening if in conversation mode
-        resumeListening();
+        // If TTS finished without interruption, ensure we're still listening
+        if (conversationModeRef.current) {
+          resumeListening();
+        }
       }
 
       if (!conversationModeRef.current) {
@@ -224,8 +236,9 @@ export default function AIAssistantPage() {
     });
   }, [chatMutation]);
 
-  // Keep ref in sync for VAD callback
+  // Keep refs in sync for VAD callback
   sendMessageRef.current = sendMessage;
+  startRecordingRef.current = startRecording;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

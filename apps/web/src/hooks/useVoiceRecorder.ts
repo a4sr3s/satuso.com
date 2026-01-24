@@ -44,6 +44,7 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
   const silenceStartRef = useRef<number | null>(null);
   const recordingStartRef = useRef<number>(0);
   const autoStopTriggeredRef = useRef(false);
+  const speechDetectedRef = useRef(false);
 
   // Determine supported MIME type
   const getMimeType = (): string => {
@@ -123,8 +124,12 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
 
         // Only start checking for silence after minimum recording duration
         if (elapsed > minRecordingDuration) {
-          if (average < silenceThreshold) {
-            // Below threshold — start/continue silence timer
+          if (average >= silenceThreshold) {
+            // Speech detected — mark it and reset silence timer
+            speechDetectedRef.current = true;
+            silenceStartRef.current = null;
+          } else if (speechDetectedRef.current) {
+            // Below threshold AFTER speech was detected — start/continue silence timer
             if (silenceStartRef.current === null) {
               silenceStartRef.current = Date.now();
             } else if (Date.now() - silenceStartRef.current >= silenceTimeout) {
@@ -135,9 +140,6 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
               }
               return;
             }
-          } else {
-            // Sound detected — reset silence timer
-            silenceStartRef.current = null;
           }
         }
 
@@ -152,13 +154,23 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
   }, [silenceThreshold, silenceTimeout, minRecordingDuration]);
 
   const startRecording = useCallback(async () => {
+    // Guard: don't start if already recording
+    if (mediaRecorderRef.current?.state === 'recording') return;
+
     setError(null);
     chunksRef.current = [];
     autoStopTriggeredRef.current = false;
+    speechDetectedRef.current = false;
     silenceStartRef.current = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       streamRef.current = stream;
 
       const mimeType = getMimeType();

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { aiApi } from '@/lib/api';
 
 const TTS_ENABLED_KEY = 'ai-tts-enabled';
@@ -82,18 +83,43 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     cancelledRef.current = false;
     setIsPlaying(true);
 
+    let failedCount = 0;
+    let lastError = '';
     try {
-      for (const chunk of chunks) {
+      // Pipeline: pre-fetch next chunk while current one plays
+      let nextFetch: Promise<ArrayBuffer> | null = null;
+
+      for (let i = 0; i < chunks.length; i++) {
         if (cancelledRef.current) break;
 
         try {
-          const buffer = await aiApi.tts(chunk);
+          // Use pre-fetched buffer or fetch current chunk
+          const buffer = nextFetch
+            ? await nextFetch
+            : await aiApi.tts(chunks[i]);
+
           if (cancelledRef.current) break;
+          if (buffer.byteLength < 100) {
+            throw new Error('Empty audio response');
+          }
+
+          // Pre-fetch next chunk while this one plays
+          nextFetch = (i + 1 < chunks.length && !cancelledRef.current)
+            ? aiApi.tts(chunks[i + 1])
+            : null;
+
           await playAudioBuffer(buffer);
         } catch (err) {
-          console.error('TTS chunk failed:', err);
+          failedCount++;
+          lastError = err instanceof Error ? err.message : String(err);
+          console.error('TTS chunk failed:', lastError);
+          // Reset pre-fetch on error
+          nextFetch = null;
           continue;
         }
+      }
+      if (failedCount > 0 && failedCount === chunks.length) {
+        toast.error(`Voice unavailable: ${lastError || 'TTS service error'}`);
       }
     } finally {
       setIsPlaying(false);

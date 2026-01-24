@@ -306,19 +306,26 @@ export default function WorkboardsPage() {
           <p className="text-sm text-text-muted">Select a rep to filter this report by.</p>
           <div>
             <label className="label">Rep</label>
-            <select
-              value={selectedRepName}
-              onChange={(e) => setSelectedRepName(e.target.value)}
-              className="input"
-              disabled={repsLoading}
-            >
-              <option value="">{repsLoading ? 'Loading...' : 'Choose a rep...'}</option>
-              {reps.map((rep) => (
-                <option key={rep.id} value={rep.name}>
-                  {rep.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedRepName}
+                onChange={(e) => setSelectedRepName(e.target.value)}
+                className="input appearance-none pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={repsLoading}
+              >
+                <option value="">{repsLoading ? 'Loading...' : 'Choose a rep...'}</option>
+                {reps.map((rep) => (
+                  <option key={rep.id} value={rep.name}>
+                    {rep.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
+                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button

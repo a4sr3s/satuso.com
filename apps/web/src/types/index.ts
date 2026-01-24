@@ -193,7 +193,7 @@ export interface ForecastSummary {
 }
 
 export interface ForecastData {
-  summary: { nextMonth: ForecastSummary; nextQuarter: ForecastSummary };
+  summary: { nextMonth: ForecastSummary; thisQuarter: ForecastSummary };
   chart: {
     months: string[];
     owners: { id: string; name: string }[];

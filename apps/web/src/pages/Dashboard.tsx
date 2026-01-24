@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,7 @@ import {
   AlertTriangle,
   Lightbulb,
   ArrowRight,
+  X,
 } from 'lucide-react';
 import { dashboardApi, aiApi, tasksApi } from '@/lib/api';
 import MetricCard from '@/components/ui/MetricCard';
@@ -22,6 +24,7 @@ export default function DashboardPage() {
   const { t } = useTranslation(['dashboard', 'common']);
   const { formatRelativeDate } = useLocale();
   const navigate = useNavigate();
+  const [alertDismissed, setAlertDismissed] = useState(false);
 
   const { data: metrics } = useQuery({
     queryKey: ['dashboard', 'metrics'],
@@ -101,6 +104,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Overdue Tasks Alert */}
+      {!alertDismissed && (taskCounts?.data?.overdue ?? 0) > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800">
+              {taskCounts!.data!.overdue} overdue {taskCounts!.data!.overdue === 1 ? 'task' : 'tasks'}
+            </p>
+            <p className="text-xs text-red-600">Review and update your pending tasks</p>
+          </div>
+          <button onClick={() => navigate('/tasks')} className="text-sm text-red-700 hover:underline font-medium">
+            View Tasks
+          </button>
+          <button onClick={() => setAlertDismissed(true)} className="text-red-400 hover:text-red-600 p-1">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
@@ -128,20 +150,6 @@ export default function DashboardPage() {
           title={t('dashboard:metrics.tasksDueToday')}
           value={metricsData?.tasksDueToday?.value || 0}
         />
-        {(taskCounts?.data?.overdue ?? 0) > 0 && (
-          <div className="col-span-full bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <div>
-              <p className="text-sm font-medium text-red-800">
-                {taskCounts!.data!.overdue} overdue {taskCounts!.data!.overdue === 1 ? 'task' : 'tasks'}
-              </p>
-              <p className="text-xs text-red-600">Review and update your pending tasks</p>
-            </div>
-            <button onClick={() => navigate('/tasks')} className="ml-auto text-sm text-red-700 hover:underline font-medium">
-              View Tasks
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Forecast */}

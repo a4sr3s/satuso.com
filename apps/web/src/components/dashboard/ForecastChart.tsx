@@ -35,8 +35,8 @@ export default function ForecastChart({ data }: ForecastChartProps) {
             <p className="text-sm font-semibold text-text-primary">{formatDollar(summary.nextMonth.weightedValue)}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-text-muted">Next Quarter</p>
-            <p className="text-sm font-semibold text-text-primary">{formatDollar(summary.nextQuarter.weightedValue)}</p>
+            <p className="text-xs text-text-muted">This Quarter</p>
+            <p className="text-sm font-semibold text-text-primary">{formatDollar(summary.thisQuarter.weightedValue)}</p>
           </div>
         </div>
       </div>

@@ -212,8 +212,9 @@ dashboard.get('/forecast', async (c) => {
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split('T')[0];
   const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString().split('T')[0];
 
-  // End of next quarter (3 months from current month start)
-  const nextQuarterEnd = new Date(now.getFullYear(), now.getMonth() + 4, 1).toISOString().split('T')[0];
+  // This quarter boundaries
+  const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+  const thisQuarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 1).toISOString().split('T')[0];
 
   // Chart data: monthly revenue grouped by owner
   const chartResults = await c.env.DB.prepare(`
@@ -232,7 +233,7 @@ dashboard.get('/forecast', async (c) => {
       AND d.close_date < ?
     GROUP BY month, u.id, u.name
     ORDER BY month ASC, weighted_value DESC
-  `).bind(currentMonthStart, nextQuarterEnd).all<{
+  `).bind(currentMonthStart, thisQuarterEnd).all<{
     month: string;
     owner_id: string | null;
     owner_name: string | null;
@@ -241,11 +242,9 @@ dashboard.get('/forecast', async (c) => {
     weighted_value: number;
   }>();
 
-  // Summary: next month and next quarter totals
-  const summaryResults = await c.env.DB.prepare(`
+  // Summary: next month total
+  const nextMonthResult = await c.env.DB.prepare(`
     SELECT
-      CASE WHEN d.close_date >= ? AND d.close_date < ? THEN 'next_month'
-           ELSE 'next_quarter' END as period,
       COUNT(*) as deal_count,
       COALESCE(SUM(d.value), 0) as raw_value,
       COALESCE(SUM(d.value * COALESCE(d.probability, 50) / 100.0), 0) as weighted_value
@@ -253,28 +252,38 @@ dashboard.get('/forecast', async (c) => {
     WHERE d.stage NOT IN ('closed_won', 'closed_lost')
       AND d.close_date IS NOT NULL
       AND d.close_date >= ? AND d.close_date < ?
-    GROUP BY period
-  `).bind(nextMonthStart, nextMonthEnd, nextMonthStart, nextQuarterEnd).all<{
-    period: string;
+  `).bind(nextMonthStart, nextMonthEnd).first<{
     deal_count: number;
     raw_value: number;
     weighted_value: number;
   }>();
 
-  // Build summary
-  const nextMonthSummary = summaryResults.results.find(r => r.period === 'next_month');
-  const nextQuarterSummary = summaryResults.results.find(r => r.period === 'next_quarter');
+  // Summary: this quarter total (current month through end of quarter)
+  const thisQuarterResult = await c.env.DB.prepare(`
+    SELECT
+      COUNT(*) as deal_count,
+      COALESCE(SUM(d.value), 0) as raw_value,
+      COALESCE(SUM(d.value * COALESCE(d.probability, 50) / 100.0), 0) as weighted_value
+    FROM deals d
+    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+      AND d.close_date IS NOT NULL
+      AND d.close_date >= ? AND d.close_date < ?
+  `).bind(currentMonthStart, thisQuarterEnd).first<{
+    deal_count: number;
+    raw_value: number;
+    weighted_value: number;
+  }>();
 
   const summary = {
     nextMonth: {
-      dealCount: nextMonthSummary?.deal_count || 0,
-      rawValue: nextMonthSummary?.raw_value || 0,
-      weightedValue: nextMonthSummary?.weighted_value || 0,
+      dealCount: nextMonthResult?.deal_count || 0,
+      rawValue: nextMonthResult?.raw_value || 0,
+      weightedValue: nextMonthResult?.weighted_value || 0,
     },
-    nextQuarter: {
-      dealCount: (nextMonthSummary?.deal_count || 0) + (nextQuarterSummary?.deal_count || 0),
-      rawValue: (nextMonthSummary?.raw_value || 0) + (nextQuarterSummary?.raw_value || 0),
-      weightedValue: (nextMonthSummary?.weighted_value || 0) + (nextQuarterSummary?.weighted_value || 0),
+    thisQuarter: {
+      dealCount: thisQuarterResult?.deal_count || 0,
+      rawValue: thisQuarterResult?.raw_value || 0,
+      weightedValue: thisQuarterResult?.weighted_value || 0,
     },
   };
 

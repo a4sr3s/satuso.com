@@ -1,14 +1,14 @@
 import Groq from 'groq-sdk';
 
-// Groq Free Tier Limits for llama-3.1-8b-instant
+// Groq Free Tier Limits
 const RATE_LIMITS = {
   requestsPerMinute: 30,
   tokensPerMinute: 6000,
-  tokensPerDay: 500000,
+  tokensPerDay: 100000,
 };
 
-// Model to use (optimized for free tier)
-export const GROQ_MODEL = 'llama-3.1-8b-instant';
+// Model to use — 70B is much more natural and capable
+export const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 // Simple in-memory rate limiter for Cloudflare Workers
 // In production, consider using KV for distributed rate limiting

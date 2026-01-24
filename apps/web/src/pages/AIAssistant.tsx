@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import {
-  Send,
+  ArrowUp,
   Sparkles,
   Loader2,
   Trash2,
@@ -276,7 +276,7 @@ export default function AIAssistantPage() {
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+          <div className="max-w-3xl mx-auto px-4 py-8 space-y-8">
             {messages.length === 0 ? (
               <div className="text-center py-16">
                 <Sparkles className="h-10 w-10 text-primary mx-auto mb-5 opacity-70" />
@@ -350,14 +350,14 @@ export default function AIAssistantPage() {
 
         {/* Error display */}
         {recorderError && (
-          <div className="max-w-2xl mx-auto px-4 py-2 text-sm text-red-600">
+          <div className="max-w-3xl mx-auto px-4 py-2 text-sm text-red-600">
             {recorderError}
           </div>
         )}
 
         {/* Input bar */}
         <div className="p-4 flex-shrink-0">
-          <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-2xl mx-auto border border-border rounded-2xl px-3 py-1.5 bg-white shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-3xl mx-auto border border-border rounded-2xl px-3 py-1.5 bg-white shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
             <input
               ref={inputRef}
               type="text"
@@ -394,7 +394,7 @@ export default function AIAssistantPage() {
                   : 'text-text-muted cursor-not-allowed'
               )}
             >
-              <Send className="h-5 w-5" />
+              <ArrowUp className="h-5 w-5" />
             </button>
           </form>
         </div>

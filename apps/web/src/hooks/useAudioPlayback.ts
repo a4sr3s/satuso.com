@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { aiApi } from '@/lib/api';
 
 const TTS_ENABLED_KEY = 'ai-tts-enabled';
-const TTS_VOICE_KEY = 'ai-tts-voice';
+const TTS_RATE_LIMITED_KEY = 'ai-tts-rate-limited';
 
 interface UseAudioPlaybackReturn {
   isPlaying: boolean;
   isTTSEnabled: boolean;
+  isRateLimited: boolean;
   toggleTTS: () => void;
   playChunks: (chunks: string[]) => Promise<void>;
   playSingleChunk: (text: string) => Promise<void>;
@@ -17,49 +19,46 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
   const [isTTSEnabled, setIsTTSEnabled] = useState(() => {
     return localStorage.getItem(TTS_ENABLED_KEY) === 'true';
   });
+  const [isRateLimited, setIsRateLimited] = useState(() => {
+    const stored = localStorage.getItem(TTS_RATE_LIMITED_KEY);
+    if (!stored) return false;
+    // Rate limit resets daily — check if stored date is today
+    const limitDate = new Date(stored);
+    const now = new Date();
+    return limitDate.toDateString() === now.toDateString();
+  });
   const cancelledRef = useRef(false);
-  const preferredVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlsRef = useRef<string[]>([]);
 
-  // Find a good English voice on load
+  // Clear rate limit flag at midnight (or on new day load)
   useEffect(() => {
-    const pickVoice = () => {
-      const voices = speechSynthesis.getVoices();
-      if (voices.length === 0) return;
-
-      const savedVoiceName = localStorage.getItem(TTS_VOICE_KEY);
-      if (savedVoiceName) {
-        const saved = voices.find(v => v.name === savedVoiceName);
-        if (saved) {
-          preferredVoiceRef.current = saved;
-          return;
-        }
+    const stored = localStorage.getItem(TTS_RATE_LIMITED_KEY);
+    if (stored) {
+      const limitDate = new Date(stored);
+      const now = new Date();
+      if (limitDate.toDateString() !== now.toDateString()) {
+        localStorage.removeItem(TTS_RATE_LIMITED_KEY);
+        setIsRateLimited(false);
       }
-
-      // Prefer natural/premium English voices
-      const preferred = voices.find(v =>
-        v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Daniel'))
-      ) || voices.find(v =>
-        v.lang.startsWith('en') && v.localService
-      ) || voices.find(v =>
-        v.lang.startsWith('en')
-      );
-
-      if (preferred) {
-        preferredVoiceRef.current = preferred;
-        localStorage.setItem(TTS_VOICE_KEY, preferred.name);
-      }
-    };
-
-    pickVoice();
-    speechSynthesis.addEventListener('voiceschanged', pickVoice);
-    return () => speechSynthesis.removeEventListener('voiceschanged', pickVoice);
+    }
   }, []);
 
-  // Cancel speech on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      speechSynthesis.cancel();
+      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      objectUrlsRef.current = [];
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
+  }, []);
+
+  const markRateLimited = useCallback(() => {
+    localStorage.setItem(TTS_RATE_LIMITED_KEY, new Date().toISOString());
+    setIsRateLimited(true);
   }, []);
 
   const toggleTTS = useCallback(() => {
@@ -72,59 +71,105 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
 
   const stopPlayback = useCallback(() => {
     cancelledRef.current = true;
-    speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    objectUrlsRef.current = [];
     setIsPlaying(false);
   }, []);
 
-  const speakText = useCallback((text: string): Promise<void> => {
+  const playAudioBuffer = useCallback((buffer: ArrayBuffer): Promise<void> => {
     return new Promise((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.1; // Slightly faster for natural conversation pace
-      utterance.pitch = 1.0;
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
 
-      if (preferredVoiceRef.current) {
-        utterance.voice = preferredVoiceRef.current;
-      }
+      const audio = new Audio(url);
+      audioRef.current = audio;
 
-      utterance.onend = () => resolve();
-      utterance.onerror = (e) => {
-        if (e.error === 'canceled' || e.error === 'interrupted') {
-          resolve(); // Not a real error — user interrupted
-        } else {
-          reject(new Error(`Speech synthesis error: ${e.error}`));
-        }
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        objectUrlsRef.current = objectUrlsRef.current.filter(u => u !== url);
+        resolve();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        objectUrlsRef.current = objectUrlsRef.current.filter(u => u !== url);
+        reject(new Error('Audio playback failed'));
       };
 
-      speechSynthesis.speak(utterance);
+      audio.play().catch(reject);
     });
   }, []);
 
   const playChunks = useCallback(async (chunks: string[]) => {
-    if (chunks.length === 0) return;
+    if (chunks.length === 0 || isRateLimited) return;
 
     cancelledRef.current = false;
     setIsPlaying(true);
 
     try {
-      for (const chunk of chunks) {
+      // Pipeline: pre-fetch next chunk while current one plays
+      let nextFetch: Promise<ArrayBuffer> | null = null;
+
+      for (let i = 0; i < chunks.length; i++) {
         if (cancelledRef.current) break;
-        await speakText(chunk);
+
+        try {
+          const buffer = nextFetch
+            ? await nextFetch
+            : await aiApi.tts(chunks[i]);
+
+          if (cancelledRef.current) break;
+          if (buffer.byteLength < 100) {
+            throw new Error('Empty audio response');
+          }
+
+          // Pre-fetch next chunk while this one plays
+          nextFetch = (i + 1 < chunks.length && !cancelledRef.current)
+            ? aiApi.tts(chunks[i + 1])
+            : null;
+
+          await playAudioBuffer(buffer);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          // Check for rate limit (429)
+          if (msg.includes('429') || msg.includes('rate_limit') || msg.includes('Rate limit')) {
+            markRateLimited();
+            break;
+          }
+          console.error('TTS chunk failed:', msg);
+          nextFetch = null;
+          continue;
+        }
       }
     } finally {
       setIsPlaying(false);
     }
-  }, [speakText]);
+  }, [playAudioBuffer, isRateLimited, markRateLimited]);
 
   const playSingleChunk = useCallback(async (text: string) => {
+    if (isRateLimited) return;
+
     cancelledRef.current = false;
     setIsPlaying(true);
 
     try {
-      await speakText(text);
+      const buffer = await aiApi.tts(text);
+      if (!cancelledRef.current) {
+        await playAudioBuffer(buffer);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('429') || msg.includes('rate_limit') || msg.includes('Rate limit')) {
+        markRateLimited();
+      }
     } finally {
       setIsPlaying(false);
     }
-  }, [speakText]);
+  }, [playAudioBuffer, isRateLimited, markRateLimited]);
 
-  return { isPlaying, isTTSEnabled, toggleTTS, playChunks, playSingleChunk, stopPlayback };
+  return { isPlaying, isTTSEnabled, isRateLimited, toggleTTS, playChunks, playSingleChunk, stopPlayback };
 }

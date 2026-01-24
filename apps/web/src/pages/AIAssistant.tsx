@@ -98,7 +98,7 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { isTTSEnabled, toggleTTS, playChunks, stopPlayback, isPlaying } = useAudioPlayback();
+  const { isTTSEnabled, isRateLimited, toggleTTS, playChunks, stopPlayback, isPlaying } = useAudioPlayback();
 
   // Refs to hold functions for the VAD auto-stop callback (avoids circular deps)
   const sendMessageRef = useRef<(text: string) => void>(() => {});
@@ -265,7 +265,7 @@ export default function AIAssistantPage() {
       // Enter conversation mode — enable TTS and start listening
       conversationModeRef.current = true;
       setIsConversationMode(true);
-      if (!isTTSEnabled) {
+      if (!isTTSEnabled && !isRateLimited) {
         toggleTTS();
       }
       await startRecording();
@@ -284,15 +284,18 @@ export default function AIAssistantPage() {
           {/* TTS Toggle */}
           <button
             onClick={toggleTTS}
+            disabled={isRateLimited}
             className={clsx(
               'p-2 rounded-lg transition-colors',
-              isTTSEnabled
-                ? 'text-primary bg-primary/10'
-                : 'text-text-muted hover:text-text-secondary hover:bg-surface'
+              isRateLimited
+                ? 'text-text-muted/40 cursor-not-allowed'
+                : isTTSEnabled
+                  ? 'text-primary bg-primary/10'
+                  : 'text-text-muted hover:text-text-secondary hover:bg-surface'
             )}
-            title={isTTSEnabled ? 'Disable voice responses' : 'Enable voice responses'}
+            title={isRateLimited ? 'Voice limit reached — resets tomorrow' : isTTSEnabled ? 'Disable voice responses' : 'Enable voice responses'}
           >
-            {isTTSEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            {isTTSEnabled && !isRateLimited ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </button>
           {messages.length > 0 && (
             <button
@@ -440,7 +443,7 @@ export default function AIAssistantPage() {
                   ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface'
               )}
-              title={isConversationMode ? 'End conversation' : 'Start voice conversation'}
+              title={isConversationMode ? 'End conversation' : isRateLimited ? 'Voice input only — TTS limit reached' : 'Start voice conversation'}
             >
               {isConversationMode ? <PhoneOff className="h-5 w-5" /> : <AudioLines className="h-5 w-5" />}
             </button>

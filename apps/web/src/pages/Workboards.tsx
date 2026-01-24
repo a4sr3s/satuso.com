@@ -4,23 +4,26 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
-  Table2,
   DollarSign,
   Users,
   Building2,
   Trash2,
-  Copy,
-  Star,
+  UserCircle,
+  BarChart3,
+  AlertTriangle,
+  TrendingUp,
+  Target,
+  FileSpreadsheet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { clsx } from 'clsx';
-import { workboardsApi } from '@/lib/api';
-import type { Workboard, WorkboardEntityType } from '@/types';
+import { workboardsApi, organizationsApi } from '@/lib/api';
+import type { Workboard, WorkboardEntityType, CreateWorkboardData } from '@/types';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
-import EmptyState from '@/components/ui/EmptyState';
+import { workboardTemplates, type WorkboardTemplate } from '@/utils/workboardTemplates';
 
 const entityTypeIcons: Record<WorkboardEntityType, React.ElementType> = {
   deals: DollarSign,
@@ -28,29 +31,49 @@ const entityTypeIcons: Record<WorkboardEntityType, React.ElementType> = {
   companies: Building2,
 };
 
+const templateIcons: Record<string, React.ElementType> = {
+  UserCircle,
+  BarChart3,
+  AlertTriangle,
+  TrendingUp,
+  Target,
+  Users,
+  FileSpreadsheet,
+};
+
 export default function WorkboardsPage() {
   const { t } = useTranslation(['workboards', 'common']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showNewModal, setShowNewModal] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [repPickerTemplate, setRepPickerTemplate] = useState<WorkboardTemplate | null>(null);
+  const [selectedRepName, setSelectedRepName] = useState('');
+  const [blankFormData, setBlankFormData] = useState({
     name: '',
     description: '',
     entity_type: 'deals' as WorkboardEntityType,
   });
+  const [showBlankForm, setShowBlankForm] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['workboards'],
     queryFn: () => workboardsApi.list(),
   });
 
+  const { data: membersData } = useQuery({
+    queryKey: ['organization-members'],
+    queryFn: () => organizationsApi.getMembers(),
+    enabled: !!repPickerTemplate,
+  });
+
   const createMutation = useMutation({
-    mutationFn: workboardsApi.create,
+    mutationFn: (data: CreateWorkboardData) => workboardsApi.create(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['workboards'] });
-      setShowNewModal(false);
-      setFormData({ name: '', description: '', entity_type: 'deals' });
+      setShowTemplateGallery(false);
+      setRepPickerTemplate(null);
+      setShowBlankForm(false);
       toast.success(t('workboards:toast.created'));
       navigate(`/workboards/${response.data.id}`);
     },
@@ -71,29 +94,87 @@ export default function WorkboardsPage() {
     },
   });
 
-  const duplicateMutation = useMutation({
-    mutationFn: workboardsApi.duplicate,
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['workboards'] });
-      toast.success(t('workboards:toast.duplicated'));
-      navigate(`/workboards/${response.data.id}`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
   const workboards = data?.data?.items || [];
-  const defaultWorkboards = workboards.filter((w: Workboard) => w.is_default);
-  const userWorkboards = workboards.filter((w: Workboard) => !w.is_default);
+  const members = membersData?.data || [];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleTemplateSelect = (template: WorkboardTemplate) => {
+    if (template.id === 'blank_report') {
+      setShowBlankForm(true);
+      return;
+    }
+
+    if (template.requiresRepSelection) {
+      setRepPickerTemplate(template);
+      setSelectedRepName('');
+      return;
+    }
+
+    createFromTemplate(template);
+  };
+
+  const createFromTemplate = (template: WorkboardTemplate, repName?: string) => {
+    const filters = [...template.filters];
+    if (repName) {
+      filters.push({ field: 'owner_name', operator: 'eq', value: repName });
+    }
+
+    const name = repName
+      ? `${template.name} — ${repName}`
+      : template.name;
+
+    createMutation.mutate({
+      name,
+      description: template.description,
+      entity_type: template.entity_type,
+      columns: template.columns,
+      filters,
+      sort_column: template.sort_column,
+      sort_direction: template.sort_direction,
+    });
+  };
+
+  const handleRepConfirm = () => {
+    if (!repPickerTemplate || !selectedRepName) return;
+    createFromTemplate(repPickerTemplate, selectedRepName);
+  };
+
+  const handleBlankSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createMutation.mutate({
-      name: formData.name,
-      description: formData.description || undefined,
-      entity_type: formData.entity_type,
+      name: blankFormData.name,
+      description: blankFormData.description || undefined,
+      entity_type: blankFormData.entity_type,
     });
+  };
+
+  const TemplateCard = ({ template }: { template: WorkboardTemplate }) => {
+    const Icon = templateIcons[template.icon] || FileSpreadsheet;
+
+    return (
+      <button
+        onClick={() => handleTemplateSelect(template)}
+        className={clsx(
+          'text-left p-4 rounded-lg border border-border bg-surface',
+          'hover:border-primary hover:shadow-sm transition-all',
+          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className={clsx(
+            'p-2 rounded-lg shrink-0',
+            template.entity_type === 'deals' && 'bg-green-100 text-green-600',
+            template.entity_type === 'contacts' && 'bg-blue-100 text-blue-600',
+            template.entity_type === 'companies' && 'bg-purple-100 text-purple-600',
+          )}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-medium text-text-primary text-sm">{template.name}</h3>
+            <p className="text-xs text-text-muted mt-0.5">{template.description}</p>
+          </div>
+        </div>
+      </button>
+    );
   };
 
   const WorkboardCard = ({ workboard }: { workboard: Workboard }) => {
@@ -116,12 +197,7 @@ export default function WorkboardsPage() {
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium text-text-primary">{workboard.name}</h3>
-                  {workboard.is_default && (
-                    <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                  )}
-                </div>
+                <h3 className="font-medium text-text-primary">{workboard.name}</h3>
                 <p className="text-sm text-text-muted">
                   {t(`workboards:entityTypes.${workboard.entity_type}`)}
                 </p>
@@ -131,25 +207,13 @@ export default function WorkboardsPage() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  duplicateMutation.mutate(workboard.id);
+                  setDeleteId(workboard.id);
                 }}
-                className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface rounded"
-                title={t('workboards:card.duplicate')}
+                className="p-1.5 text-text-muted hover:text-error hover:bg-red-50 rounded"
+                title={t('workboards:card.delete')}
               >
-                <Copy className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </button>
-              {!workboard.is_default && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteId(workboard.id);
-                  }}
-                  className="p-1.5 text-text-muted hover:text-error hover:bg-red-50 rounded"
-                  title={t('workboards:card.delete')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
             </div>
           </div>
           {workboard.description && (
@@ -195,82 +259,123 @@ export default function WorkboardsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Actions */}
-      <div className="flex items-center justify-end">
-        <Button onClick={() => setShowNewModal(true)}>
-          <Plus className="h-4 w-4" />
-          {t('workboards:newWorkboard')}
-        </Button>
-      </div>
-
       {workboards.length === 0 ? (
-        <EmptyState
-          icon={Table2}
-          title={t('workboards:empty.title')}
-          description={t('workboards:empty.description')}
-          actionLabel={t('workboards:newWorkboard')}
-          onAction={() => setShowNewModal(true)}
-        />
+        <>
+          {/* Empty state: show template gallery directly */}
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary mb-1">Create a Report</h2>
+            <p className="text-sm text-text-muted mb-4">Pick a template to get started, or create a blank report.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {workboardTemplates.map((template) => (
+                <TemplateCard key={template.id} template={template} />
+              ))}
+            </div>
+          </div>
+        </>
       ) : (
         <>
-          {/* Default Workboards */}
-          {defaultWorkboards.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-text-muted mb-3 uppercase tracking-wider">
-                {t('workboards:sections.default')}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {defaultWorkboards.map((workboard: Workboard) => (
-                  <WorkboardCard key={workboard.id} workboard={workboard} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Header with create button */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text-primary">Your Reports</h2>
+            <Button onClick={() => setShowTemplateGallery(true)}>
+              <Plus className="h-4 w-4" />
+              Create Report
+            </Button>
+          </div>
 
-          {/* User Workboards */}
-          {userWorkboards.length > 0 && (
-            <div>
-              <h2 className="text-sm font-medium text-text-muted mb-3 uppercase tracking-wider">
-                {t('workboards:sections.yours')}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userWorkboards.map((workboard: Workboard) => (
-                  <WorkboardCard key={workboard.id} workboard={workboard} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Workboard cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workboards.map((workboard: Workboard) => (
+              <WorkboardCard key={workboard.id} workboard={workboard} />
+            ))}
+          </div>
         </>
       )}
 
-      {/* New Workboard Modal */}
+      {/* Template Gallery Modal */}
       <Modal
-        isOpen={showNewModal}
-        onClose={() => setShowNewModal(false)}
-        title={t('workboards:modal.createTitle')}
+        isOpen={showTemplateGallery}
+        onClose={() => setShowTemplateGallery(false)}
+        title="Create Report"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-sm text-text-muted mb-4">Pick a template to get started.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {workboardTemplates.map((template) => (
+            <TemplateCard key={template.id} template={template} />
+          ))}
+        </div>
+      </Modal>
+
+      {/* Rep Picker Modal */}
+      <Modal
+        isOpen={!!repPickerTemplate}
+        onClose={() => setRepPickerTemplate(null)}
+        title={`${repPickerTemplate?.name || 'Select Rep'}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-text-muted">Select a rep to filter this report by.</p>
+          <div>
+            <label className="label">Rep</label>
+            <select
+              value={selectedRepName}
+              onChange={(e) => setSelectedRepName(e.target.value)}
+              className="input"
+            >
+              <option value="">Choose a rep...</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.name}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setRepPickerTemplate(null)}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              onClick={handleRepConfirm}
+              disabled={!selectedRepName}
+              isLoading={createMutation.isPending}
+            >
+              Create Report
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Blank Report Form Modal */}
+      <Modal
+        isOpen={showBlankForm}
+        onClose={() => setShowBlankForm(false)}
+        title="Blank Report"
+      >
+        <form onSubmit={handleBlankSubmit} className="space-y-4">
           <Input
-            label={t('workboards:modal.name')}
-            placeholder={t('workboards:modal.namePlaceholder')}
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            label="Name"
+            placeholder="My Report"
+            value={blankFormData.name}
+            onChange={(e) => setBlankFormData({ ...blankFormData, name: e.target.value })}
             required
           />
           <div>
-            <label className="label">{t('workboards:modal.description')}</label>
+            <label className="label">Description</label>
             <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              value={blankFormData.description}
+              onChange={(e) => setBlankFormData({ ...blankFormData, description: e.target.value })}
               className="input min-h-[80px]"
-              placeholder={t('workboards:modal.descriptionPlaceholder')}
+              placeholder="Optional description"
             />
           </div>
           <div>
-            <label className="label">{t('workboards:modal.entityType')}</label>
+            <label className="label">Entity Type</label>
             <select
-              value={formData.entity_type}
-              onChange={(e) => setFormData({ ...formData, entity_type: e.target.value as WorkboardEntityType })}
+              value={blankFormData.entity_type}
+              onChange={(e) => setBlankFormData({ ...blankFormData, entity_type: e.target.value as WorkboardEntityType })}
               className="input"
             >
               <option value="deals">{t('workboards:entityTypes.deals')}</option>
@@ -282,12 +387,12 @@ export default function WorkboardsPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setShowNewModal(false)}
+              onClick={() => setShowBlankForm(false)}
             >
               {t('common:buttons.cancel')}
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              {t('workboards:modal.createWorkboard')}
+              Create Report
             </Button>
           </div>
         </form>

@@ -39,7 +39,7 @@ workboards.get('/', async (c) => {
     params.push(entity_type);
   }
 
-  query += ` ORDER BY w.is_default DESC, w.name ASC`;
+  query += ` ORDER BY w.name ASC`;
 
   const results = await c.env.DB.prepare(query).bind(...params).all();
 
@@ -329,7 +329,6 @@ workboards.patch('/:id', zValidator('json', updateWorkboardSchema), async (c) =>
   const userId = c.get('userId');
   const now = new Date().toISOString();
 
-  // Check ownership (can't edit default workboards unless duplicated)
   const existing = await c.env.DB.prepare(
     'SELECT * FROM workboards WHERE id = ?'
   ).bind(id).first<any>();
@@ -338,11 +337,7 @@ workboards.patch('/:id', zValidator('json', updateWorkboardSchema), async (c) =>
     return c.json({ success: false, error: 'Workboard not found' }, 404);
   }
 
-  if (existing.is_default && existing.owner_id !== userId) {
-    return c.json({ success: false, error: 'Cannot edit default workboards' }, 403);
-  }
-
-  if (existing.owner_id !== userId && !existing.is_default) {
+  if (existing.owner_id !== userId) {
     return c.json({ success: false, error: 'Not authorized to edit this workboard' }, 403);
   }
 
@@ -416,10 +411,6 @@ workboards.delete('/:id', async (c) => {
 
   if (!existing) {
     return c.json({ success: false, error: 'Workboard not found' }, 404);
-  }
-
-  if (existing.is_default) {
-    return c.json({ success: false, error: 'Cannot delete default workboards' }, 403);
   }
 
   if (existing.owner_id !== userId) {

@@ -147,8 +147,10 @@ export default function DashboardPage() {
           format="percent"
         />
         <MetricCard
-          title={t('dashboard:metrics.tasksDueToday')}
-          value={metricsData?.tasksDueToday?.value || 0}
+          title="Overdue Tasks"
+          value={taskCounts?.data?.overdue ?? 0}
+          changeDirection={(taskCounts?.data?.overdue ?? 0) > 0 ? 'down' : 'neutral'}
+          info={`${taskCounts?.data?.today ?? 0} due today, ${taskCounts?.data?.this_week ?? 0} this week`}
         />
       </div>
 

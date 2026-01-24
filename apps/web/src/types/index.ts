@@ -186,6 +186,21 @@ export interface PipelineSummary {
   totalValue: number;
 }
 
+export interface ForecastSummary {
+  dealCount: number;
+  rawValue: number;
+  weightedValue: number;
+}
+
+export interface ForecastData {
+  summary: { nextMonth: ForecastSummary; nextQuarter: ForecastSummary };
+  chart: {
+    months: string[];
+    owners: { id: string; name: string }[];
+    data: Array<Record<string, number | string>>;
+  };
+}
+
 // ============================================
 // AI Types
 // ============================================

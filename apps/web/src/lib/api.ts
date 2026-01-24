@@ -8,6 +8,7 @@ import type {
   PaginatedResponse,
   DashboardMetrics,
   PipelineSummary,
+  ForecastData,
   TaskCounts,
   AIInsight,
   AIQueryResult,
@@ -242,6 +243,9 @@ export const dashboardApi = {
 
   atRisk: () =>
     api.get<ApiResponse<Deal[]>>('/dashboard/at-risk'),
+
+  forecast: () =>
+    api.get<ApiResponse<ForecastData>>('/dashboard/forecast'),
 };
 
 // Helper to get auth headers for custom fetch calls

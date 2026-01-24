@@ -203,4 +203,116 @@ dashboard.get('/at-risk', async (c) => {
   return c.json({ success: true, data: atRiskDeals.results });
 });
 
+// Get revenue forecast
+dashboard.get('/forecast', async (c) => {
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+
+  // Next month boundaries
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split('T')[0];
+  const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString().split('T')[0];
+
+  // End of next quarter (3 months from current month start)
+  const nextQuarterEnd = new Date(now.getFullYear(), now.getMonth() + 4, 1).toISOString().split('T')[0];
+
+  // Chart data: monthly revenue grouped by owner
+  const chartResults = await c.env.DB.prepare(`
+    SELECT
+      strftime('%Y-%m', d.close_date) as month,
+      u.id as owner_id,
+      u.name as owner_name,
+      COUNT(*) as deal_count,
+      COALESCE(SUM(d.value), 0) as raw_value,
+      COALESCE(SUM(d.value * COALESCE(d.probability, 50) / 100.0), 0) as weighted_value
+    FROM deals d
+    LEFT JOIN users u ON d.owner_id = u.id
+    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+      AND d.close_date IS NOT NULL
+      AND d.close_date >= ?
+      AND d.close_date < ?
+    GROUP BY month, u.id, u.name
+    ORDER BY month ASC, weighted_value DESC
+  `).bind(currentMonthStart, nextQuarterEnd).all<{
+    month: string;
+    owner_id: string | null;
+    owner_name: string | null;
+    deal_count: number;
+    raw_value: number;
+    weighted_value: number;
+  }>();
+
+  // Summary: next month and next quarter totals
+  const summaryResults = await c.env.DB.prepare(`
+    SELECT
+      CASE WHEN d.close_date >= ? AND d.close_date < ? THEN 'next_month'
+           ELSE 'next_quarter' END as period,
+      COUNT(*) as deal_count,
+      COALESCE(SUM(d.value), 0) as raw_value,
+      COALESCE(SUM(d.value * COALESCE(d.probability, 50) / 100.0), 0) as weighted_value
+    FROM deals d
+    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+      AND d.close_date IS NOT NULL
+      AND d.close_date >= ? AND d.close_date < ?
+    GROUP BY period
+  `).bind(nextMonthStart, nextMonthEnd, nextMonthStart, nextQuarterEnd).all<{
+    period: string;
+    deal_count: number;
+    raw_value: number;
+    weighted_value: number;
+  }>();
+
+  // Build summary
+  const nextMonthSummary = summaryResults.results.find(r => r.period === 'next_month');
+  const nextQuarterSummary = summaryResults.results.find(r => r.period === 'next_quarter');
+
+  const summary = {
+    nextMonth: {
+      dealCount: nextMonthSummary?.deal_count || 0,
+      rawValue: nextMonthSummary?.raw_value || 0,
+      weightedValue: nextMonthSummary?.weighted_value || 0,
+    },
+    nextQuarter: {
+      dealCount: (nextMonthSummary?.deal_count || 0) + (nextQuarterSummary?.deal_count || 0),
+      rawValue: (nextMonthSummary?.raw_value || 0) + (nextQuarterSummary?.raw_value || 0),
+      weightedValue: (nextMonthSummary?.weighted_value || 0) + (nextQuarterSummary?.weighted_value || 0),
+    },
+  };
+
+  // Build chart data
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [...new Set(chartResults.results.map(r => r.month))].sort();
+  const ownersMap = new Map<string, string>();
+  for (const row of chartResults.results) {
+    if (row.owner_id && row.owner_name) {
+      ownersMap.set(row.owner_id, row.owner_name);
+    }
+  }
+  const owners = Array.from(ownersMap.entries()).map(([id, name]) => ({ id, name }));
+
+  const data = months.map(month => {
+    const monthIndex = parseInt(month.split('-')[1]) - 1;
+    const entry: Record<string, number | string> = {
+      month,
+      monthLabel: monthLabels[monthIndex],
+      total: 0,
+    };
+    for (const row of chartResults.results) {
+      if (row.month === month && row.owner_id) {
+        const key = `owner_${row.owner_id}`;
+        entry[key] = Math.round(row.weighted_value);
+        (entry.total as number) += Math.round(row.weighted_value);
+      }
+    }
+    return entry;
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      summary,
+      chart: { months, owners, data },
+    },
+  });
+});
+
 export default dashboard;

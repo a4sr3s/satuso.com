@@ -16,6 +16,7 @@ import ai from './_routes/ai';
 import search from './_routes/search';
 import workboards from './_routes/workboards';
 import organizations from './_routes/organizations';
+import billing from './_routes/billing';
 
 export interface Env {
   DB: D1Database;
@@ -24,6 +25,9 @@ export interface Env {
   GROQ_API_KEY?: string;
   CLERK_SECRET_KEY: string;
   CLERK_PUBLISHABLE_KEY: string;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_PRICE_ID: string;
 }
 
 export interface Variables {
@@ -34,6 +38,7 @@ export interface Variables {
     name: string;
     role: string;
     organization_id?: string;
+    subscription_status?: string;
   };
 }
 
@@ -64,6 +69,7 @@ app.route('/ai', ai);
 app.route('/search', search);
 app.route('/workboards', workboards);
 app.route('/organizations', organizations);
+app.route('/billing', billing);
 
 // 404 handler
 app.notFound((c) => {

@@ -27,6 +27,7 @@ import type {
   CreateWorkboardData,
   DealTeamMember,
   AddDealTeamMemberData,
+  SubscriptionInfo,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -371,6 +372,18 @@ export const organizationsApi = {
 
   removeMember: (id: string) =>
     api.delete<ApiResponse<null>>(`/organizations/members/${id}`),
+};
+
+// Billing API
+export const billingApi = {
+  getSubscription: () =>
+    api.get<ApiResponse<SubscriptionInfo>>('/billing/subscription'),
+
+  createCheckoutSession: () =>
+    api.post<ApiResponse<{ url: string }>>('/billing/checkout', {}),
+
+  createPortalSession: () =>
+    api.post<ApiResponse<{ url: string }>>('/billing/portal', {}),
 };
 
 // Workboards API

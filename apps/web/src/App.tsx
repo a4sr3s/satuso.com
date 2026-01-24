@@ -3,6 +3,7 @@ import { SignedIn, SignedOut, RedirectToSignIn, useAuth } from '@clerk/clerk-rea
 import Layout from '@/components/Layout';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import AuthProvider from '@/components/AuthProvider';
+import { useSubscription } from '@/hooks/useSubscription';
 
 // Direct imports for instant navigation
 import SignInPage from '@/pages/SignIn';
@@ -19,6 +20,8 @@ import SettingsPage from '@/pages/Settings';
 import WorkboardsPage from '@/pages/Workboards';
 import WorkboardViewPage from '@/pages/WorkboardView';
 import AIAssistantPage from '@/pages/AIAssistant';
+import SubscribePage from '@/pages/Subscribe';
+import BillingSuccessPage from '@/pages/BillingSuccess';
 
 // Full page loader for auth state
 function FullPageLoader() {
@@ -34,14 +37,17 @@ function FullPageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded } = useAuth();
+  const { isActive, isLoading } = useSubscription();
 
-  if (!isLoaded) {
+  if (!isLoaded || isLoading) {
     return <FullPageLoader />;
   }
 
   return (
     <>
-      <SignedIn>{children}</SignedIn>
+      <SignedIn>
+        {isActive ? children : <Navigate to="/subscribe" replace />}
+      </SignedIn>
       <SignedOut>
         <RedirectToSignIn />
       </SignedOut>
@@ -64,6 +70,10 @@ function App() {
         <Route path="/sign-up/*" element={<SignUpPage />} />
         {/* Legacy route redirect */}
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
+
+        {/* Billing routes - outside protected layout */}
+        <Route path="/subscribe" element={<SubscribePage />} />
+        <Route path="/billing/success" element={<BillingSuccessPage />} />
 
         {/* Protected routes - Layout has its own Suspense for content */}
         <Route

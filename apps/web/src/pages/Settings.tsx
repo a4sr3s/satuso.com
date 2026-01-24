@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card, { CardHeader } from '@/components/ui/Card';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import { organizationsApi } from '@/lib/api';
+import { organizationsApi, billingApi } from '@/lib/api';
+import { useSubscription } from '@/hooks/useSubscription';
 
 const JOB_FUNCTIONS = [
   { value: 'ae', label: 'Account Executive' },
@@ -13,7 +14,7 @@ const JOB_FUNCTIONS = [
   { value: 'executive', label: 'Executive' },
 ] as const;
 
-const TABS = ['General', 'Integrations'] as const;
+const TABS = ['General', 'Billing', 'Integrations'] as const;
 type Tab = typeof TABS[number];
 
 const INTEGRATIONS = [
@@ -115,6 +116,56 @@ interface Member {
   role: string;
   avatar_url: string | null;
   job_function: string | null;
+}
+
+function BillingTab() {
+  const { status } = useSubscription();
+  const [loading, setLoading] = useState(false);
+
+  const handleManageBilling = async () => {
+    setLoading(true);
+    try {
+      const res = await billingApi.createPortalSession();
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } catch {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Subscription"
+        description="Manage your subscription and billing details."
+      />
+      <div className="px-4 pb-4 space-y-4">
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p className="text-sm font-medium text-text-primary">Standard Plan</p>
+            <p className="text-xs text-text-muted mt-0.5">$29/month</p>
+          </div>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+            status === 'active'
+              ? 'bg-green-100 text-green-700'
+              : status === 'past_due'
+              ? 'bg-yellow-100 text-yellow-700'
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {status === 'active' ? 'Active' : status === 'past_due' ? 'Past Due' : status === 'canceled' ? 'Canceled' : 'Inactive'}
+          </span>
+        </div>
+        <button
+          onClick={handleManageBilling}
+          disabled={loading}
+          className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+        >
+          {loading ? 'Opening portal...' : 'Manage Billing'}
+        </button>
+      </div>
+    </Card>
+  );
 }
 
 export default function SettingsPage() {
@@ -235,6 +286,9 @@ export default function SettingsPage() {
           </Card>
         </div>
       )}
+
+      {/* Billing Tab */}
+      {activeTab === 'Billing' && <BillingTab />}
 
       {/* Integrations Tab */}
       {activeTab === 'Integrations' && (

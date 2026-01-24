@@ -32,13 +32,17 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     // Check if user exists in our database
     let user = await c.env.DB.prepare(
-      'SELECT id, email, name, role, organization_id FROM users WHERE clerk_id = ?'
+      `SELECT u.id, u.email, u.name, u.role, u.organization_id, o.subscription_status
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.clerk_id = ?`
     ).bind(clerkUserId).first<{
       id: string;
       email: string;
       name: string;
       role: string;
       organization_id: string | null;
+      subscription_status: string | null;
     }>();
 
     // If user doesn't exist, create them with an organization
@@ -66,6 +70,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
         name,
         role: 'admin',
         organization_id: orgId,
+        subscription_status: 'inactive',
       };
     }
 
@@ -80,7 +85,14 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       name: user.name,
       role: user.role,
       organization_id: user.organization_id || undefined,
+      subscription_status: user.subscription_status || 'inactive',
     });
+
+    // Subscription gate: reject unpaid orgs (except billing routes)
+    const path = c.req.path;
+    if (!path.includes('/billing') && user.subscription_status !== 'active') {
+      return c.json({ success: false, error: 'Subscription required', code: 'SUBSCRIPTION_REQUIRED' }, 402);
+    }
 
     await next();
   } catch (error) {

@@ -97,22 +97,23 @@
 }
 
 @layer components {
-  /* AI Chat prose styling — clean, readable markdown output */
+  /* AI Chat prose styling — clean, readable markdown like ChatGPT */
   .ai-prose {
-    @apply text-[14px] leading-relaxed text-text-primary;
+    @apply text-base leading-7 text-text-primary;
+    font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 
   .ai-prose p {
-    @apply my-2 first:mt-0 last:mb-0;
+    @apply my-4 first:mt-0 last:mb-0;
   }
 
   .ai-prose h1, .ai-prose h2, .ai-prose h3 {
-    @apply font-semibold text-text-primary mt-4 mb-2 first:mt-0;
+    @apply font-semibold text-text-primary mt-6 mb-3 first:mt-0;
   }
 
-  .ai-prose h1 { @apply text-base; }
-  .ai-prose h2 { @apply text-[14px]; }
-  .ai-prose h3 { @apply text-[14px]; }
+  .ai-prose h1 { @apply text-lg; }
+  .ai-prose h2 { @apply text-base; }
+  .ai-prose h3 { @apply text-base; }
 
   .ai-prose strong {
     @apply font-semibold text-text-primary;
@@ -123,7 +124,7 @@
   }
 
   .ai-prose ul, .ai-prose ol {
-    @apply my-2 pl-5 space-y-1;
+    @apply my-4 pl-6 space-y-2;
   }
 
   .ai-prose ul {
@@ -135,27 +136,27 @@
   }
 
   .ai-prose li {
-    @apply leading-relaxed;
+    @apply leading-7;
   }
 
   .ai-prose li > ul, .ai-prose li > ol {
-    @apply mt-1;
+    @apply mt-2;
   }
 
   .ai-prose code {
-    @apply bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-[13px] font-mono;
+    @apply bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-[14px] font-mono;
   }
 
   .ai-prose pre {
-    @apply bg-gray-900 text-gray-100 rounded-lg p-3 my-3 overflow-x-auto;
+    @apply bg-gray-900 text-gray-100 rounded-lg p-4 my-4 overflow-x-auto;
   }
 
   .ai-prose pre code {
-    @apply bg-transparent text-inherit p-0 text-[13px];
+    @apply bg-transparent text-inherit p-0 text-[14px];
   }
 
   .ai-prose blockquote {
-    @apply border-l-2 border-primary/30 pl-3 my-2 text-text-secondary italic;
+    @apply border-l-2 border-gray-300 pl-4 my-4 text-text-secondary italic;
   }
 
   .ai-prose a {
@@ -163,15 +164,15 @@
   }
 
   .ai-prose hr {
-    @apply my-4 border-border;
+    @apply my-6 border-border;
   }
 
   .ai-prose table {
-    @apply w-full my-3 text-[13px] border-collapse;
+    @apply w-full my-4 text-[14px] border-collapse;
   }
 
   .ai-prose th, .ai-prose td {
-    @apply border border-border px-2 py-1.5 text-left;
+    @apply border border-border px-3 py-2 text-left;
   }
 
   .ai-prose th {

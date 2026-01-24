@@ -4,14 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import {
   Send,
   Sparkles,
-  User,
   Loader2,
   Trash2,
-  Mic,
+  AudioLines,
   Volume2,
   VolumeX,
-  Play,
-  Square,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { aiApi } from '@/lib/api';
@@ -98,7 +95,7 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { isPlaying, isTTSEnabled, toggleTTS, playChunks, stopPlayback } = useAudioPlayback();
+  const { isTTSEnabled, toggleTTS, playChunks, stopPlayback } = useAudioPlayback();
 
   // Ref to hold the send function for the VAD auto-stop callback
   const sendMessageRef = useRef<(text: string) => void>(() => {});
@@ -241,18 +238,6 @@ export default function AIAssistantPage() {
     }
   };
 
-  // Play a specific message's audio
-  const handlePlayMessage = (content: string) => {
-    if (isPlaying) {
-      stopPlayback();
-    } else {
-      const chunks = chunkText(content);
-      if (chunks.length > 0) {
-        playChunks(chunks);
-      }
-    }
-  };
-
   return (
     <div className="flex flex-col h-[calc(100vh-2rem)]">
       {/* Header */}
@@ -288,172 +273,128 @@ export default function AIAssistantPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex flex-col flex-1 min-h-0 bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-          {messages.length === 0 ? (
-            <div className="text-center py-12">
-              <Sparkles className="h-12 w-12 text-primary mx-auto mb-4 opacity-80" />
-              <h3 className="text-lg font-medium text-text-primary mb-2">
-                Ready to crush your quota?
-              </h3>
-              <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto leading-relaxed">
-                I'm your AI sales coach. Ask me what to prioritize, which deals need attention,
-                or how to advance your biggest opportunities.
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
-                {suggestedQueries.map((query) => (
-                  <button
-                    key={query}
-                    onClick={() => handleSuggestionClick(query)}
-                    className="px-3 py-2 text-sm bg-surface text-text-secondary rounded-lg border border-border hover:border-primary hover:text-primary transition-all"
-                  >
-                    {query}
-                  </button>
-                ))}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+            {messages.length === 0 ? (
+              <div className="text-center py-16">
+                <Sparkles className="h-10 w-10 text-primary mx-auto mb-5 opacity-70" />
+                <h3 className="text-xl font-medium text-text-primary mb-2">
+                  Ready to crush your quota?
+                </h3>
+                <p className="text-base text-text-secondary mb-8 max-w-md mx-auto leading-relaxed">
+                  I'm your AI sales coach. Ask me what to prioritize, which deals need attention,
+                  or how to advance your biggest opportunities.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
+                  {suggestedQueries.map((query) => (
+                    <button
+                      key={query}
+                      onClick={() => handleSuggestionClick(query)}
+                      className="px-3.5 py-2 text-sm bg-surface text-text-secondary rounded-full border border-border hover:border-primary hover:text-primary transition-all"
+                    >
+                      {query}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={clsx(
-                  'flex gap-3',
-                  message.role === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
-                {message.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                )}
-                <div
-                  className={clsx(
-                    'max-w-[85%] relative group',
-                    message.role === 'user'
-                      ? 'bg-primary text-white rounded-2xl rounded-br-md px-4 py-2.5'
-                      : 'text-text-primary'
-                  )}
-                >
+            ) : (
+              messages.map((message) => (
+                <div key={message.id}>
                   {message.role === 'user' ? (
-                    <p className="text-[14px] leading-relaxed">{message.content}</p>
+                    <div className="flex justify-end">
+                      <div className="bg-surface text-text-primary rounded-2xl px-4 py-2.5 max-w-[80%]">
+                        <p className="text-[15px] leading-relaxed">{message.content}</p>
+                      </div>
+                    </div>
                   ) : (
-                    <>
+                    <div className="ai-prose">
                       {streamingId === message.id ? (
                         <StreamingText
                           content={message.content}
                           onComplete={() => setStreamingId(null)}
                         />
                       ) : (
-                        <div className="ai-prose">
-                          <ReactMarkdown>{message.content}</ReactMarkdown>
-                        </div>
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
                       )}
-                      {/* Play button for assistant messages */}
-                      {streamingId !== message.id && (
-                        <button
-                          onClick={() => handlePlayMessage(message.content)}
-                          className="absolute -bottom-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border border-border rounded-full shadow-sm hover:bg-surface"
-                          title={isPlaying ? 'Stop playback' : 'Play message'}
-                        >
-                          {isPlaying ? (
-                            <Square className="h-3 w-3 text-text-muted" />
-                          ) : (
-                            <Play className="h-3 w-3 text-text-muted" />
-                          )}
-                        </button>
-                      )}
-                    </>
+                    </div>
                   )}
                 </div>
-                {message.role === 'user' && (
-                  <div className="w-7 h-7 rounded-full bg-primary/5 flex items-center justify-center flex-shrink-0 mt-1">
-                    <User className="h-3.5 w-3.5 text-text-muted" />
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+              ))
+            )}
 
-          {/* Loading / Recording / Transcribing indicators */}
-          {(chatMutation.isPending || isTranscribing) && (
-            <div className="flex gap-3">
-              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <div className="flex items-center gap-2 py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
-                <span className="text-sm text-text-muted">
+            {/* Loading / Transcribing indicator */}
+            {(chatMutation.isPending || isTranscribing) && (
+              <div className="flex items-center gap-2 text-text-muted">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">
                   {isTranscribing ? 'Transcribing...' : 'Thinking...'}
                 </span>
               </div>
-            </div>
-          )}
+            )}
 
-          {isRecording && (
-            <div className="flex gap-3 justify-end">
-              <div className="bg-red-50 border border-red-200 rounded-2xl rounded-br-md px-4 py-2.5 flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm text-red-600">Listening...</span>
+            {/* Recording indicator */}
+            {isRecording && (
+              <div className="flex justify-end">
+                <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-sm text-red-600">Listening...</span>
+                </div>
               </div>
-              <div className="w-7 h-7 rounded-full bg-primary/5 flex items-center justify-center flex-shrink-0 mt-1">
-                <User className="h-3.5 w-3.5 text-text-muted" />
-              </div>
-            </div>
-          )}
+            )}
 
-          <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Error display */}
         {recorderError && (
-          <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-sm text-red-700">
+          <div className="max-w-2xl mx-auto px-4 py-2 text-sm text-red-600">
             {recorderError}
           </div>
         )}
 
         {/* Input bar */}
-        <div className="border-t border-border p-4 flex-shrink-0">
-          <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-3xl mx-auto">
-            <div className="flex-1 relative flex items-center">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isRecording ? 'Recording...' : 'Ask about your pipeline, deals, or strategy...'}
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                disabled={chatMutation.isPending || isRecording || isTranscribing}
-                autoFocus
-              />
-            </div>
-            {/* Mic button */}
+        <div className="p-4 flex-shrink-0">
+          <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-2xl mx-auto border border-border rounded-2xl px-3 py-1.5 bg-white shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isRecording ? 'Recording...' : 'Ask anything...'}
+              className="flex-1 px-2 py-2 text-[15px] text-text-primary placeholder:text-text-muted bg-transparent focus:outline-none"
+              disabled={chatMutation.isPending || isRecording || isTranscribing}
+              autoFocus
+            />
+            {/* Voice button */}
             <button
               type="button"
               onClick={handleMicClick}
               disabled={chatMutation.isPending || isTranscribing}
               className={clsx(
-                'p-2.5 rounded-xl transition-all',
+                'p-2 rounded-full transition-all',
                 isRecording
-                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-sm'
+                  ? 'bg-red-500 text-white hover:bg-red-600'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface'
               )}
-              title={isRecording ? 'Stop recording' : 'Start voice input'}
+              title={isRecording ? 'Stop recording' : 'Voice input'}
             >
-              <Mic className="h-4 w-4" />
+              <AudioLines className="h-5 w-5" />
             </button>
             {/* Send button */}
             <button
               type="submit"
               disabled={!input.trim() || chatMutation.isPending || isRecording || isTranscribing}
               className={clsx(
-                'p-2.5 rounded-xl transition-all',
+                'p-2 rounded-full transition-all',
                 input.trim() && !chatMutation.isPending
-                  ? 'bg-primary text-white hover:bg-primary/90 shadow-sm'
-                  : 'text-text-muted bg-surface cursor-not-allowed'
+                  ? 'bg-primary text-white hover:bg-primary/90'
+                  : 'text-text-muted cursor-not-allowed'
               )}
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-5 w-5" />
             </button>
           </form>
         </div>

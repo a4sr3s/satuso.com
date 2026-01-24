@@ -156,7 +156,12 @@ workboards.get('/:id/data', async (c) => {
       WHERE 1=1
     `;
 
-    countQuery = `SELECT COUNT(*) as total FROM deals d WHERE 1=1`;
+    countQuery = `
+      SELECT COUNT(*) as total FROM deals d
+      LEFT JOIN contacts c ON d.contact_id = c.id
+      LEFT JOIN companies co ON d.company_id = co.id
+      LEFT JOIN users u ON d.owner_id = u.id
+      WHERE 1=1`;
   } else if (entityType === 'contacts') {
     const formulas = extractFormulasFromColumns(columns);
     const needsLastActivity = formulas.includes('last_activity_days');
@@ -176,7 +181,11 @@ workboards.get('/:id/data', async (c) => {
       WHERE 1=1
     `;
 
-    countQuery = `SELECT COUNT(*) as total FROM contacts c WHERE 1=1`;
+    countQuery = `
+      SELECT COUNT(*) as total FROM contacts c
+      LEFT JOIN companies co ON c.company_id = co.id
+      LEFT JOIN users u ON c.owner_id = u.id
+      WHERE 1=1`;
   } else {
     // companies
     const formulas = extractFormulasFromColumns(columns);
@@ -198,7 +207,10 @@ workboards.get('/:id/data', async (c) => {
       WHERE 1=1
     `;
 
-    countQuery = `SELECT COUNT(*) as total FROM companies co WHERE 1=1`;
+    countQuery = `
+      SELECT COUNT(*) as total FROM companies co
+      LEFT JOIN users u ON co.owner_id = u.id
+      WHERE 1=1`;
   }
 
   // Apply filters

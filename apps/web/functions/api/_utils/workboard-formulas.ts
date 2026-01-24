@@ -188,8 +188,16 @@ export function buildFilterClause(
   const params: any[] = [];
   const alias = entityType === 'deals' ? 'd' : entityType === 'contacts' ? 'c' : 'co';
 
+  // Map aliased columns to their actual SQL references
+  const aliasedFieldMap: Record<string, string> = {
+    owner_name: 'u.name',
+    company_name: entityType === 'deals' ? 'co.name' : entityType === 'contacts' ? 'co.name' : 'co.name',
+    contact_name: 'c.name',
+  };
+
   for (const filter of filters) {
-    const fieldName = filter.field.includes('.') ? filter.field : `${alias}.${filter.field}`;
+    const fieldName = aliasedFieldMap[filter.field]
+      || (filter.field.includes('.') ? filter.field : `${alias}.${filter.field}`);
 
     // Handle formula fields specially
     if (filter.field in FORMULA_DEFINITIONS) {

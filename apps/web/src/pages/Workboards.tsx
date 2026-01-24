@@ -160,12 +160,7 @@ export default function WorkboardsPage() {
         )}
       >
         <div className="flex items-start gap-3">
-          <div className={clsx(
-            'p-2 rounded-lg shrink-0',
-            template.entity_type === 'deals' && 'bg-green-100 text-green-600',
-            template.entity_type === 'contacts' && 'bg-blue-100 text-blue-600',
-            template.entity_type === 'companies' && 'bg-purple-100 text-purple-600',
-          )}>
+          <div className="p-2 rounded-lg shrink-0 bg-gray-100 text-gray-700">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -188,12 +183,7 @@ export default function WorkboardsPage() {
         <div className="p-4">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className={clsx(
-                'p-2 rounded-lg',
-                workboard.entity_type === 'deals' && 'bg-green-100 text-green-600',
-                workboard.entity_type === 'contacts' && 'bg-blue-100 text-blue-600',
-                workboard.entity_type === 'companies' && 'bg-purple-100 text-purple-600',
-              )}>
+              <div className="p-2 rounded-lg bg-gray-100 text-gray-700">
                 <Icon className="h-5 w-5" />
               </div>
               <div>

@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import { aiApi } from '@/lib/api';
 
 const TTS_ENABLED_KEY = 'ai-tts-enabled';
+const TTS_VOICE_KEY = 'ai-tts-voice';
 
 interface UseAudioPlaybackReturn {
   isPlaying: boolean;
@@ -19,18 +18,47 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     return localStorage.getItem(TTS_ENABLED_KEY) === 'true';
   });
   const cancelledRef = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const objectUrlsRef = useRef<string[]>([]);
+  const preferredVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
-  // Cleanup object URLs on unmount
+  // Find a good English voice on load
+  useEffect(() => {
+    const pickVoice = () => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length === 0) return;
+
+      const savedVoiceName = localStorage.getItem(TTS_VOICE_KEY);
+      if (savedVoiceName) {
+        const saved = voices.find(v => v.name === savedVoiceName);
+        if (saved) {
+          preferredVoiceRef.current = saved;
+          return;
+        }
+      }
+
+      // Prefer natural/premium English voices
+      const preferred = voices.find(v =>
+        v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Karen') || v.name.includes('Daniel'))
+      ) || voices.find(v =>
+        v.lang.startsWith('en') && v.localService
+      ) || voices.find(v =>
+        v.lang.startsWith('en')
+      );
+
+      if (preferred) {
+        preferredVoiceRef.current = preferred;
+        localStorage.setItem(TTS_VOICE_KEY, preferred.name);
+      }
+    };
+
+    pickVoice();
+    speechSynthesis.addEventListener('voiceschanged', pickVoice);
+    return () => speechSynthesis.removeEventListener('voiceschanged', pickVoice);
+  }, []);
+
+  // Cancel speech on unmount
   useEffect(() => {
     return () => {
-      objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
-      objectUrlsRef.current = [];
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      speechSynthesis.cancel();
     };
   }, []);
 
@@ -44,36 +72,30 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
 
   const stopPlayback = useCallback(() => {
     cancelledRef.current = true;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    objectUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
-    objectUrlsRef.current = [];
+    speechSynthesis.cancel();
     setIsPlaying(false);
   }, []);
 
-  const playAudioBuffer = useCallback((buffer: ArrayBuffer): Promise<void> => {
+  const speakText = useCallback((text: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      const blob = new Blob([buffer], { type: 'audio/wav' });
-      const url = URL.createObjectURL(blob);
-      objectUrlsRef.current.push(url);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.1; // Slightly faster for natural conversation pace
+      utterance.pitch = 1.0;
 
-      const audio = new Audio(url);
-      audioRef.current = audio;
+      if (preferredVoiceRef.current) {
+        utterance.voice = preferredVoiceRef.current;
+      }
 
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        objectUrlsRef.current = objectUrlsRef.current.filter(u => u !== url);
-        resolve();
+      utterance.onend = () => resolve();
+      utterance.onerror = (e) => {
+        if (e.error === 'canceled' || e.error === 'interrupted') {
+          resolve(); // Not a real error — user interrupted
+        } else {
+          reject(new Error(`Speech synthesis error: ${e.error}`));
+        }
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        objectUrlsRef.current = objectUrlsRef.current.filter(u => u !== url);
-        reject(new Error('Audio playback failed'));
-      };
 
-      audio.play().catch(reject);
+      speechSynthesis.speak(utterance);
     });
   }, []);
 
@@ -83,62 +105,26 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     cancelledRef.current = false;
     setIsPlaying(true);
 
-    let failedCount = 0;
-    let lastError = '';
     try {
-      // Pipeline: pre-fetch next chunk while current one plays
-      let nextFetch: Promise<ArrayBuffer> | null = null;
-
-      for (let i = 0; i < chunks.length; i++) {
+      for (const chunk of chunks) {
         if (cancelledRef.current) break;
-
-        try {
-          // Use pre-fetched buffer or fetch current chunk
-          const buffer = nextFetch
-            ? await nextFetch
-            : await aiApi.tts(chunks[i]);
-
-          if (cancelledRef.current) break;
-          if (buffer.byteLength < 100) {
-            throw new Error('Empty audio response');
-          }
-
-          // Pre-fetch next chunk while this one plays
-          nextFetch = (i + 1 < chunks.length && !cancelledRef.current)
-            ? aiApi.tts(chunks[i + 1])
-            : null;
-
-          await playAudioBuffer(buffer);
-        } catch (err) {
-          failedCount++;
-          lastError = err instanceof Error ? err.message : String(err);
-          console.error('TTS chunk failed:', lastError);
-          // Reset pre-fetch on error
-          nextFetch = null;
-          continue;
-        }
-      }
-      if (failedCount > 0 && failedCount === chunks.length) {
-        toast.error(`Voice unavailable: ${lastError || 'TTS service error'}`);
+        await speakText(chunk);
       }
     } finally {
       setIsPlaying(false);
     }
-  }, [playAudioBuffer]);
+  }, [speakText]);
 
   const playSingleChunk = useCallback(async (text: string) => {
     cancelledRef.current = false;
     setIsPlaying(true);
 
     try {
-      const buffer = await aiApi.tts(text);
-      if (!cancelledRef.current) {
-        await playAudioBuffer(buffer);
-      }
+      await speakText(text);
     } finally {
       setIsPlaying(false);
     }
-  }, [playAudioBuffer]);
+  }, [speakText]);
 
   return { isPlaying, isTTSEnabled, toggleTTS, playChunks, playSingleChunk, stopPlayback };
 }

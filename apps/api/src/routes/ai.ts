@@ -568,7 +568,9 @@ RULES:
 - For deals: always ask for value if not provided
 - Parse monetary values: "50k" = 50000, "$1M" = 1000000
 - If user mentions a company or contact name for a reference, include it in companyRef/contactRef
-- Set readyToConfirm=true when you have the required fields plus at least one optional field filled
+- Set readyToConfirm=true when you have the required field (name) AND the user signals they are done
+- IMPORTANT: If the user says "that's all", "thats all", "done", "nothing else", "no", "nope", "that is all", "I'm done", "go ahead", "create it", "looks good", or any similar completion signal, you MUST set readyToConfirm=true and followUpQuestion=null
+- Also set readyToConfirm=true if you have all the key fields filled (name + 2 or more optional fields)
 
 Return ONLY valid JSON in this format:
 {

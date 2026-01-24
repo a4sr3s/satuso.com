@@ -13,9 +13,10 @@ import { aiApi } from '@/lib/api';
 import type { EntityCreateResponse } from '@/types';
 import EntityConfirmCard from './EntityConfirmCard';
 import EntityCreatedCard from './EntityCreatedCard';
+import EntityDeleteCard from './EntityDeleteCard';
 
 interface ActionCard {
-  type: 'confirm' | 'created';
+  type: 'confirm' | 'created' | 'delete_confirm' | 'deleted';
   entityType: 'contact' | 'company' | 'deal';
   fields?: Record<string, any>;
   resolvedRefs?: {
@@ -24,7 +25,7 @@ interface ActionCard {
     contactId?: string;
     contactName?: string;
   };
-  entity?: { id: string; name: string; [key: string]: any };
+  entity?: { id: string; name: string; details?: string; [key: string]: any };
 }
 
 interface Message {
@@ -47,7 +48,7 @@ interface AssistantPanelProps {
 
 const STORAGE_KEY = 'assistant-history';
 
-const CREATION_INTENT_REGEX = /^(create|add|new)\s/i;
+const ENTITY_INTENT_REGEX = /^(create|add|new|delete|remove)\s/i;
 
 const contextualPrompts: Record<string, string[]> = {
   deal: [
@@ -59,6 +60,7 @@ const contextualPrompts: Record<string, string[]> = {
     "What should I prioritize this week?",
     "Which deals need attention?",
     "Show me my pipeline health",
+    "Delete a deal",
   ],
   contact: [
     "What do I know about this person?",
@@ -94,6 +96,7 @@ const contextualPrompts: Record<string, string[]> = {
     "Create a new contact",
     "Add a company",
     "New deal",
+    "Delete a deal",
   ],
 };
 
@@ -235,12 +238,47 @@ export default function AssistantPanel({ isOpen, onClose, context }: AssistantPa
         }
         break;
       }
+      case 'delete_confirm': {
+        setEntitySessionId(response.sessionId);
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: response.message || 'Are you sure you want to delete this?',
+          actionCard: {
+            type: 'delete_confirm',
+            entityType: response.entityType!,
+            entity: response.entity as any,
+          },
+        };
+        setMessages((prev) => [...prev, msg]);
+        break;
+      }
+      case 'deleted': {
+        setEntitySessionId(null);
+        const msg: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: response.message || `${response.entityType?.charAt(0).toUpperCase()}${response.entityType?.slice(1)} deleted successfully.`,
+        };
+        setMessages((prev) => [...prev, msg]);
+
+        // Invalidate relevant queries
+        if (response.entityType === 'contact') {
+          queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        } else if (response.entityType === 'company') {
+          queryClient.invalidateQueries({ queryKey: ['companies'] });
+        } else if (response.entityType === 'deal') {
+          queryClient.invalidateQueries({ queryKey: ['deals'] });
+          queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+        }
+        break;
+      }
       case 'cancelled': {
         setEntitySessionId(null);
         const msg: Message = {
           id: Date.now().toString(),
           role: 'assistant',
-          content: response.message || 'Creation cancelled.',
+          content: response.message || 'Cancelled.',
         };
         setMessages((prev) => [...prev, msg]);
         break;
@@ -270,6 +308,16 @@ export default function AssistantPanel({ isOpen, onClose, context }: AssistantPa
     entityMutation.mutate({ message: '__CANCEL__', sessionId: entitySessionId });
   };
 
+  const handleDeleteConfirm = () => {
+    if (!entitySessionId) return;
+    entityMutation.mutate({ message: '__DELETE_CONFIRM__', sessionId: entitySessionId });
+  };
+
+  const handleDeleteCancel = () => {
+    if (!entitySessionId) return;
+    entityMutation.mutate({ message: '__CANCEL__', sessionId: entitySessionId });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || queryMutation.isPending || entityMutation.isPending) return;
@@ -284,8 +332,8 @@ export default function AssistantPanel({ isOpen, onClose, context }: AssistantPa
     const trimmedInput = input.trim();
     setInput('');
 
-    // Route to entity-create if we have an active session or detect creation intent
-    if (entitySessionId || CREATION_INTENT_REGEX.test(trimmedInput)) {
+    // Route to entity-create if we have an active session or detect entity intent
+    if (entitySessionId || ENTITY_INTENT_REGEX.test(trimmedInput)) {
       entityMutation.mutate({
         message: trimmedInput,
         sessionId: entitySessionId || undefined,
@@ -313,8 +361,8 @@ export default function AssistantPanel({ isOpen, onClose, context }: AssistantPa
     };
     setMessages((prev) => [...prev, userMessage]);
 
-    // Check if suggestion is a creation intent
-    if (CREATION_INTENT_REGEX.test(suggestion)) {
+    // Check if suggestion is an entity intent (create/delete)
+    if (ENTITY_INTENT_REGEX.test(suggestion)) {
       entityMutation.mutate({ message: suggestion });
       return;
     }
@@ -459,6 +507,18 @@ export default function AssistantPanel({ isOpen, onClose, context }: AssistantPa
                     <EntityCreatedCard
                       entityType={message.actionCard.entityType}
                       entity={message.actionCard.entity}
+                    />
+                  </div>
+                )}
+
+                {message.actionCard && message.actionCard.type === 'delete_confirm' && message.actionCard.entity && (
+                  <div className="mt-2 ml-0">
+                    <EntityDeleteCard
+                      entityType={message.actionCard.entityType}
+                      entity={message.actionCard.entity}
+                      onConfirm={handleDeleteConfirm}
+                      onCancel={handleDeleteCancel}
+                      isLoading={entityMutation.isPending}
                     />
                   </div>
                 )}

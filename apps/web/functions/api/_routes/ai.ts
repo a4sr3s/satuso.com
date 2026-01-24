@@ -453,12 +453,13 @@ ai.get('/rate-limit-status', async (c) => {
 });
 
 // ==========================================
-// Entity Creation via Conversation
+// Entity Actions via Conversation (Create + Delete)
 // ==========================================
 
 import { createContactRecord, createCompanyRecord, createDealRecord } from '../_services/entity-service';
 
 interface EntitySession {
+  action: 'create' | 'delete';
   entityType: 'contact' | 'company' | 'deal' | null;
   fields: Record<string, any>;
   resolvedRefs: {
@@ -467,36 +468,42 @@ interface EntitySession {
     contactId?: string;
     contactName?: string;
   };
+  deleteTarget?: { id: string; name: string; entityType: string; details?: string };
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
   readyToConfirm: boolean;
 }
 
-const ENTITY_CREATE_SYSTEM_PROMPT = `You are a CRM assistant that helps users create contacts, companies, and deals through conversation.
+const ENTITY_ACTION_SYSTEM_PROMPT = `You are a CRM assistant that helps users create and delete contacts, companies, and deals through conversation.
 
 Your job is to:
-1. Determine which entity type the user wants to create (contact, company, or deal)
-2. Extract any fields they've already provided
-3. Ask follow-up questions for missing required/important fields
-4. When you have enough info, indicate readiness to confirm
+1. Determine the ACTION: "create" or "delete"
+2. Determine which entity type (contact, company, or deal)
+3. For CREATE: extract fields, ask follow-ups for missing required info
+4. For DELETE: extract the entity name/reference to look up
 
-ENTITY FIELDS:
+ENTITY FIELDS (for create):
 - Contact: name (required), email, phone, title, companyRef (company name to look up)
 - Company: name (required), domain, industry, employee_count, website, description
 - Deal: name (required), value (number), stage (lead/qualified/discovery/proposal/negotiation), close_date, companyRef, contactRef
 
 RULES:
-- For contacts: always ask for email if not provided
-- For deals: always ask for value if not provided
+- For CREATE contacts: always ask for email if not provided
+- For CREATE deals: always ask for value if not provided
 - Parse monetary values: "50k" = 50000, "$1M" = 1000000
 - If user mentions a company or contact name for a reference, include it in companyRef/contactRef
 - Set readyToConfirm=true when you have the required field (name) AND the user signals they are done
 - IMPORTANT: If the user says "that's all", "thats all", "done", "nothing else", "no", "nope", "that is all", "I'm done", "go ahead", "create it", "looks good", or any similar completion signal, you MUST set readyToConfirm=true and followUpQuestion=null
 - Also set readyToConfirm=true if you have all the key fields filled (name + 2 or more optional fields)
+- For DELETE: set readyToConfirm=true as soon as you have the entity name/reference to look up. Put the name in entityRef.
+- Keywords indicating delete: "delete", "remove", "get rid of", "drop", "trash", "kill"
+- Keywords indicating create: "create", "add", "new", "make"
 
 Return ONLY valid JSON in this format:
 {
+  "action": "create" | "delete",
   "entityType": "contact" | "company" | "deal" | null,
   "newFields": { extracted field values from the LATEST message only },
+  "entityRef": "name of entity to delete" or null,
   "companyRef": "company name to look up" or null,
   "contactRef": "contact name to look up" or null,
   "followUpQuestion": "question to ask next" or null,
@@ -523,7 +530,48 @@ async function resolveContactRef(db: D1Database, name: string, orgId?: string): 
   return results.results as Array<{ id: string; name: string }>;
 }
 
-// Conversational entity creation endpoint
+// Helper to find entities by name for deletion
+async function findEntityByName(db: D1Database, entityType: string, name: string, orgId?: string): Promise<Array<{ id: string; name: string; details: string }>> {
+  let query: string;
+  let params: any[];
+
+  if (entityType === 'deal') {
+    query = orgId
+      ? `SELECT id, name, value, stage FROM deals WHERE name LIKE ? AND org_id = ? LIMIT 5`
+      : `SELECT id, name, value, stage FROM deals WHERE name LIKE ? LIMIT 5`;
+    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
+    const results = await db.prepare(query).bind(...params).all();
+    return (results.results as any[]).map(d => ({
+      id: d.id,
+      name: d.name,
+      details: `$${(d.value || 0).toLocaleString()} - ${d.stage}`,
+    }));
+  } else if (entityType === 'contact') {
+    query = orgId
+      ? `SELECT id, name, email, title FROM contacts WHERE name LIKE ? AND org_id = ? LIMIT 5`
+      : `SELECT id, name, email, title FROM contacts WHERE name LIKE ? LIMIT 5`;
+    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
+    const results = await db.prepare(query).bind(...params).all();
+    return (results.results as any[]).map(c => ({
+      id: c.id,
+      name: c.name,
+      details: c.email || c.title || '',
+    }));
+  } else {
+    query = orgId
+      ? `SELECT id, name, industry FROM companies WHERE name LIKE ? AND org_id = ? LIMIT 5`
+      : `SELECT id, name, industry FROM companies WHERE name LIKE ? LIMIT 5`;
+    params = orgId ? [`%${name}%`, orgId] : [`%${name}%`];
+    const results = await db.prepare(query).bind(...params).all();
+    return (results.results as any[]).map(c => ({
+      id: c.id,
+      name: c.name,
+      details: c.industry || '',
+    }));
+  }
+}
+
+// Conversational entity action endpoint (create + delete)
 ai.post('/entity-create', async (c) => {
   const { message, sessionId } = await c.req.json();
   const userId = c.get('userId');
@@ -562,6 +610,7 @@ ai.post('/entity-create', async (c) => {
       session = stored as EntitySession;
     } else {
       session = {
+        action: 'create',
         entityType: null,
         fields: {},
         resolvedRefs: {},
@@ -631,6 +680,30 @@ ai.post('/entity-create', async (c) => {
       });
     }
 
+    if (message === '__DELETE_CONFIRM__') {
+      if (!session.deleteTarget || !session.entityType) {
+        return c.json({
+          success: true,
+          data: { type: 'error' as const, message: 'Nothing to delete.', sessionId },
+        });
+      }
+
+      const table = session.entityType === 'contact' ? 'contacts' : session.entityType === 'company' ? 'companies' : 'deals';
+      await c.env.DB.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(session.deleteTarget.id).run();
+
+      await c.env.KV.delete(kvKey);
+
+      return c.json({
+        success: true,
+        data: {
+          type: 'deleted' as const,
+          entityType: session.entityType,
+          entity: { id: session.deleteTarget.id, name: session.deleteTarget.name },
+          sessionId: null,
+        },
+      });
+    }
+
     if (message === '__CANCEL__') {
       if (sessionId) {
         await c.env.KV.delete(kvKey);
@@ -639,7 +712,7 @@ ai.post('/entity-create', async (c) => {
         success: true,
         data: {
           type: 'cancelled' as const,
-          message: 'Creation cancelled.',
+          message: 'Cancelled.',
           sessionId: null,
         },
       });
@@ -650,7 +723,7 @@ ai.post('/entity-create', async (c) => {
 
     // Build messages for LLM
     const llmMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: ENTITY_CREATE_SYSTEM_PROMPT },
+      { role: 'system', content: ENTITY_ACTION_SYSTEM_PROMPT },
     ];
 
     // Include conversation history for context
@@ -660,7 +733,7 @@ ai.post('/entity-create', async (c) => {
         .join('\n');
       llmMessages.push({
         role: 'user',
-        content: `Previous conversation:\n${historyContext}\n\nCurrent accumulated fields: ${JSON.stringify(session.fields)}\nEntity type so far: ${session.entityType || 'undetermined'}\n\nBased on the full conversation above, extract any NEW fields from the latest user message and determine next steps.`,
+        content: `Previous conversation:\n${historyContext}\n\nCurrent action: ${session.action}\nCurrent accumulated fields: ${JSON.stringify(session.fields)}\nEntity type so far: ${session.entityType || 'undetermined'}\n\nBased on the full conversation above, extract any NEW fields from the latest user message and determine next steps.`,
       });
     } else {
       llmMessages.push({ role: 'user', content: message });
@@ -674,8 +747,10 @@ ai.post('/entity-create', async (c) => {
 
     // Parse LLM response
     let llmResult: {
+      action: 'create' | 'delete';
       entityType: 'contact' | 'company' | 'deal' | null;
       newFields: Record<string, any>;
+      entityRef: string | null;
       companyRef: string | null;
       contactRef: string | null;
       followUpQuestion: string | null;
@@ -704,21 +779,94 @@ ai.post('/entity-create', async (c) => {
     }
 
     // Update session with new data
+    if (llmResult.action) {
+      session.action = llmResult.action;
+    }
     if (llmResult.entityType) {
       session.entityType = llmResult.entityType;
     }
     if (llmResult.newFields) {
       session.fields = { ...session.fields, ...llmResult.newFields };
     }
+    session.readyToConfirm = llmResult.readyToConfirm;
 
-    // Resolve company reference
+    const { nanoid } = await import('nanoid');
+
+    // Handle DELETE action
+    if (session.action === 'delete') {
+      const entityRef = llmResult.entityRef || session.fields.name;
+      if (!entityRef || !session.entityType) {
+        const newSessionId = sessionId || nanoid();
+        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+        session.conversationHistory.push({ role: 'assistant', content: llmResult.followUpQuestion || 'Which entity would you like to delete? Please provide the name.' });
+        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+        return c.json({
+          success: true,
+          data: {
+            type: 'question' as const,
+            message: llmResult.followUpQuestion || 'Which entity would you like to delete? Please provide the name.',
+            sessionId: newSessionId,
+          },
+        });
+      }
+
+      // Look up entity by name
+      const matches = await findEntityByName(c.env.DB, session.entityType, entityRef, orgId);
+
+      if (matches.length === 0) {
+        const newSessionId = sessionId || nanoid();
+        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+        const msg = `I couldn't find a ${session.entityType} matching "${entityRef}". Could you check the name and try again?`;
+        session.conversationHistory.push({ role: 'assistant', content: msg });
+        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+        return c.json({
+          success: true,
+          data: { type: 'question' as const, message: msg, sessionId: newSessionId },
+        });
+      }
+
+      if (matches.length > 1) {
+        const newSessionId = sessionId || nanoid();
+        const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+        const options = matches.map(m => `${m.name}${m.details ? ` (${m.details})` : ''}`).join(', ');
+        const msg = `I found multiple ${session.entityType}s matching "${entityRef}": ${options}. Which one?`;
+        session.conversationHistory.push({ role: 'assistant', content: msg });
+        await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+        return c.json({
+          success: true,
+          data: { type: 'question' as const, message: msg, sessionId: newSessionId },
+        });
+      }
+
+      // Single match - show delete confirmation
+      session.deleteTarget = { id: matches[0].id, name: matches[0].name, entityType: session.entityType, details: matches[0].details };
+      session.readyToConfirm = true;
+      const newSessionId = sessionId || nanoid();
+      const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
+      await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
+
+      return c.json({
+        success: true,
+        data: {
+          type: 'delete_confirm' as const,
+          entityType: session.entityType,
+          entity: { id: matches[0].id, name: matches[0].name, details: matches[0].details },
+          message: `Are you sure you want to delete ${session.entityType} "${matches[0].name}"${matches[0].details ? ` (${matches[0].details})` : ''}?`,
+          sessionId: newSessionId,
+        },
+      });
+    }
+
+    // Handle CREATE action - resolve references
     if (llmResult.companyRef && !session.resolvedRefs.companyId) {
       const matches = await resolveCompanyRef(c.env.DB, llmResult.companyRef, orgId);
       if (matches.length === 1) {
         session.resolvedRefs.companyId = matches[0].id;
         session.resolvedRefs.companyName = matches[0].name;
       } else if (matches.length > 1) {
-        const { nanoid } = await import('nanoid');
         const options = matches.map(m => m.name).join(', ');
         const newSessionId = sessionId || nanoid();
         const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
@@ -735,14 +883,12 @@ ai.post('/entity-create', async (c) => {
       }
     }
 
-    // Resolve contact reference
     if (llmResult.contactRef && !session.resolvedRefs.contactId) {
       const matches = await resolveContactRef(c.env.DB, llmResult.contactRef, orgId);
       if (matches.length === 1) {
         session.resolvedRefs.contactId = matches[0].id;
         session.resolvedRefs.contactName = matches[0].name;
       } else if (matches.length > 1) {
-        const { nanoid } = await import('nanoid');
         const options = matches.map(m => m.name).join(', ');
         const newSessionId = sessionId || nanoid();
         const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
@@ -759,15 +905,12 @@ ai.post('/entity-create', async (c) => {
       }
     }
 
-    session.readyToConfirm = llmResult.readyToConfirm;
-
     // Save session
-    const { nanoid } = await import('nanoid');
     const newSessionId = sessionId || nanoid();
     const newKvKey = `entity-session:${orgId || 'none'}:${userId}:${newSessionId}`;
     await c.env.KV.put(newKvKey, JSON.stringify(session), { expirationTtl: 600 });
 
-    // Return appropriate response
+    // Return confirm for create
     if (session.readyToConfirm && session.entityType) {
       const confirmMsg = `I have all the details. Ready to create this ${session.entityType}.`;
       session.conversationHistory.push({ role: 'assistant', content: confirmMsg });

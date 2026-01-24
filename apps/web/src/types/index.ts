@@ -226,7 +226,7 @@ export interface AIQueryResult {
   };
 }
 
-export type EntityCreateResponseType = 'question' | 'confirm' | 'created' | 'cancelled' | 'error';
+export type EntityCreateResponseType = 'question' | 'confirm' | 'created' | 'cancelled' | 'error' | 'delete_confirm' | 'deleted';
 
 export interface EntityCreateResponse {
   type: EntityCreateResponseType;
@@ -240,7 +240,7 @@ export interface EntityCreateResponse {
     contactId?: string;
     contactName?: string;
   };
-  entity?: Contact | Company | Deal;
+  entity?: Contact | Company | Deal | { id: string; name: string; details?: string };
 }
 
 // ============================================

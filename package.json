@@ -11,7 +11,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "db:migrate": "cd apps/api && wrangler d1 migrations apply crm-db --local",
-    "db:migrate:prod": "cd apps/api && wrangler d1 migrations apply crm-db --remote"
+    "db:migrate:prod": "cd apps/api && wrangler d1 migrations apply crm-db --remote",
+    "db:backup": "mkdir -p backups && cd apps/api && wrangler d1 export crm-db --remote --output=../../backups/crm-db-$(date +%Y%m%d).sql"
   },
   "devDependencies": {
     "turbo": "^2.3.0"

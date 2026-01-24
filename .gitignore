@@ -32,5 +32,8 @@ npm-debug.log*
 # Testing
 coverage
 
+# Backups
+backups/
+
 # Misc
 *.tsbuildinfo

@@ -9,6 +9,7 @@ import {
   AudioLines,
   Volume2,
   VolumeX,
+  PhoneOff,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { aiApi } from '@/lib/api';
@@ -92,10 +93,12 @@ export default function AIAssistantPage() {
   const [input, setInput] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [isConversationMode, setIsConversationMode] = useState(false);
+  const conversationModeRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { isTTSEnabled, toggleTTS, playChunks, stopPlayback } = useAudioPlayback();
+  const { isTTSEnabled, toggleTTS, playChunks, stopPlayback, isPlaying } = useAudioPlayback();
 
   // Ref to hold the send function for the VAD auto-stop callback
   const sendMessageRef = useRef<(text: string) => void>(() => {});
@@ -135,17 +138,34 @@ export default function AIAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const clearChat = () => {
+  const clearChat = async () => {
     setMessages([]);
     setStreamingId(null);
     localStorage.removeItem(STORAGE_KEY);
     stopPlayback();
+    if (isConversationMode) {
+      conversationModeRef.current = false;
+      setIsConversationMode(false);
+      if (isRecording) {
+        await stopRecording();
+      }
+    }
     inputRef.current?.focus();
   };
 
+  const resumeListening = useCallback(async () => {
+    if (conversationModeRef.current) {
+      // Small delay before re-listening to avoid picking up TTS audio
+      await new Promise(r => setTimeout(r, 400));
+      if (conversationModeRef.current) {
+        await startRecording();
+      }
+    }
+  }, [startRecording]);
+
   const chatMutation = useMutation({
     mutationFn: (contextMessages: ChatMessage[]) => aiApi.chat(contextMessages),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const responseText = data.data?.response || "I've processed your request.";
       const msgId = Date.now().toString();
       const assistantMessage: DisplayMessage = {
@@ -156,15 +176,18 @@ export default function AIAssistantPage() {
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingId(msgId);
 
-      // Auto-play TTS if enabled (starts after streaming completes via onComplete)
-      if (isTTSEnabled) {
+      if (isTTSEnabled || conversationModeRef.current) {
         const chunks = chunkText(responseText);
         if (chunks.length > 0) {
-          playChunks(chunks);
+          await playChunks(chunks);
         }
+        // After TTS finishes, resume listening if in conversation mode
+        resumeListening();
       }
 
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (!conversationModeRef.current) {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     },
     onError: () => {
       const errorMessage: DisplayMessage = {
@@ -173,7 +196,11 @@ export default function AIAssistantPage() {
         content: "I'm sorry, I couldn't process that request. Please try again.",
       };
       setMessages(prev => [...prev, errorMessage]);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (conversationModeRef.current) {
+        resumeListening();
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     },
   });
 
@@ -211,29 +238,23 @@ export default function AIAssistantPage() {
     sendMessage(query);
   };
 
-  // Voice recording handlers
+  // Voice recording handlers — toggles conversation mode
   const handleMicClick = async () => {
-    if (isRecording) {
-      const blob = await stopRecording();
-      if (blob) {
-        setIsTranscribing(true);
-        try {
-          const result = await aiApi.stt(blob);
-          if (result.text && result.text.trim()) {
-            sendMessage(result.text);
-          }
-        } catch {
-          // Show error as assistant message
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: "I couldn't transcribe that audio. Please try again or type your message.",
-          }]);
-        } finally {
-          setIsTranscribing(false);
-        }
+    if (isConversationMode) {
+      // End conversation mode
+      conversationModeRef.current = false;
+      setIsConversationMode(false);
+      if (isRecording) {
+        await stopRecording(); // discard any in-progress audio
       }
+      stopPlayback();
     } else {
+      // Enter conversation mode — enable TTS and start listening
+      conversationModeRef.current = true;
+      setIsConversationMode(true);
+      if (!isTTSEnabled) {
+        toggleTTS();
+      }
       await startRecording();
     }
   };
@@ -313,7 +334,13 @@ export default function AIAssistantPage() {
                       {streamingId === message.id ? (
                         <StreamingText
                           content={message.content}
-                          onComplete={() => setStreamingId(null)}
+                          onComplete={() => {
+                            setStreamingId(null);
+                            // If in conversation mode without TTS, resume listening after text finishes
+                            if (conversationModeRef.current && !isTTSEnabled) {
+                              resumeListening();
+                            }
+                          }}
                         />
                       ) : (
                         <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -337,10 +364,31 @@ export default function AIAssistantPage() {
             {/* Recording indicator */}
             {isRecording && (
               <div className="flex justify-end">
-                <div className="bg-red-50 border border-red-200 rounded-full px-4 py-2 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-sm text-red-600">Listening...</span>
+                <div className={clsx(
+                  'rounded-full px-4 py-2 flex items-center gap-2',
+                  isConversationMode
+                    ? 'bg-primary/5 border border-primary/20'
+                    : 'bg-red-50 border border-red-200'
+                )}>
+                  <div className={clsx(
+                    'w-2 h-2 rounded-full animate-pulse',
+                    isConversationMode ? 'bg-primary' : 'bg-red-500'
+                  )} />
+                  <span className={clsx(
+                    'text-sm',
+                    isConversationMode ? 'text-primary' : 'text-red-600'
+                  )}>
+                    {isConversationMode ? 'Listening...' : 'Recording...'}
+                  </span>
                 </div>
+              </div>
+            )}
+
+            {/* TTS playback indicator in conversation mode */}
+            {isConversationMode && isPlaying && (
+              <div className="flex items-center gap-2 text-primary">
+                <Volume2 className="h-4 w-4 animate-pulse" />
+                <span className="text-sm">Speaking...</span>
               </div>
             )}
 
@@ -363,25 +411,25 @@ export default function AIAssistantPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isRecording ? 'Recording...' : 'Ask anything...'}
+              placeholder={isConversationMode ? 'Voice conversation active...' : 'Ask anything...'}
               className="flex-1 px-2 py-2 text-[15px] text-text-primary placeholder:text-text-muted bg-transparent focus:outline-none"
-              disabled={chatMutation.isPending || isRecording || isTranscribing}
+              disabled={chatMutation.isPending || isRecording || isTranscribing || isConversationMode}
               autoFocus
             />
-            {/* Voice button */}
+            {/* Voice / Conversation button */}
             <button
               type="button"
               onClick={handleMicClick}
               disabled={chatMutation.isPending || isTranscribing}
               className={clsx(
                 'p-2 rounded-full transition-all',
-                isRecording
-                  ? 'bg-red-500 text-white hover:bg-red-600'
+                isConversationMode
+                  ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
                   : 'text-text-muted hover:text-text-primary hover:bg-surface'
               )}
-              title={isRecording ? 'Stop recording' : 'Voice input'}
+              title={isConversationMode ? 'End conversation' : 'Start voice conversation'}
             >
-              <AudioLines className="h-5 w-5" />
+              {isConversationMode ? <PhoneOff className="h-5 w-5" /> : <AudioLines className="h-5 w-5" />}
             </button>
             {/* Send button */}
             <button

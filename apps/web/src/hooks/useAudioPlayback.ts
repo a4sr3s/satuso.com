@@ -90,8 +90,8 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
           const buffer = await aiApi.tts(chunk);
           if (cancelledRef.current) break;
           await playAudioBuffer(buffer);
-        } catch {
-          // Skip failed chunks, continue with next
+        } catch (err) {
+          console.error('TTS chunk failed:', err);
           continue;
         }
       }

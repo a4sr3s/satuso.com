@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, Filter, Globe, Users, Trash2, Edit, Building2 } from 'lucide-react';
+import { Plus, Search, Filter, Globe, Users, Trash2, Edit, Building2, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { companiesApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
@@ -21,6 +21,9 @@ export default function CompaniesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
@@ -28,6 +31,22 @@ export default function CompaniesPage() {
     employee_count: '',
     website: '',
   });
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleIndustryFilter = (industry: string) => {
+    setSelectedIndustries((prev) =>
+      prev.includes(industry) ? prev.filter((i) => i !== industry) : [...prev, industry]
+    );
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['companies', { search }],
@@ -59,7 +78,11 @@ export default function CompaniesPage() {
     },
   });
 
-  const companies = data?.data?.items || [];
+  const allCompanies = data?.data?.items || [];
+  const industries = [...new Set(allCompanies.map((c: any) => c.industry).filter(Boolean))].sort() as string[];
+  const companies = selectedIndustries.length > 0
+    ? allCompanies.filter((c: any) => selectedIndustries.includes(c.industry))
+    : allCompanies;
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -212,10 +235,56 @@ export default function CompaniesPage() {
             />
           </div>
         </div>
-        <Button variant="secondary">
-          <Filter className="h-4 w-4" />
-          {t('common:buttons.filters')}
-        </Button>
+        <div className="relative" ref={filterRef}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+          >
+            <Filter className="h-4 w-4" />
+            {t('common:buttons.filters')}
+            {selectedIndustries.length > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">
+                {selectedIndustries.length}
+              </span>
+            )}
+          </Button>
+          {showFilterDropdown && (
+            <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 py-2">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Filter by Industry</p>
+              </div>
+              {industries.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-text-muted">No industries found</p>
+              ) : (
+                industries.map((industry) => {
+                  const isSelected = selectedIndustries.includes(industry);
+                  return (
+                    <button
+                      key={industry}
+                      onClick={() => toggleIndustryFilter(industry)}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="text-text-primary">{industry}</span>
+                    </button>
+                  );
+                })
+              )}
+              {selectedIndustries.length > 0 && (
+                <div className="px-3 pt-2 mt-1 border-t border-gray-100">
+                  <button
+                    onClick={() => setSelectedIndustries([])}
+                    className="text-xs text-primary hover:text-primary/80 font-medium"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Table */}

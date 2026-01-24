@@ -33,6 +33,10 @@ const updateOrgSchema = z.object({
   name: z.string().min(2).optional(),
 });
 
+const updateMemberRoleSchema = z.object({
+  job_function: z.enum(['ae', 'se', 'sa', 'csm', 'manager', 'executive']),
+});
+
 // Get current organization
 organizations.get('/', async (c) => {
   const user = c.get('user');
@@ -93,13 +97,42 @@ organizations.get('/members', async (c) => {
   }
 
   const members = await c.env.DB.prepare(
-    `SELECT id, email, name, role, avatar_url, created_at
+    `SELECT id, email, name, role, avatar_url, job_function, created_at
      FROM users
      WHERE organization_id = ?
      ORDER BY created_at ASC`
   ).bind(user.organization_id).all();
 
   return c.json({ success: true, data: members.results });
+});
+
+// Update a member's job function (admin only)
+organizations.patch('/members/:id/role', zValidator('json', updateMemberRoleSchema), async (c) => {
+  const user = c.get('user');
+  const memberId = c.req.param('id');
+  const { job_function } = c.req.valid('json');
+
+  if (!user.organization_id) {
+    return c.json({ success: false, error: 'No organization found' }, 404);
+  }
+
+  if (user.role !== 'admin') {
+    return c.json({ success: false, error: 'Only admins can update member roles' }, 403);
+  }
+
+  const member = await c.env.DB.prepare(
+    'SELECT id FROM users WHERE id = ? AND organization_id = ?'
+  ).bind(memberId, user.organization_id).first();
+
+  if (!member) {
+    return c.json({ success: false, error: 'Member not found' }, 404);
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE users SET job_function = ?, updated_at = ? WHERE id = ?'
+  ).bind(job_function, new Date().toISOString(), memberId).run();
+
+  return c.json({ success: true });
 });
 
 // Invite a new member

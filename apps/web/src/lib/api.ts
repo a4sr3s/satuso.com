@@ -342,8 +342,12 @@ export const organizationsApi = {
       name: string;
       role: string;
       avatar_url: string | null;
+      job_function: string | null;
       created_at: string;
     }>>>('/organizations/members'),
+
+  updateMemberRole: (id: string, job_function: string) =>
+    api.patch<ApiResponse<null>>(`/organizations/members/${id}/role`, { job_function }),
 
   invite: (email: string, role: 'admin' | 'manager' | 'rep') =>
     api.post<ApiResponse<{ inviteId: string; inviteToken: string; expiresAt: string }>>('/organizations/invite', { email, role }),

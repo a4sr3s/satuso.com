@@ -550,8 +550,14 @@ deals.get('/:id/team/available', async (c) => {
   if (role) params.push(role);
 
   if (job_function) {
-    query += ` AND job_function = ?`;
-    params.push(job_function);
+    const functions = job_function.split(',').filter(Boolean);
+    if (functions.length === 1) {
+      query += ` AND job_function = ?`;
+      params.push(functions[0]);
+    } else if (functions.length > 1) {
+      query += ` AND job_function IN (${functions.map(() => '?').join(',')})`;
+      params.push(...functions);
+    }
   }
 
   query += ` ORDER BY name ASC`;

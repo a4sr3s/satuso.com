@@ -51,6 +51,22 @@ const roleIcons: Record<DealTeamRole, React.ElementType> = {
   support: HeadphonesIcon,
 };
 
+const roleToJobFunctions: Record<DealTeamRole, string> = {
+  owner: 'ae',
+  technical: 'se,sa',
+  executive_sponsor: 'manager,executive',
+  support: 'csm',
+};
+
+const jobFunctionLabels: Record<string, string> = {
+  ae: 'Account Executive',
+  se: 'Solutions Engineer',
+  sa: 'Solutions Architect',
+  csm: 'CSM',
+  manager: 'Manager',
+  executive: 'Executive',
+};
+
 export default function DealDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -109,7 +125,10 @@ export default function DealDetailPage() {
 
   const { data: availableUsersData } = useQuery({
     queryKey: ['deals', id, 'team', 'available', selectedRole],
-    queryFn: () => dealsApi.getAvailableUsers(id!, { role: selectedRole }),
+    queryFn: () => dealsApi.getAvailableUsers(id!, {
+      role: selectedRole,
+      job_function: roleToJobFunctions[selectedRole],
+    }),
     enabled: !!id && (showTeamModal || showAssignSEModal),
   });
 
@@ -493,7 +512,10 @@ export default function DealDetailPage() {
                           <p className="text-sm font-medium text-text-primary">{member.user_name}</p>
                           <div className="flex items-center gap-1">
                             <RoleIcon className="h-3 w-3 text-text-muted" />
-                            <span className="text-xs text-text-muted">{roleLabels[member.role]}</span>
+                            <span className="text-xs text-text-muted">
+                              {roleLabels[member.role]}
+                              {member.job_function && ` · ${jobFunctionLabels[member.job_function] || member.job_function}`}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -688,7 +710,13 @@ export default function DealDetailPage() {
                     <Avatar name={user.name} size="sm" />
                     <div>
                       <p className="text-sm font-medium text-text-primary">{user.name}</p>
-                      <p className="text-xs text-text-muted">{user.email}</p>
+                      <p className="text-xs text-text-muted">
+                        {user.job_function && (
+                          <span className="text-blue-600 font-medium">{jobFunctionLabels[user.job_function] || user.job_function}</span>
+                        )}
+                        {user.job_function && ' · '}
+                        {user.email}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -739,7 +767,13 @@ export default function DealDetailPage() {
                   <Avatar name={user.name} size="sm" />
                   <div>
                     <p className="text-sm font-medium text-text-primary">{user.name}</p>
-                    <p className="text-xs text-text-muted">{user.email}</p>
+                    <p className="text-xs text-text-muted">
+                      {user.job_function && (
+                        <span className="text-blue-600 font-medium">{jobFunctionLabels[user.job_function] || user.job_function}</span>
+                      )}
+                      {user.job_function && ' · '}
+                      {user.email}
+                    </p>
                   </div>
                 </button>
               ))}

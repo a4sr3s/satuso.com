@@ -1,4 +1,5 @@
 import { Fragment, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -21,7 +22,7 @@ const sizes = {
 export default function Modal({ isOpen, onClose, title, description, children, size = 'md' }: ModalProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <Fragment>
       {/* Backdrop */}
       <div
@@ -60,7 +61,8 @@ export default function Modal({ isOpen, onClose, title, description, children, s
           </div>
         </div>
       </div>
-    </Fragment>
+    </Fragment>,
+    document.body
   );
 }
 

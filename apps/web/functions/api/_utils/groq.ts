@@ -187,7 +187,7 @@ export async function groqSTT(
 export async function groqTTS(
   apiKey: string,
   text: string,
-  voice: string = 'tara'
+  voice: string = 'hannah'
 ): Promise<ArrayBuffer> {
   const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
     method: 'POST',
@@ -196,9 +196,9 @@ export async function groqTTS(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'playai-tts',
+      model: 'canopylabs/orpheus-v1-english',
       input: text,
-      voice: 'Arista-PlayAI',
+      voice,
       response_format: 'wav',
     }),
   });

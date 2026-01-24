@@ -5,6 +5,7 @@ interface UseVoiceRecorderOptions {
   silenceTimeout?: number;     // ms of continuous silence before auto-stop
   minRecordingDuration?: number; // ms before VAD kicks in
   maxRecordingDuration?: number; // ms max recording
+  speechFramesRequired?: number; // consecutive frames above threshold to confirm speech
   onAutoStop?: (blob: Blob) => void; // called when VAD auto-stops
 }
 
@@ -16,10 +17,11 @@ interface UseVoiceRecorderReturn {
 }
 
 const DEFAULT_OPTIONS: Required<Omit<UseVoiceRecorderOptions, 'onAutoStop'>> = {
-  silenceThreshold: 25,      // low amplitude threshold (0-255 scale)
+  silenceThreshold: 40,      // amplitude threshold (0-255 scale) — raised to avoid noise triggers
   silenceTimeout: 1500,      // 1.5s of silence to auto-stop
   minRecordingDuration: 800, // wait at least 800ms before VAD activates
   maxRecordingDuration: 30000, // 30s max
+  speechFramesRequired: 5,   // need 5 consecutive frames of voice to confirm speech
 };
 
 export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoiceRecorderReturn {
@@ -28,6 +30,7 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
     silenceTimeout = DEFAULT_OPTIONS.silenceTimeout,
     minRecordingDuration = DEFAULT_OPTIONS.minRecordingDuration,
     maxRecordingDuration = DEFAULT_OPTIONS.maxRecordingDuration,
+    speechFramesRequired = DEFAULT_OPTIONS.speechFramesRequired,
     onAutoStop,
   } = options;
 
@@ -45,6 +48,7 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
   const recordingStartRef = useRef<number>(0);
   const autoStopTriggeredRef = useRef(false);
   const speechDetectedRef = useRef(false);
+  const speechFrameCountRef = useRef(0);
 
   // Determine supported MIME type
   const getMimeType = (): string => {
@@ -94,51 +98,64 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
     };
   }, [cleanup]);
 
-  // Voice Activity Detection loop
+  // Voice Activity Detection loop — analyzes voice frequency band only
   const startVAD = useCallback((stream: MediaStream) => {
     try {
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.3;
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.4;
       source.connect(analyser);
       analyserRef.current = analyser;
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const sampleRate = audioContext.sampleRate;
+      // Focus on human voice range: 300Hz - 3000Hz
+      const binWidth = sampleRate / analyser.fftSize;
+      const voiceStartBin = Math.floor(300 / binWidth);
+      const voiceEndBin = Math.min(Math.ceil(3000 / binWidth), analyser.frequencyBinCount - 1);
 
       const checkAudio = () => {
         if (!analyserRef.current || autoStopTriggeredRef.current) return;
 
         analyserRef.current.getByteFrequencyData(dataArray);
 
-        // Calculate average amplitude
+        // Calculate average amplitude in voice frequency range only
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
+        const binCount = voiceEndBin - voiceStartBin + 1;
+        for (let i = voiceStartBin; i <= voiceEndBin; i++) {
           sum += dataArray[i];
         }
-        const average = sum / dataArray.length;
+        const voiceAverage = sum / binCount;
 
         const elapsed = Date.now() - recordingStartRef.current;
 
-        // Only start checking for silence after minimum recording duration
+        // Only start checking after minimum recording duration
         if (elapsed > minRecordingDuration) {
-          if (average >= silenceThreshold) {
-            // Speech detected — mark it and reset silence timer
-            speechDetectedRef.current = true;
+          if (voiceAverage >= silenceThreshold) {
+            // Voice-range energy detected — count consecutive frames
+            speechFrameCountRef.current++;
+            if (speechFrameCountRef.current >= speechFramesRequired) {
+              speechDetectedRef.current = true;
+            }
             silenceStartRef.current = null;
-          } else if (speechDetectedRef.current) {
-            // Below threshold AFTER speech was detected — start/continue silence timer
-            if (silenceStartRef.current === null) {
-              silenceStartRef.current = Date.now();
-            } else if (Date.now() - silenceStartRef.current >= silenceTimeout) {
-              // Silence exceeded timeout — auto-stop
-              autoStopTriggeredRef.current = true;
-              if (mediaRecorderRef.current?.state === 'recording') {
-                mediaRecorderRef.current.stop();
+          } else {
+            // Below threshold — reset frame counter
+            speechFrameCountRef.current = 0;
+            if (speechDetectedRef.current) {
+              // Silence AFTER confirmed speech — start/continue silence timer
+              if (silenceStartRef.current === null) {
+                silenceStartRef.current = Date.now();
+              } else if (Date.now() - silenceStartRef.current >= silenceTimeout) {
+                // Silence exceeded timeout — auto-stop
+                autoStopTriggeredRef.current = true;
+                if (mediaRecorderRef.current?.state === 'recording') {
+                  mediaRecorderRef.current.stop();
+                }
+                return;
               }
-              return;
             }
           }
         }
@@ -151,7 +168,7 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
       // VAD setup failed — recording still works, just no auto-stop
       console.warn('VAD setup failed, recording without voice detection');
     }
-  }, [silenceThreshold, silenceTimeout, minRecordingDuration]);
+  }, [silenceThreshold, silenceTimeout, minRecordingDuration, speechFramesRequired]);
 
   const startRecording = useCallback(async () => {
     // Guard: don't start if already recording
@@ -161,6 +178,7 @@ export function useVoiceRecorder(options: UseVoiceRecorderOptions = {}): UseVoic
     chunksRef.current = [];
     autoStopTriggeredRef.current = false;
     speechDetectedRef.current = false;
+    speechFrameCountRef.current = 0;
     silenceStartRef.current = null;
 
     try {

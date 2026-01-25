@@ -9,7 +9,9 @@ export default function SignUpPage() {
       {/* Left Panel - Sign Up Form */}
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white min-h-screen">
         {/* Logo */}
-        <img src="/logo.svg" alt="Satuso" className="h-20 mb-8" />
+        <a href="https://satuso.com">
+          <img src="/logo.svg" alt="Satuso" className="h-20 mb-8" />
+        </a>
 
         {/* Clerk SignUp */}
         <SignUp

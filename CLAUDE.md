@@ -32,6 +32,16 @@ cd apps/web && npx wrangler pages deploy dist
 ```bash
 cd apps/api && npx wrangler deploy
 ```
+**Note:** Deploy API when changing backend routes, middleware, or AI endpoints.
+
+### Full Deploy (both web + API)
+```bash
+# Build and deploy frontend
+cd apps/web && npm run build && npx wrangler pages deploy dist
+
+# Deploy API
+cd apps/api && npx wrangler deploy
+```
 
 ### Database Migrations
 ```bash

@@ -34,6 +34,10 @@ const updateOrgSchema = z.object({
   name: z.string().min(2).optional(),
 });
 
+const onboardingSchema = z.object({
+  organizationName: z.string().min(2),
+});
+
 const updateMemberRoleSchema = z.object({
   job_function: z.enum(['ae', 'se', 'sa', 'csm', 'manager', 'executive']),
 });
@@ -58,6 +62,24 @@ organizations.get('/', async (c) => {
   }
 
   return c.json({ success: true, data: org });
+});
+
+// Complete onboarding
+organizations.post('/onboarding', zValidator('json', onboardingSchema), async (c) => {
+  const user = c.get('user');
+  const { organizationName } = c.req.valid('json');
+
+  if (!user.organization_id) {
+    return c.json({ success: false, error: 'No organization found' }, 404);
+  }
+
+  const now = new Date().toISOString();
+
+  await c.env.DB.prepare(
+    'UPDATE organizations SET name = ?, onboarding_completed = 1, updated_at = ? WHERE id = ?'
+  ).bind(organizationName, now, user.organization_id).run();
+
+  return c.json({ success: true });
 });
 
 // Update organization

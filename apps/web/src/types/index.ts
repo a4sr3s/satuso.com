@@ -286,6 +286,7 @@ export interface SubscriptionInfo {
   status: 'active' | 'inactive' | 'past_due' | 'canceled';
   plan: string;
   stripeCustomerId: string | null;
+  onboardingCompleted: boolean;
 }
 
 // ============================================

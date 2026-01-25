@@ -14,7 +14,7 @@ export default function BillingSuccessPage() {
 
   useEffect(() => {
     if (data?.data?.status === 'active') {
-      navigate('/', { replace: true });
+      navigate('/onboarding', { replace: true });
     }
   }, [data, navigate]);
 

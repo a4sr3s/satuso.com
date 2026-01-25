@@ -11,6 +11,7 @@ export function useSubscription() {
   return {
     status: data?.data?.status ?? 'inactive',
     isActive: data?.data?.status === 'active',
+    onboardingCompleted: data?.data?.onboardingCompleted ?? false,
     isLoading,
   };
 }

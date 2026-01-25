@@ -384,6 +384,9 @@ export const billingApi = {
 
   createPortalSession: () =>
     api.post<ApiResponse<{ url: string }>>('/billing/portal', {}),
+
+  completeOnboarding: (organizationName: string) =>
+    api.post<ApiResponse<null>>('/organizations/onboarding', { organizationName }),
 };
 
 // Workboards API

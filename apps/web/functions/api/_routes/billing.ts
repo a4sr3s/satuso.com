@@ -13,10 +13,11 @@ billing.get('/subscription', clerkAuthMiddleware, async (c) => {
   }
 
   const org = await c.env.DB.prepare(
-    'SELECT subscription_status, stripe_customer_id FROM organizations WHERE id = ?'
+    'SELECT subscription_status, stripe_customer_id, onboarding_completed FROM organizations WHERE id = ?'
   ).bind(user.organization_id).first<{
     subscription_status: string | null;
     stripe_customer_id: string | null;
+    onboarding_completed: number | null;
   }>();
 
   return c.json({
@@ -25,6 +26,7 @@ billing.get('/subscription', clerkAuthMiddleware, async (c) => {
       status: org?.subscription_status || 'inactive',
       plan: org?.subscription_status === 'active' ? 'standard' : 'none',
       stripeCustomerId: org?.stripe_customer_id || null,
+      onboardingCompleted: org?.onboarding_completed === 1,
     },
   });
 });

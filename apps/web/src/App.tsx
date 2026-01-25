@@ -22,6 +22,7 @@ import WorkboardViewPage from '@/pages/WorkboardView';
 import AIAssistantPage from '@/pages/AIAssistant';
 import SubscribePage from '@/pages/Subscribe';
 import BillingSuccessPage from '@/pages/BillingSuccess';
+import OnboardingPage from '@/pages/Onboarding';
 
 // Full page loader for auth state
 function FullPageLoader() {
@@ -37,7 +38,7 @@ function FullPageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoaded } = useAuth();
-  const { isActive, isLoading } = useSubscription();
+  const { isActive, onboardingCompleted, isLoading } = useSubscription();
 
   if (!isLoaded || isLoading) {
     return <FullPageLoader />;
@@ -46,7 +47,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SignedIn>
-        {isActive ? children : <Navigate to="/subscribe" replace />}
+        {!isActive ? (
+          <Navigate to="/subscribe" replace />
+        ) : !onboardingCompleted ? (
+          <Navigate to="/onboarding" replace />
+        ) : (
+          children
+        )}
       </SignedIn>
       <SignedOut>
         <RedirectToSignIn />
@@ -71,9 +78,10 @@ function App() {
         {/* Legacy route redirect */}
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
 
-        {/* Billing routes - outside protected layout */}
+        {/* Billing and onboarding routes - outside protected layout */}
         <Route path="/subscribe" element={<SubscribePage />} />
         <Route path="/billing/success" element={<BillingSuccessPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
 
         {/* Protected routes - Layout has its own Suspense for content */}
         <Route

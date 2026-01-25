@@ -217,7 +217,7 @@ export default function AIAssistantPage() {
   });
 
   const sendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || chatMutation.isPending) return;
 
     const userMessage: DisplayMessage = {
       id: Date.now().toString(),
@@ -225,16 +225,17 @@ export default function AIAssistantPage() {
       content: text.trim(),
     };
 
-    setMessages(prev => {
-      const updated = [...prev, userMessage];
-      const context = updated.slice(-MAX_CONTEXT_MESSAGES).map(m => ({
-        role: m.role,
-        content: m.content,
-      }));
-      chatMutation.mutate(context);
-      return updated;
-    });
-  }, [chatMutation]);
+    // Build context from current messages + new user message
+    const updatedMessages = [...messages, userMessage];
+    const context = updatedMessages.slice(-MAX_CONTEXT_MESSAGES).map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    // Update state and trigger mutation separately
+    setMessages(updatedMessages);
+    chatMutation.mutate(context);
+  }, [messages, chatMutation]);
 
   // Keep refs in sync for VAD callback
   sendMessageRef.current = sendMessage;

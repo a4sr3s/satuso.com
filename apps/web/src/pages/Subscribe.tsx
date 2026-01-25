@@ -78,7 +78,7 @@ export default function SubscribePage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Need a custom plan?{' '}
-            <a href="mailto:sales@satuso.com" className="text-blue-600 hover:underline">
+            <a href="https://satuso.com/contact-sales/" className="text-blue-600 hover:underline">
               Contact sales
             </a>
           </p>

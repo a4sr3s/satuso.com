@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { UserProfile } from '@clerk/clerk-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
+import { Camera, Mail, Shield, LogOut } from 'lucide-react';
+import toast from 'react-hot-toast';
 import Card, { CardHeader } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { organizationsApi, billingApi } from '@/lib/api';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -119,6 +123,170 @@ interface Member {
   job_function: string | null;
 }
 
+function ProfileTab() {
+  const { user, isLoaded } = useUser();
+  const { signOut, openUserProfile } = useClerk();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.firstName || '');
+      setLastName(user.lastName || '');
+    }
+  }, [user]);
+
+  if (!isLoaded || !user) {
+    return (
+      <Card>
+        <div className="p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gray-200 rounded-full" />
+              <div className="space-y-2">
+                <div className="h-4 w-32 bg-gray-200 rounded" />
+                <div className="h-3 w-48 bg-gray-100 rounded" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await user.update({
+        firstName,
+        lastName,
+      });
+      toast.success('Profile updated');
+    } catch (error) {
+      toast.error('Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const hasChanges = firstName !== (user.firstName || '') || lastName !== (user.lastName || '');
+  const primaryEmail = user.primaryEmailAddress?.emailAddress;
+
+  return (
+    <div className="space-y-6">
+      {/* Profile Info */}
+      <Card>
+        <CardHeader
+          title="Profile"
+          description="Your personal information."
+        />
+        <div className="px-4 pb-4 space-y-6">
+          {/* Avatar */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <img
+                src={user.imageUrl}
+                alt={user.fullName || 'Profile'}
+                className="w-16 h-16 rounded-full object-cover"
+              />
+              <button
+                onClick={() => openUserProfile()}
+                className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-border shadow-sm hover:bg-gray-50 transition-colors"
+                title="Change photo"
+              >
+                <Camera className="h-3.5 w-3.5 text-text-muted" />
+              </button>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-text-primary">{user.fullName || 'No name set'}</p>
+              <p className="text-xs text-text-muted">Click the camera icon to change your photo</p>
+            </div>
+          </div>
+
+          {/* Name Fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="First name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Enter first name"
+            />
+            <Input
+              label="Last name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Enter last name"
+            />
+          </div>
+
+          {hasChanges && (
+            <div className="flex justify-end">
+              <Button onClick={handleSave} isLoading={isSaving}>
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Email */}
+      <Card>
+        <CardHeader
+          title="Email Address"
+          description="Your primary email for notifications and sign-in."
+        />
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between p-3 bg-surface rounded-lg">
+            <div className="flex items-center gap-3">
+              <Mail className="h-4 w-4 text-text-muted" />
+              <span className="text-sm text-text-primary">{primaryEmail}</span>
+              <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                Primary
+              </span>
+            </div>
+            <button
+              onClick={() => openUserProfile()}
+              className="text-xs text-primary hover:text-primary/80 font-medium"
+            >
+              Manage emails
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Security */}
+      <Card>
+        <CardHeader
+          title="Security"
+          description="Manage your password and security settings."
+        />
+        <div className="px-4 pb-4 space-y-3">
+          <button
+            onClick={() => openUserProfile()}
+            className="w-full flex items-center justify-between p-3 bg-surface rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Shield className="h-4 w-4 text-text-muted" />
+              <span className="text-sm text-text-primary">Password & Security</span>
+            </div>
+            <span className="text-xs text-text-muted">Manage →</span>
+          </button>
+          <button
+            onClick={() => signOut({ redirectUrl: '/' })}
+            className="w-full flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <LogOut className="h-4 w-4 text-red-600" />
+              <span className="text-sm text-red-600">Sign out</span>
+            </div>
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function BillingTab() {
   const { status } = useSubscription();
   const [loading, setLoading] = useState(false);
@@ -218,24 +386,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Profile Tab */}
-      {activeTab === 'Profile' && (
-        <UserProfile
-          appearance={{
-            elements: {
-              rootBox: 'w-full',
-              card: 'shadow-none border border-border rounded-xl bg-white',
-              navbar: 'hidden',
-              navbarMobileMenuRow: 'hidden',
-              headerTitle: 'hidden',
-              headerSubtitle: 'hidden',
-              pageScrollBox: 'p-4',
-              profileSectionTitleText: 'text-sm font-semibold text-text-primary',
-              formFieldLabel: 'text-sm text-text-secondary',
-              formButtonPrimary: 'bg-primary hover:bg-primary/90',
-            },
-          }}
-        />
-      )}
+      {activeTab === 'Profile' && <ProfileTab />}
 
       {/* General Tab */}
       {activeTab === 'General' && (

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useClerk } from '@clerk/clerk-react';
 import { billingApi } from '@/lib/api';
 
 const FEATURES = [
@@ -13,6 +14,7 @@ const FEATURES = [
 ];
 
 export default function SubscribePage() {
+  const { signOut } = useClerk();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +80,13 @@ export default function SubscribePage() {
               Contact sales
             </a>
           </p>
+
+          <button
+            onClick={() => signOut({ redirectUrl: '/sign-in' })}
+            className="w-full text-center text-sm text-gray-400 hover:text-gray-600 mt-6"
+          >
+            Sign out
+          </button>
         </div>
       </div>
 

@@ -92,6 +92,7 @@ export default function AIAssistantPage() {
   });
   const [input, setInput] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [isConversationMode, setIsConversationMode] = useState(false);
   const conversationModeRef = useRef(false);
@@ -172,6 +173,9 @@ export default function AIAssistantPage() {
   const chatMutation = useMutation({
     mutationFn: (contextMessages: ChatMessage[]) => aiApi.chat(contextMessages),
     onSuccess: async (data) => {
+      // Immediately mark as not waiting - this is the key fix
+      setIsWaitingForResponse(false);
+
       const responseText = data.data?.response || "I've processed your request.";
       const msgId = Date.now().toString();
       const assistantMessage: DisplayMessage = {
@@ -202,6 +206,7 @@ export default function AIAssistantPage() {
       }
     },
     onError: () => {
+      setIsWaitingForResponse(false);
       const errorMessage: DisplayMessage = {
         id: Date.now().toString(),
         role: 'assistant',
@@ -217,7 +222,7 @@ export default function AIAssistantPage() {
   });
 
   const sendMessage = useCallback((text: string) => {
-    if (!text.trim() || chatMutation.isPending) return;
+    if (!text.trim() || isWaitingForResponse) return;
 
     const userMessage: DisplayMessage = {
       id: Date.now().toString(),
@@ -234,8 +239,9 @@ export default function AIAssistantPage() {
 
     // Update state and trigger mutation separately
     setMessages(updatedMessages);
+    setIsWaitingForResponse(true);
     chatMutation.mutate(context);
-  }, [messages, chatMutation]);
+  }, [messages, isWaitingForResponse, chatMutation]);
 
   // Keep refs in sync for VAD callback
   sendMessageRef.current = sendMessage;
@@ -243,7 +249,7 @@ export default function AIAssistantPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || chatMutation.isPending) return;
+    if (!input.trim() || isWaitingForResponse) return;
     sendMessage(input);
     setInput('');
   };
@@ -319,11 +325,11 @@ export default function AIAssistantPage() {
               <div className="text-center py-16">
                 <Sparkles className="h-10 w-10 text-primary mx-auto mb-5 opacity-70" />
                 <h3 className="text-xl font-medium text-text-primary mb-2">
-                  Ready to crush your quota?
+                  Chat with your pipeline
                 </h3>
                 <p className="text-base text-text-secondary mb-8 max-w-md mx-auto leading-relaxed">
-                  I'm your AI sales coach. Ask me what to prioritize, which deals need attention,
-                  or how to advance your biggest opportunities.
+                  Ask me about your deals, contacts, and companies. I can help you prioritize,
+                  identify risks, and coach you on advancing your biggest opportunities.
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
                   {suggestedQueries.map((query) => (
@@ -369,7 +375,7 @@ export default function AIAssistantPage() {
             )}
 
             {/* Loading / Transcribing indicator */}
-            {(chatMutation.isPending || isTranscribing) && (
+            {(isWaitingForResponse || isTranscribing) && (
               <div className="flex items-center gap-2 text-text-muted">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">
@@ -430,14 +436,14 @@ export default function AIAssistantPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={isConversationMode ? 'Voice conversation active...' : 'Ask anything...'}
               className="flex-1 px-2 py-2 text-[15px] text-text-primary placeholder:text-text-muted bg-transparent focus:outline-none"
-              disabled={chatMutation.isPending || isRecording || isTranscribing || isConversationMode}
+              disabled={isWaitingForResponse || isRecording || isTranscribing || isConversationMode}
               autoFocus
             />
             {/* Voice / Conversation button */}
             <button
               type="button"
               onClick={handleMicClick}
-              disabled={chatMutation.isPending || isTranscribing}
+              disabled={isWaitingForResponse || isTranscribing}
               className={clsx(
                 'p-2 rounded-full transition-all',
                 isConversationMode
@@ -451,10 +457,10 @@ export default function AIAssistantPage() {
             {/* Send button */}
             <button
               type="submit"
-              disabled={!input.trim() || chatMutation.isPending || isRecording || isTranscribing}
+              disabled={!input.trim() || isWaitingForResponse || isRecording || isTranscribing}
               className={clsx(
                 'p-2 rounded-full transition-all',
-                input.trim() && !chatMutation.isPending
+                input.trim() && !isWaitingForResponse
                   ? 'bg-primary text-white hover:bg-primary/90'
                   : 'text-text-muted cursor-not-allowed'
               )}

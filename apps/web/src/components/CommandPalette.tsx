@@ -27,7 +27,7 @@ export default function CommandPalette() {
     { id: 'new-company', label: t('common:quickActions.newCompany'), icon: Building2, action: '/companies?new=true' },
     { id: 'new-deal', label: t('common:quickActions.newDeal'), icon: DollarSign, action: '/deals?new=true' },
     { id: 'new-task', label: t('common:quickActions.newTask'), icon: CheckSquare, action: '/tasks?new=true' },
-    { id: 'assistant', label: t('common:quickActions.openAssistant'), icon: MessageSquare, action: 'assistant' },
+    { id: 'ai-chat', label: t('common:quickActions.aiChat'), icon: MessageSquare, action: '/ai' },
   ];
 
   const close = useCallback(() => {
@@ -82,13 +82,7 @@ export default function CommandPalette() {
 
   const handleSelect = (item: (typeof allItems)[0]) => {
     if ('action' in item) {
-      if (item.action === 'assistant') {
-        // Trigger Cmd+J to open assistant
-        const event = new KeyboardEvent('keydown', { key: 'j', metaKey: true });
-        document.dispatchEvent(event);
-      } else {
-        navigate(item.action);
-      }
+      navigate(item.action);
     } else {
       navigate(item.url);
       // Track recent

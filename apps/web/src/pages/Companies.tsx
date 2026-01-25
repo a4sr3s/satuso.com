@@ -4,12 +4,31 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus, Search, Filter, Globe, Users, Trash2, Edit, Building2, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { clsx } from 'clsx';
 import { companiesApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Table, { ActionMenu } from '@/components/ui/Table';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+
+function getCompanyColor(name: string): string {
+  const colors = [
+    'bg-blue-100 text-blue-700',
+    'bg-green-100 text-green-700',
+    'bg-purple-100 text-purple-700',
+    'bg-amber-100 text-amber-700',
+    'bg-cyan-100 text-cyan-700',
+    'bg-rose-100 text-rose-700',
+    'bg-indigo-100 text-indigo-700',
+    'bg-emerald-100 text-emerald-700',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export default function CompaniesPage() {
   const { t } = useTranslation(['companies', 'common']);
@@ -133,11 +152,14 @@ export default function CompaniesPage() {
       sortable: true,
       render: (company: any) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-surface rounded-lg flex items-center justify-center">
+          <div className={clsx(
+            'w-10 h-10 rounded-lg flex items-center justify-center font-semibold text-sm',
+            company.logo_url ? '' : getCompanyColor(company.name || '')
+          )}>
             {company.logo_url ? (
               <img src={company.logo_url} alt={company.name} className="w-8 h-8 rounded" />
             ) : (
-              <Building2 className="h-5 w-5 text-text-muted" />
+              (company.name || '?').charAt(0).toUpperCase()
             )}
           </div>
           <div>

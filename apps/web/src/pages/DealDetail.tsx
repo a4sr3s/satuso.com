@@ -455,7 +455,7 @@ export default function DealDetailPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-text-secondary">Days in Stage</span>
               <span className={`text-sm ${deal.days_in_stage > 14 ? 'text-warning' : 'text-text-primary'}`}>
-                {deal.days_in_stage || 0} days
+                {deal.days_in_stage || 0} {(deal.days_in_stage || 0) === 1 ? 'day' : 'days'}
               </span>
             </div>
             {deal.ai_score && (

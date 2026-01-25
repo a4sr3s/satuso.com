@@ -85,7 +85,7 @@ export default function SpinProgress({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5" title="SPIN Discovery Progress (Situation, Problem, Implication, Need-Payoff)">
       {statuses.map((item) => (
         <div key={item.key} className="flex flex-col items-center">
           <div
@@ -94,7 +94,7 @@ export default function SpinProgress({
               dotSizes[size],
               getDotStyle(item.status)
             )}
-            title={`${item.label}: ${item.status}`}
+            title={`${item.label}: ${item.status === 'complete' ? 'Complete' : item.status === 'partial' ? 'In Progress' : 'Not Started'}`}
           />
           {showLabels && (
             <span className="text-[10px] text-text-muted mt-0.5">{item.key}</span>
@@ -128,10 +128,17 @@ export function SpinPanel({ situation, problem, implication, needPayoff, onEdit,
     { key: 'needPayoff', label: 'Need-Payoff', value: needPayoff, description: 'Value from solving problems' },
   ] as const;
 
+  const completedCount = [situation, problem, implication, needPayoff].filter(v => v && v.length >= 50).length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-text-primary">SPIN Discovery</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-text-primary">SPIN Discovery</h3>
+          <span className="text-xs text-text-muted">
+            ({completedCount}/4 complete)
+          </span>
+        </div>
         <SpinProgress
           situation={situation}
           problem={problem}
@@ -148,7 +155,11 @@ export function SpinPanel({ situation, problem, implication, needPayoff, onEdit,
           return (
             <div
               key={section.key}
-              className="p-3 bg-surface rounded-lg border border-border-light"
+              onClick={() => onEdit?.(section.key)}
+              className={clsx(
+                "p-3 bg-surface rounded-lg border border-border-light",
+                onEdit && "cursor-pointer hover:border-primary hover:bg-gray-50 transition-colors"
+              )}
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">

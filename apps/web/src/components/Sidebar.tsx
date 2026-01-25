@@ -92,7 +92,7 @@ export default function Sidebar() {
         >
           <Search className="h-4 w-4" />
           <span className="flex-1 text-left">{t('common:search.quickSearch')}</span>
-          <kbd className="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded border border-gray-600">⌘K</kbd>
+          <kbd className="text-xs bg-gray-600 text-gray-200 px-1.5 py-0.5 rounded border border-gray-500 font-medium">⌘K</kbd>
         </button>
       </div>
 

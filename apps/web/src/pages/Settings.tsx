@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { UserProfile } from '@clerk/clerk-react';
 import Card, { CardHeader } from '@/components/ui/Card';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { organizationsApi, billingApi } from '@/lib/api';
@@ -14,7 +15,7 @@ const JOB_FUNCTIONS = [
   { value: 'executive', label: 'Executive' },
 ] as const;
 
-const TABS = ['General', 'Billing', 'Integrations'] as const;
+const TABS = ['Profile', 'General', 'Billing', 'Integrations'] as const;
 type Tab = typeof TABS[number];
 
 const INTEGRATIONS = [
@@ -170,7 +171,7 @@ function BillingTab() {
 
 export default function SettingsPage() {
   const { t } = useTranslation(['settings', 'common']);
-  const [activeTab, setActiveTab] = useState<Tab>('General');
+  const [activeTab, setActiveTab] = useState<Tab>('Profile');
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [membersError, setMembersError] = useState<string | null>(null);
@@ -215,6 +216,28 @@ export default function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {/* Profile Tab */}
+      {activeTab === 'Profile' && (
+        <Card>
+          <CardHeader
+            title="Your Profile"
+            description="Manage your personal account settings."
+          />
+          <div className="px-4 pb-4">
+            <UserProfile
+              appearance={{
+                elements: {
+                  rootBox: 'w-full',
+                  card: 'shadow-none p-0',
+                  navbar: 'hidden',
+                  pageScrollBox: 'p-0',
+                },
+              }}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* General Tab */}
       {activeTab === 'General' && (

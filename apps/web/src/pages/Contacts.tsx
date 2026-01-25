@@ -39,6 +39,7 @@ export default function ContactsPage() {
     company_id: companyIdFromUrl || '',
     status: 'active',
   });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: companiesData } = useQuery({
     queryKey: ['companies'],
@@ -139,6 +140,41 @@ export default function ContactsPage() {
   });
 
   const columns = [
+    {
+      key: 'select',
+      header: (
+        <input
+          type="checkbox"
+          checked={selectedIds.size === sortedContacts.length && sortedContacts.length > 0}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedIds(new Set(sortedContacts.map((c: any) => c.id)));
+            } else {
+              setSelectedIds(new Set());
+            }
+          }}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+      ),
+      render: (contact: any) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.has(contact.id)}
+          onChange={(e) => {
+            e.stopPropagation();
+            const newSet = new Set(selectedIds);
+            if (e.target.checked) {
+              newSet.add(contact.id);
+            } else {
+              newSet.delete(contact.id);
+            }
+            setSelectedIds(newSet);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 rounded border-gray-300"
+        />
+      ),
+    },
     {
       key: 'name',
       header: t('contacts:table.name'),
@@ -299,6 +335,29 @@ export default function ContactsPage() {
           )}
         </div>
       </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <span className="text-sm font-medium text-blue-800">{selectedIds.size} selected</span>
+          <Button size="sm" variant="secondary" onClick={() => setSelectedIds(new Set())}>
+            Clear
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={async () => {
+              const ids = Array.from(selectedIds);
+              for (const id of ids) {
+                await deleteMutation.mutateAsync(id);
+              }
+              setSelectedIds(new Set());
+            }}
+          >
+            Delete Selected
+          </Button>
+        </div>
+      )}
 
       {/* Table */}
       {contacts.length === 0 && !isLoading ? (

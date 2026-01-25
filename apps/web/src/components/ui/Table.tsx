@@ -3,7 +3,7 @@ import { MoreHorizontal, ChevronUp, ChevronDown } from 'lucide-react';
 
 interface Column<T> {
   key: string;
-  header: string;
+  header: string | React.ReactNode;
   render?: (item: T) => React.ReactNode;
   sortable?: boolean;
   className?: string;

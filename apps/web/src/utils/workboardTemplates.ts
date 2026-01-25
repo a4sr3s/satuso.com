@@ -102,8 +102,8 @@ export const workboardTemplates: WorkboardTemplate[] = [
   },
   {
     id: 'spin_gaps',
-    name: 'SPIN Gaps',
-    description: 'Deals with incomplete discovery',
+    name: 'Deals Missing SPIN Info',
+    description: 'Open deals with incomplete SPIN discovery fields',
     icon: 'Target',
     entity_type: 'deals',
     columns: [

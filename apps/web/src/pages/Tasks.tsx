@@ -39,6 +39,7 @@ export default function TasksPage() {
     priority: 'medium' as TaskPriority,
     deal_id: '',
   });
+  const [quickAddText, setQuickAddText] = useState('');
 
   const { data: countsData } = useQuery({
     queryKey: ['tasks', 'counts'],
@@ -64,6 +65,7 @@ export default function TasksPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setShowNewModal(false);
       setFormData({ subject: '', content: '', due_date: '', priority: 'medium' as TaskPriority, deal_id: '' });
+      setQuickAddText('');
       toast.success(t('tasks:toast.created'));
     },
     onError: (error: Error) => {
@@ -123,12 +125,17 @@ export default function TasksPage() {
     <div className="space-y-6">
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <p className="text-text-secondary text-sm">
-          {t('tasks:pending', { count: counts.pending || 0 })}
+        <div className="flex items-center gap-2">
+          <p className="text-text-secondary text-sm">
+            {t('tasks:pending', { count: counts.pending || 0 })}
+          </p>
           {counts.overdue > 0 && (
-            <span className="text-error ml-2">· {t('tasks:overdue', { count: counts.overdue })}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+              <AlertCircle className="h-3 w-3" />
+              {counts.overdue} overdue
+            </span>
           )}
-        </p>
+        </div>
         <Button onClick={() => setShowNewModal(true)}>
           <Plus className="h-4 w-4" />
           {t('tasks:addTask')}
@@ -137,6 +144,33 @@ export default function TasksPage() {
 
       {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+
+      {/* Quick Add */}
+      {activeTab !== 'completed' && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (quickAddText.trim()) {
+              createMutation.mutate({ subject: quickAddText.trim(), priority: 'medium' });
+            }
+          }}
+          className="flex items-center gap-2 p-3 bg-white border border-border rounded-lg"
+        >
+          <Plus className="h-4 w-4 text-text-muted flex-shrink-0" />
+          <input
+            type="text"
+            value={quickAddText}
+            onChange={(e) => setQuickAddText(e.target.value)}
+            placeholder="Quick add task... (press Enter)"
+            className="flex-1 text-sm outline-none placeholder:text-text-muted"
+          />
+          {quickAddText && (
+            <Button type="submit" size="sm" isLoading={createMutation.isPending}>
+              Add
+            </Button>
+          )}
+        </form>
+      )}
 
       {/* Task List */}
       {tasks.length === 0 && !isLoading ? (

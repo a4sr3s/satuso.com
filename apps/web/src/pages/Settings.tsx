@@ -219,24 +219,22 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === 'Profile' && (
-        <Card>
-          <CardHeader
-            title="Your Profile"
-            description="Manage your personal account settings."
-          />
-          <div className="px-4 pb-4">
-            <UserProfile
-              appearance={{
-                elements: {
-                  rootBox: 'w-full',
-                  card: 'shadow-none p-0',
-                  navbar: 'hidden',
-                  pageScrollBox: 'p-0',
-                },
-              }}
-            />
-          </div>
-        </Card>
+        <UserProfile
+          appearance={{
+            elements: {
+              rootBox: 'w-full',
+              card: 'shadow-none border border-border rounded-xl bg-white',
+              navbar: 'hidden',
+              navbarMobileMenuRow: 'hidden',
+              headerTitle: 'hidden',
+              headerSubtitle: 'hidden',
+              pageScrollBox: 'p-4',
+              profileSectionTitleText: 'text-sm font-semibold text-text-primary',
+              formFieldLabel: 'text-sm text-text-secondary',
+              formButtonPrimary: 'bg-primary hover:bg-primary/90',
+            },
+          }}
+        />
       )}
 
       {/* General Tab */}

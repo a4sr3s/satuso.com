@@ -13,20 +13,43 @@ billing.get('/subscription', clerkAuthMiddleware, async (c) => {
   }
 
   const org = await c.env.DB.prepare(
-    'SELECT subscription_status, stripe_customer_id, onboarding_completed FROM organizations WHERE id = ?'
+    'SELECT subscription_status, stripe_customer_id, onboarding_completed, trial_ends_at FROM organizations WHERE id = ?'
   ).bind(user.organization_id).first<{
     subscription_status: string | null;
     stripe_customer_id: string | null;
     onboarding_completed: number | null;
+    trial_ends_at: string | null;
   }>();
+
+  const now = new Date();
+  const trialEndsAt = org?.trial_ends_at ? new Date(org.trial_ends_at) : null;
+
+  // Check if trial is active (trial_ends_at exists and is in the future)
+  const isInTrial = trialEndsAt !== null && trialEndsAt > now;
+
+  // Calculate days remaining in trial
+  let trialDaysRemaining = 0;
+  if (isInTrial && trialEndsAt) {
+    trialDaysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // User has access if subscription is active OR trial is still active
+  // If trial_ends_at is NULL (existing users), consider them grandfathered/paid
+  const subscriptionStatus = org?.subscription_status || 'inactive';
+  const isSubscriptionActive = subscriptionStatus === 'active';
+  const isActive = isSubscriptionActive || isInTrial || org?.trial_ends_at === null;
 
   return c.json({
     success: true,
     data: {
-      status: org?.subscription_status || 'inactive',
-      plan: org?.subscription_status === 'active' ? 'standard' : 'none',
+      status: isSubscriptionActive ? 'active' : (isInTrial ? 'trialing' : subscriptionStatus),
+      plan: isSubscriptionActive || isInTrial || org?.trial_ends_at === null ? 'standard' : 'none',
       stripeCustomerId: org?.stripe_customer_id || null,
       onboardingCompleted: org?.onboarding_completed === 1,
+      isInTrial,
+      trialEndsAt: org?.trial_ends_at,
+      trialDaysRemaining,
+      isActive,
     },
   });
 });

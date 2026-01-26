@@ -333,4 +333,24 @@ organizations.delete('/members/:id', async (c) => {
   return c.json({ success: true });
 });
 
+// Update current user's profile
+const updateProfileSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+});
+
+organizations.patch('/profile', zValidator('json', updateProfileSchema), async (c) => {
+  const userId = c.get('userId');
+  const { name } = c.req.valid('json');
+
+  if (!name) {
+    return c.json({ success: false, error: 'No fields to update' }, 400);
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+  ).bind(name, new Date().toISOString(), userId).run();
+
+  return c.json({ success: true, data: { name } });
+});
+
 export default organizations;

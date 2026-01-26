@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useUser, useClerk } from '@clerk/clerk-react';
-import { Camera, Mail, Shield, LogOut } from 'lucide-react';
+import { useUser, useClerk, useOrganization } from '@clerk/clerk-react';
+import {
+  Camera,
+  Mail,
+  Shield,
+  LogOut,
+  Building2,
+  UserPlus,
+  Globe,
+  Users,
+  CreditCard,
+  Puzzle,
+  Check,
+} from 'lucide-react';
+import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { organizationsApi, billingApi } from '@/lib/api';
 import { useSubscription } from '@/hooks/useSubscription';
+import { LANGUAGES, type LanguageCode } from '@/i18n/config';
+import { useLocaleStore } from '@/stores/locale';
 
 const JOB_FUNCTIONS = [
   { value: 'ae', label: 'Account Executive' },
@@ -19,98 +32,64 @@ const JOB_FUNCTIONS = [
   { value: 'executive', label: 'Executive' },
 ] as const;
 
-const TABS = ['Profile', 'General', 'Billing', 'Integrations'] as const;
-type Tab = typeof TABS[number];
+const TABS = [
+  { id: 'account', label: 'Account', icon: Users },
+  { id: 'workspace', label: 'Workspace', icon: Building2 },
+  { id: 'billing', label: 'Billing', icon: CreditCard },
+  { id: 'integrations', label: 'Integrations', icon: Puzzle },
+] as const;
+
+type TabId = typeof TABS[number]['id'];
 
 const INTEGRATIONS = [
   {
     id: 'clay',
     name: 'Clay',
-    descriptionKey: 'settings:integrationDescriptions.clay',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#FF6B35"/>
-        <path d="M7 12h10M12 7v10" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.dataEnrichment',
+    description: 'Enrich contacts and companies with Clay data',
+    icon: <img src="/integrations/clay.png" alt="Clay" className="h-6 w-6 object-contain" />,
+    category: 'Data Enrichment',
   },
   {
     id: 'apollo',
     name: 'Apollo.io',
-    descriptionKey: 'settings:integrationDescriptions.apollo',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#5C5CFF"/>
-        <circle cx="12" cy="12" r="6" stroke="white" strokeWidth="2"/>
-        <circle cx="12" cy="12" r="2" fill="white"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.dataEnrichment',
+    description: 'Import leads and sync contact data',
+    icon: <img src="/integrations/apollo.jpeg" alt="Apollo.io" className="h-6 w-6 object-contain" />,
+    category: 'Data Enrichment',
   },
   {
     id: 'clearbit',
     name: 'Clearbit',
-    descriptionKey: 'settings:integrationDescriptions.clearbit',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#3B82F6"/>
-        <path d="M6 12l4 4 8-8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.dataEnrichment',
+    description: 'Real-time company and contact enrichment',
+    icon: <img src="/integrations/clearbit.png" alt="Clearbit" className="h-6 w-6 object-contain" />,
+    category: 'Data Enrichment',
   },
   {
     id: 'zapier',
     name: 'Zapier',
-    descriptionKey: 'settings:integrationDescriptions.zapier',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#FF4A00"/>
-        <path d="M12 6v12M6 12h12M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.automation',
+    description: 'Connect with 5,000+ apps via automations',
+    icon: <img src="/integrations/zapier.jpeg" alt="Zapier" className="h-6 w-6 object-contain" />,
+    category: 'Automation',
   },
   {
     id: 'slack',
     name: 'Slack',
-    descriptionKey: 'settings:integrationDescriptions.slack',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#4A154B"/>
-        <path d="M9 11a2 2 0 11-4 0 2 2 0 014 0zM9 11v3a2 2 0 01-2 2M9 11h3a2 2 0 012 2v0a2 2 0 01-2 2h-1" stroke="#E01E5A" strokeWidth="1.5"/>
-        <path d="M15 13a2 2 0 104 0 2 2 0 00-4 0zM15 13v-3a2 2 0 012-2M15 13h-3a2 2 0 01-2-2v0a2 2 0 012-2h1" stroke="#36C5F0" strokeWidth="1.5"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.communication',
+    description: 'Get deal updates and notifications in Slack',
+    icon: <img src="/integrations/slack.jpeg" alt="Slack" className="h-6 w-6 object-contain" />,
+    category: 'Communication',
   },
   {
     id: 'google-calendar',
     name: 'Google Calendar',
-    descriptionKey: 'settings:integrationDescriptions.googleCalendar',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#4285F4"/>
-        <rect x="6" y="6" width="12" height="12" rx="1" stroke="white" strokeWidth="1.5"/>
-        <path d="M6 10h12" stroke="white" strokeWidth="1.5"/>
-        <path d="M10 6v4M14 6v4" stroke="white" strokeWidth="1.5"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.productivity',
+    description: 'Sync meetings and schedule follow-ups',
+    icon: <img src="/integrations/google-calendar.png" alt="Google Calendar" className="h-6 w-6 object-contain" />,
+    category: 'Productivity',
   },
   {
     id: 'gmail',
     name: 'Gmail',
-    descriptionKey: 'settings:integrationDescriptions.gmail',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
-        <rect width="24" height="24" rx="4" fill="#EA4335"/>
-        <path d="M6 8l6 4 6-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <rect x="5" y="7" width="14" height="10" rx="1" stroke="white" strokeWidth="1.5"/>
-      </svg>
-    ),
-    categoryKey: 'settings:categories.productivity',
+    description: 'Track emails and log communications',
+    icon: <img src="/integrations/gmail.png" alt="Gmail" className="h-6 w-6 object-contain" />,
+    category: 'Productivity',
   },
 ];
 
@@ -123,12 +102,34 @@ interface Member {
   job_function: string | null;
 }
 
-function ProfileTab() {
+// Skeleton loader component for consistency
+function SettingsSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 bg-gray-200 rounded-full" />
+        <div className="space-y-2 flex-1">
+          <div className="h-4 w-32 bg-gray-200 rounded" />
+          <div className="h-3 w-48 bg-gray-100 rounded" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="h-10 bg-gray-100 rounded" />
+        <div className="h-10 bg-gray-100 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function AccountTab() {
   const { user, isLoaded } = useUser();
   const { signOut, openUserProfile } = useClerk();
+  const { language, setLanguage } = useLocaleStore();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const currentLang = LANGUAGES[language] ? language : 'en';
 
   useEffect(() => {
     if (user) {
@@ -138,32 +139,19 @@ function ProfileTab() {
   }, [user]);
 
   if (!isLoaded || !user) {
-    return (
-      <Card>
-        <div className="p-4">
-          <div className="animate-pulse space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gray-200 rounded-full" />
-              <div className="space-y-2">
-                <div className="h-4 w-32 bg-gray-200 rounded" />
-                <div className="h-3 w-48 bg-gray-100 rounded" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-    );
+    return <Card><div className="p-4"><SettingsSkeleton /></div></Card>;
   }
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await user.update({
-        firstName,
-        lastName,
-      });
+      // Update Clerk profile
+      await user.update({ firstName, lastName });
+      // Sync name to database
+      const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'User';
+      await organizationsApi.updateProfile({ name: fullName });
       toast.success('Profile updated');
-    } catch (error) {
+    } catch {
       toast.error('Failed to update profile');
     } finally {
       setIsSaving(false);
@@ -175,20 +163,19 @@ function ProfileTab() {
 
   return (
     <div className="space-y-6">
-      {/* Profile Info */}
+      {/* Profile */}
       <Card>
         <CardHeader
           title="Profile"
-          description="Your personal information."
+          description="Your personal information visible to your team."
         />
-        <div className="px-4 pb-4 space-y-6">
-          {/* Avatar */}
+        <div className="px-4 pb-4 space-y-5">
           <div className="flex items-center gap-4">
             <div className="relative">
               <img
                 src={user.imageUrl}
                 alt={user.fullName || 'Profile'}
-                className="w-16 h-16 rounded-full object-cover"
+                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
               />
               <button
                 onClick={() => openUserProfile()}
@@ -200,11 +187,10 @@ function ProfileTab() {
             </div>
             <div>
               <p className="text-sm font-medium text-text-primary">{user.fullName || 'No name set'}</p>
-              <p className="text-xs text-text-muted">Click the camera icon to change your photo</p>
+              <p className="text-xs text-text-muted">Click camera to update photo</p>
             </div>
           </div>
 
-          {/* Name Fields */}
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="First name"
@@ -233,7 +219,7 @@ function ProfileTab() {
       {/* Email */}
       <Card>
         <CardHeader
-          title="Email Address"
+          title="Email"
           description="Your primary email for notifications and sign-in."
         />
         <div className="px-4 pb-4">
@@ -249,19 +235,53 @@ function ProfileTab() {
               onClick={() => openUserProfile()}
               className="text-xs text-primary hover:text-primary/80 font-medium"
             >
-              Manage emails
+              Manage
             </button>
           </div>
         </div>
       </Card>
 
-      {/* Security */}
+      {/* Preferences */}
+      <Card>
+        <CardHeader
+          title="Preferences"
+          description="Customize your experience."
+        />
+        <div className="px-4 pb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Globe className="h-4 w-4 text-text-muted" />
+              <span className="text-sm text-text-primary">Language</span>
+            </div>
+            <div className="flex gap-2">
+              {Object.values(LANGUAGES).map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => setLanguage(lang.code as LanguageCode)}
+                  className={clsx(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors',
+                    currentLang === lang.code
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-text-primary border-border hover:border-gray-300'
+                  )}
+                >
+                  <span>{lang.flag}</span>
+                  <span>{lang.name}</span>
+                  {currentLang === lang.code && <Check className="h-3.5 w-3.5" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Security & Account Actions */}
       <Card>
         <CardHeader
           title="Security"
-          description="Manage your password and security settings."
+          description="Manage your password and account access."
         />
-        <div className="px-4 pb-4 space-y-3">
+        <div className="px-4 pb-4 space-y-2">
           <button
             onClick={() => openUserProfile()}
             className="w-full flex items-center justify-between p-3 bg-surface rounded-lg hover:bg-gray-100 transition-colors"
@@ -272,16 +292,229 @@ function ProfileTab() {
             </div>
             <span className="text-xs text-text-muted">Manage →</span>
           </button>
-          <button
-            onClick={() => signOut({ redirectUrl: '/' })}
-            className="w-full flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <LogOut className="h-4 w-4 text-red-600" />
-              <span className="text-sm text-red-600">Sign out</span>
-            </div>
-          </button>
+
+          <div className="pt-3 mt-3 border-t border-border">
+            <button
+              onClick={() => signOut({ redirectUrl: '/' })}
+              className="w-full flex items-center justify-between p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="h-4 w-4" />
+                <span className="text-sm font-medium">Sign out</span>
+              </div>
+            </button>
+          </div>
         </div>
+      </Card>
+    </div>
+  );
+}
+
+function WorkspaceTab() {
+  const { organization, isLoaded: orgLoaded } = useOrganization();
+  const { openOrganizationProfile } = useClerk();
+  const [orgName, setOrgName] = useState('');
+  const [isSavingOrg, setIsSavingOrg] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (organization) {
+      setOrgName(organization.name || '');
+    }
+  }, [organization]);
+
+  useEffect(() => {
+    organizationsApi.getMembers()
+      .then((res) => setMembers(res.data))
+      .catch((err) => setMembersError(err.message || 'Failed to load team members'))
+      .finally(() => setLoadingMembers(false));
+  }, []);
+
+  const handleSaveOrg = async () => {
+    if (!organization) return;
+    setIsSavingOrg(true);
+    try {
+      await organization.update({ name: orgName });
+      toast.success('Organization updated');
+    } catch {
+      toast.error('Failed to update organization');
+    } finally {
+      setIsSavingOrg(false);
+    }
+  };
+
+  const handleRoleChange = async (memberId: string, jobFunction: string) => {
+    const prev = members;
+    setMembers((m) =>
+      m.map((member) => member.id === memberId ? { ...member, job_function: jobFunction || null } : member)
+    );
+    try {
+      await organizationsApi.updateMemberRole(memberId, jobFunction);
+    } catch {
+      setMembers(prev);
+      toast.error('Failed to update role');
+    }
+  };
+
+  if (!orgLoaded) {
+    return <Card><div className="p-4"><SettingsSkeleton /></div></Card>;
+  }
+
+  if (!organization) {
+    return (
+      <Card>
+        <CardHeader
+          title="Workspace"
+          description="You're not part of an organization."
+        />
+        <div className="px-4 pb-4">
+          <p className="text-sm text-text-muted">
+            Create or join an organization to collaborate with your team.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  const hasOrgChanges = orgName !== (organization.name || '');
+
+  return (
+    <div className="space-y-6">
+      {/* Organization */}
+      <Card>
+        <CardHeader
+          title="Organization"
+          description="Your shared workspace settings."
+        />
+        <div className="px-4 pb-4 space-y-5">
+          <div className="flex items-start gap-4">
+            <div className="relative flex-shrink-0">
+              {organization.imageUrl ? (
+                <img
+                  src={organization.imageUrl}
+                  alt={organization.name}
+                  className="w-14 h-14 rounded-xl object-cover border border-border"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Building2 className="h-7 w-7 text-primary" />
+                </div>
+              )}
+              <button
+                onClick={() => openOrganizationProfile()}
+                className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-border shadow-sm hover:bg-gray-50 transition-colors"
+                title="Change logo"
+              >
+                <Camera className="h-3 w-3 text-text-muted" />
+              </button>
+            </div>
+            <div className="flex-1">
+              <Input
+                label="Organization name"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Enter organization name"
+              />
+            </div>
+          </div>
+
+          {hasOrgChanges && (
+            <div className="flex justify-end">
+              <Button onClick={handleSaveOrg} isLoading={isSavingOrg}>
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Team Members */}
+      <Card>
+        <CardHeader
+          title="Team Members"
+          description="People in your organization."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => openOrganizationProfile()}
+            >
+              <UserPlus className="h-4 w-4 mr-1.5" />
+              Invite
+            </Button>
+          }
+        />
+        {loadingMembers ? (
+          <div className="px-4 pb-4">
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-gray-200 rounded-full" />
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-28 bg-gray-200 rounded" />
+                      <div className="h-3 w-40 bg-gray-100 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-8 w-36 bg-gray-100 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : membersError ? (
+          <div className="px-4 pb-4">
+            <p className="text-sm text-red-600">{membersError}</p>
+          </div>
+        ) : members.length === 0 ? (
+          <div className="px-4 pb-4 text-center py-8">
+            <Users className="h-8 w-8 text-text-muted mx-auto mb-2" />
+            <p className="text-sm text-text-muted">No team members yet</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() => openOrganizationProfile()}
+            >
+              Invite your first teammate
+            </Button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {members.map((member) => (
+              <div key={member.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {member.avatar_url ? (
+                    <img
+                      src={member.avatar_url}
+                      alt={member.name}
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium flex-shrink-0">
+                      {member.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
+                    <p className="text-xs text-text-muted truncate">{member.email}</p>
+                  </div>
+                </div>
+                <select
+                  value={member.job_function || ''}
+                  onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                  className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Select role</option>
+                  {JOB_FUNCTIONS.map((jf) => (
+                    <option key={jf.value} value={jf.value}>{jf.label}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -299,201 +532,134 @@ function BillingTab() {
         window.location.href = res.data.url;
       }
     } catch {
+      toast.error('Failed to open billing portal');
       setLoading(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader
-        title="Subscription"
-        description="Manage your subscription and billing details."
-      />
-      <div className="px-4 pb-4 space-y-4">
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Standard Plan</p>
-            <p className="text-xs text-text-muted mt-0.5">$29/month</p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="Subscription"
+          description="Your current plan and billing information."
+        />
+        <div className="px-4 pb-4 space-y-4">
+          <div className="flex items-center justify-between p-4 bg-surface rounded-xl border border-border">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Standard Plan</p>
+                <p className="text-xs text-text-muted">$29 per user / month</p>
+              </div>
+            </div>
+            <span className={clsx(
+              'text-xs font-medium px-2.5 py-1 rounded-full',
+              status === 'active'
+                ? 'bg-green-100 text-green-700'
+                : status === 'past_due'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-gray-100 text-gray-600'
+            )}>
+              {status === 'active' ? 'Active' : status === 'past_due' ? 'Past Due' : status === 'canceled' ? 'Canceled' : 'Inactive'}
+            </span>
           </div>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-            status === 'active'
-              ? 'bg-green-100 text-green-700'
-              : status === 'past_due'
-              ? 'bg-yellow-100 text-yellow-700'
-              : 'bg-gray-100 text-gray-600'
-          }`}>
-            {status === 'active' ? 'Active' : status === 'past_due' ? 'Past Due' : status === 'canceled' ? 'Canceled' : 'Inactive'}
-          </span>
+
+          <Button
+            variant="secondary"
+            onClick={handleManageBilling}
+            isLoading={loading}
+            className="w-full"
+          >
+            Manage Billing & Invoices
+          </Button>
         </div>
-        <button
-          onClick={handleManageBilling}
-          disabled={loading}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Opening portal...' : 'Manage Billing'}
-        </button>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
-export default function SettingsPage() {
-  const { t } = useTranslation(['settings', 'common']);
-  const [activeTab, setActiveTab] = useState<Tab>('Profile');
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(true);
-  const [membersError, setMembersError] = useState<string | null>(null);
-
-  useEffect(() => {
-    organizationsApi.getMembers()
-      .then((res) => setMembers(res.data))
-      .catch((err) => setMembersError(err.message || 'Failed to load team members'))
-      .finally(() => setLoadingMembers(false));
-  }, []);
-
-  const handleRoleChange = async (memberId: string, jobFunction: string) => {
-    const prev = members;
-    setMembers((m) =>
-      m.map((member) => member.id === memberId ? { ...member, job_function: jobFunction || null } : member)
-    );
-    try {
-      await organizationsApi.updateMemberRole(memberId, jobFunction);
-    } catch {
-      setMembers(prev);
+function IntegrationsTab() {
+  // Group integrations by category
+  const categories = INTEGRATIONS.reduce((acc, integration) => {
+    if (!acc[integration.category]) {
+      acc[integration.category] = [];
     }
-  };
+    acc[integration.category].push(integration);
+    return acc;
+  }, {} as Record<string, typeof INTEGRATIONS>);
 
   return (
-    <div className="max-w-3xl">
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border mb-6">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-              activeTab === tab
-                ? 'text-text-primary'
-                : 'text-text-muted hover:text-text-primary'
-            }`}
-          >
-            {tab}
-            {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Profile Tab */}
-      {activeTab === 'Profile' && <ProfileTab />}
-
-      {/* General Tab */}
-      {activeTab === 'General' && (
-        <div className="space-y-6">
-          {/* Team */}
-          <Card>
-            <CardHeader
-              title="Team"
-              description="Manage your team members and their roles."
-            />
-            {loadingMembers ? (
-              <div className="px-4 pb-4">
-                <div className="animate-pulse space-y-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="flex items-center justify-between py-2">
-                      <div className="space-y-1.5">
-                        <div className="h-4 w-32 bg-gray-200 rounded" />
-                        <div className="h-3 w-48 bg-gray-100 rounded" />
-                      </div>
-                      <div className="h-8 w-40 bg-gray-100 rounded" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : membersError ? (
-              <div className="px-4 pb-4">
-                <p className="text-sm text-red-600">{membersError}</p>
-              </div>
-            ) : members.length === 0 ? (
-              <div className="px-4 pb-4">
-                <p className="text-sm text-text-muted">No team members found.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium shrink-0">
-                        {member.name?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
-                        <p className="text-xs text-text-muted truncate">{member.email}</p>
-                      </div>
-                    </div>
-                    <select
-                      value={member.job_function || ''}
-                      onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                      className="text-sm border border-border rounded-md px-2 py-1.5 bg-surface text-text-primary appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M3%205l3%203%203-3%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat pr-7"
-                    >
-                      <option value="">No role</option>
-                      {JOB_FUNCTIONS.map((jf) => (
-                        <option key={jf.value} value={jf.value}>{jf.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Language */}
-          <Card>
-            <CardHeader
-              title={t('settings:language.title')}
-              description={t('settings:language.description')}
-            />
-            <LanguageSwitcher variant="settings" />
-          </Card>
-        </div>
-      )}
-
-      {/* Billing Tab */}
-      {activeTab === 'Billing' && <BillingTab />}
-
-      {/* Integrations Tab */}
-      {activeTab === 'Integrations' && (
-        <Card>
+    <div className="space-y-6">
+      {Object.entries(categories).map(([category, integrations]) => (
+        <Card key={category}>
           <CardHeader
-            title={t('settings:integrations.title')}
-            description={t('settings:integrations.description')}
+            title={category}
+            description={`Connect your ${category.toLowerCase()} tools.`}
           />
-          <div className="space-y-3">
-            {INTEGRATIONS.map((integration) => (
-              <div key={integration.id} className="flex items-center justify-between p-4 bg-surface rounded-lg opacity-60">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
+          <div className="divide-y divide-border">
+            {integrations.map((integration) => (
+              <div key={integration.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
                     {integration.icon}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-text-primary">{integration.name}</p>
-                      <span className="text-[10px] font-medium text-text-muted bg-gray-100 px-1.5 py-0.5 rounded">
-                        {t(integration.categoryKey)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-text-muted mt-0.5">{t(integration.descriptionKey)}</p>
+                    <p className="text-sm font-medium text-text-primary">{integration.name}</p>
+                    <p className="text-xs text-text-muted">{integration.description}</p>
                   </div>
                 </div>
                 <span className="text-xs font-medium text-text-muted bg-gray-100 px-3 py-1.5 rounded-full">
-                  {t('settings:integrations.comingSoon')}
+                  Coming soon
                 </span>
               </div>
             ))}
           </div>
         </Card>
-      )}
+      ))}
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<TabId>('account');
+
+  return (
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="flex gap-1 border-b border-border">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={clsx(
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative',
+                activeTab === tab.id
+                  ? 'text-primary'
+                  : 'text-text-muted hover:text-text-primary'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-2xl">
+        {activeTab === 'account' && <AccountTab />}
+        {activeTab === 'workspace' && <WorkspaceTab />}
+        {activeTab === 'billing' && <BillingTab />}
+        {activeTab === 'integrations' && <IntegrationsTab />}
+      </div>
     </div>
   );
 }

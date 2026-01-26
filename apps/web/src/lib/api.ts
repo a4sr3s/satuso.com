@@ -372,6 +372,9 @@ export const organizationsApi = {
 
   removeMember: (id: string) =>
     api.delete<ApiResponse<null>>(`/organizations/members/${id}`),
+
+  updateProfile: (data: { name?: string }) =>
+    api.patch<ApiResponse<{ name: string }>>('/organizations/profile', data),
 };
 
 // Billing API

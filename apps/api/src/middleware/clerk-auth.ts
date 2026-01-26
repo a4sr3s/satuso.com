@@ -29,7 +29,12 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     // Get or create user from Clerk data
     const clerkUserId = payload.sub;
     const email = payload.email as string | undefined;
-    const name = (payload.name as string) || (payload.first_name as string) || email?.split('@')[0] || 'User';
+    // Build full name from Clerk's first_name and last_name, or fall back to name field
+    const firstName = payload.first_name as string | undefined;
+    const lastName = payload.last_name as string | undefined;
+    const clerkFullName = firstName && lastName
+      ? `${firstName} ${lastName}`.trim()
+      : (payload.name as string) || firstName || email?.split('@')[0] || 'User';
 
     // Check if user exists in our database
     let user = await c.env.DB.prepare(
@@ -42,6 +47,14 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       organization_id: string | null;
     }>();
 
+    // If user exists, sync name from Clerk if it has changed
+    if (user && clerkFullName && user.name !== clerkFullName) {
+      await c.env.DB.prepare(
+        'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+      ).bind(clerkFullName, new Date().toISOString(), user.id).run();
+      user.name = clerkFullName;
+    }
+
     // If user doesn't exist, create them with an organization
     if (!user && email) {
       const { nanoid } = await import('nanoid');
@@ -53,18 +66,18 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       await c.env.DB.prepare(
         `INSERT INTO organizations (id, name, plan, user_limit, owner_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, now, now).run();
+      ).bind(orgId, `${clerkFullName}'s Organization`, 'standard', 5, userId, now, now).run();
 
       // Create user (password_hash='clerk_managed' for Clerk-authenticated users)
       await c.env.DB.prepare(
         `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
+      ).bind(userId, clerkUserId, email.toLowerCase(), clerkFullName, 'clerk_managed', 'admin', orgId, now, now).run();
 
       user = {
         id: userId,
         email: email.toLowerCase(),
-        name,
+        name: clerkFullName,
         role: 'admin',
         organization_id: orgId,
       };

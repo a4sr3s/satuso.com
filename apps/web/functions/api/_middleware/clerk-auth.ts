@@ -92,7 +92,20 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
         // Set trial to expire in 30 days
         const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        // Create organization first with 30-day trial
+        // IMPORTANT: Create user FIRST (without organization_id) because organizations.owner_id
+        // has a foreign key constraint to users.id
+        const userResult = await c.env.DB.prepare(
+          `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+        ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', now, now).run();
+
+        if (!userResult.success) {
+          console.error('Failed to create user:', userResult);
+          return c.json({ success: false, error: 'Failed to create user' }, 500);
+        }
+        console.log('Created user:', { userId, email });
+
+        // Now create organization with 30-day trial (owner_id can now reference the user)
         const orgResult = await c.env.DB.prepare(
           `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -100,19 +113,22 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
         if (!orgResult.success) {
           console.error('Failed to create organization:', orgResult);
+          // Rollback: delete the user we just created
+          await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
           return c.json({ success: false, error: 'Failed to create organization' }, 500);
         }
+        console.log('Created organization:', { orgId, trialEndsAt });
 
-        // Create user
-        const userResult = await c.env.DB.prepare(
-          `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
+        // Update user with organization_id
+        const updateResult = await c.env.DB.prepare(
+          `UPDATE users SET organization_id = ? WHERE id = ?`
+        ).bind(orgId, userId).run();
 
-        if (!userResult.success) {
-          console.error('Failed to create user:', userResult);
-          return c.json({ success: false, error: 'Failed to create user' }, 500);
+        if (!updateResult.success) {
+          console.error('Failed to update user with organization:', updateResult);
+          return c.json({ success: false, error: 'Failed to link user to organization' }, 500);
         }
+        console.log('Linked user to organization');
 
         user = {
           id: userId,
@@ -123,7 +139,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
           subscription_status: 'inactive',
           trial_ends_at: trialEndsAt,
         };
-        console.log('Successfully created user and organization:', { userId, orgId, email });
+        console.log('Successfully created user and organization:', { userId, orgId, email, trialEndsAt });
       } catch (dbError) {
         console.error('Database error during user creation:', dbError);
         return c.json({ success: false, error: 'Database error' }, 500);

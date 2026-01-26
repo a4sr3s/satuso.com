@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser, useClerk, useOrganization } from '@clerk/clerk-react';
+import { useUser, useClerk, useOrganization, useOrganizationList } from '@clerk/clerk-react';
 import {
   Camera,
   Mail,
@@ -442,12 +442,16 @@ function AccountTab() {
 
 function WorkspaceTab() {
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const { openOrganizationProfile } = useClerk();
+  const { userMemberships, setActive, isLoaded: orgListLoaded } = useOrganizationList({
+    userMemberships: { infinite: true },
+  });
+  const { openOrganizationProfile, openCreateOrganization } = useClerk();
   const [orgName, setOrgName] = useState('');
   const [isSavingOrg, setIsSavingOrg] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
 
   useEffect(() => {
     if (organization) {
@@ -488,21 +492,89 @@ function WorkspaceTab() {
     }
   };
 
-  if (!orgLoaded) {
+  const handleSwitchToOrg = async (orgId: string) => {
+    if (!setActive) return;
+    setIsSwitching(true);
+    try {
+      await setActive({ organization: orgId });
+      toast.success('Switched to organization');
+    } catch {
+      toast.error('Failed to switch organization');
+    } finally {
+      setIsSwitching(false);
+    }
+  };
+
+  if (!orgLoaded || !orgListLoaded) {
     return <Card><div className="p-4"><SettingsSkeleton /></div></Card>;
   }
+
+  // User has organizations but none is active - show them and let them switch
+  const availableOrgs = userMemberships?.data || [];
 
   if (!organization) {
     return (
       <Card>
         <CardHeader
           title="Workspace"
-          description="You're not part of an organization."
+          description={availableOrgs.length > 0
+            ? "You have organizations available. Select one to manage your team."
+            : "You're not part of an organization."
+          }
         />
-        <div className="px-4 pb-4">
-          <p className="text-sm text-text-muted">
-            Create or join an organization to collaborate with your team.
-          </p>
+        <div className="px-4 pb-4 space-y-3">
+          {availableOrgs.length > 0 ? (
+            <>
+              <p className="text-sm text-text-muted mb-4">
+                Select an organization to switch to:
+              </p>
+              {availableOrgs.map((membership) => (
+                <div
+                  key={membership.organization.id}
+                  className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-surface transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {membership.organization.imageUrl ? (
+                      <img
+                        src={membership.organization.imageUrl}
+                        alt={membership.organization.name}
+                        className="w-10 h-10 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        {membership.organization.name}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {membership.role}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => handleSwitchToOrg(membership.organization.id)}
+                    isLoading={isSwitching}
+                  >
+                    Switch
+                  </Button>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-text-muted">
+                Create or join an organization to collaborate with your team.
+              </p>
+              <Button onClick={() => openCreateOrganization()}>
+                <Building2 className="h-4 w-4 mr-2" />
+                Create Organization
+              </Button>
+            </>
+          )}
         </div>
       </Card>
     );

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { createClerkClient } from '@clerk/backend';
 import type { Env, Variables } from '../_types';
 import { hashPassword } from '../_utils/password';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
@@ -393,6 +394,15 @@ organizations.delete('/account', async (c) => {
     return c.json({ success: false, error: 'No organization found' }, 404);
   }
 
+  // Get user's clerk_id for later deletion from Clerk
+  const dbUser = await c.env.DB.prepare(
+    'SELECT clerk_id FROM users WHERE id = ?'
+  ).bind(user.id).first<{ clerk_id: string }>();
+
+  if (!dbUser?.clerk_id) {
+    return c.json({ success: false, error: 'User not found' }, 404);
+  }
+
   // Get organization info
   const org = await c.env.DB.prepare(
     `SELECT o.id, o.owner_id,
@@ -557,6 +567,17 @@ organizations.delete('/account', async (c) => {
     }
 
     console.log('User deleted from database successfully:', user.id);
+
+    // Delete user from Clerk to prevent auto-recreation on next login
+    try {
+      const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+      await clerk.users.deleteUser(dbUser.clerk_id);
+      console.log('User deleted from Clerk successfully:', dbUser.clerk_id);
+    } catch (clerkError) {
+      // Log but don't fail - DB deletion was successful
+      console.error('Failed to delete user from Clerk:', clerkError);
+    }
+
     return c.json({ success: true, message: 'Account deleted successfully' });
   } catch (error: any) {
     console.error('Error deleting account:', error);

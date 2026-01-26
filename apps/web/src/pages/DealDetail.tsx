@@ -685,17 +685,6 @@ export default function DealDetailPage() {
         </div>
       </div>
 
-      {/* Delete Deal */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          className="flex items-center gap-2 text-sm text-text-muted hover:text-error transition-colors"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete deal
-        </button>
-      </div>
-
       {/* Add Team Member Modal */}
       <Modal
         isOpen={showTeamModal}
@@ -1008,13 +997,26 @@ export default function DealDetailPage() {
             value={editForm.close_date}
             onChange={(e) => setEditForm({ ...editForm, close_date: e.target.value })}
           />
-          <div className="flex justify-end gap-3 pt-4 border-t border-border-light">
-            <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={updateMutation.isPending}>
-              Save Changes
-            </Button>
+          <div className="flex justify-between pt-4 border-t border-border-light">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditModal(false);
+                setShowDeleteConfirm(true);
+              }}
+              className="flex items-center gap-2 text-sm text-text-muted hover:text-error transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={updateMutation.isPending}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

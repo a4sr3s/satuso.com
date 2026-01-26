@@ -1,5 +1,5 @@
 import { Context, Next } from 'hono';
-import { verifyToken } from '@clerk/backend';
+import { verifyToken, createClerkClient } from '@clerk/backend';
 import type { Env, Variables } from '../_types';
 
 export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) {
@@ -27,13 +27,29 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     // Get or create user from Clerk data
     const clerkUserId = payload.sub;
-    // Try multiple places where Clerk might store email
-    const email = (payload.email as string)
+
+    // Try to get email from JWT first
+    let email = (payload.email as string)
       || (payload.primary_email_address as string)
       || ((payload.email_addresses as any)?.[0]?.email_address as string)
       || undefined;
-    const firstName = (payload.firstName as string) || (payload.first_name as string);
-    const lastName = (payload.lastName as string) || (payload.last_name as string);
+
+    let firstName = (payload.firstName as string) || (payload.first_name as string);
+    let lastName = (payload.lastName as string) || (payload.last_name as string);
+
+    // If email not in JWT, fetch from Clerk API
+    if (!email) {
+      try {
+        const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+        const clerkUser = await clerk.users.getUser(clerkUserId);
+        email = clerkUser.emailAddresses?.[0]?.emailAddress;
+        firstName = firstName || clerkUser.firstName || undefined;
+        lastName = lastName || clerkUser.lastName || undefined;
+      } catch (clerkError) {
+        console.error('Failed to fetch user from Clerk:', clerkError);
+      }
+    }
+
     const name = firstName && lastName
       ? `${firstName} ${lastName}`.trim()
       : firstName

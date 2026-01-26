@@ -35,7 +35,6 @@ import { SpinPanel } from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
-import { ActionMenu } from '@/components/ui/Table';
 
 const stages = ['lead', 'qualified', 'discovery', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
 
@@ -377,16 +376,6 @@ export default function DealDetailPage() {
             <Edit className="h-4 w-4" />
             Edit
           </Button>
-          <ActionMenu
-            items={[
-              {
-                label: 'Delete deal',
-                onClick: () => setShowDeleteConfirm(true),
-                icon: <Trash2 className="h-4 w-4" />,
-                variant: 'danger',
-              },
-            ]}
-          />
         </div>
       </div>
 
@@ -694,6 +683,17 @@ export default function DealDetailPage() {
             )}
           </Card>
         </div>
+      </div>
+
+      {/* Delete Deal */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex items-center gap-2 text-sm text-text-muted hover:text-error transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete deal
+        </button>
       </div>
 
       {/* Add Team Member Modal */}

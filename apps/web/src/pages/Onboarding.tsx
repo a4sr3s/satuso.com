@@ -1,32 +1,81 @@
 import { CreateOrganization } from '@clerk/clerk-react';
+import { useTranslation } from 'react-i18next';
 
 export default function OnboardingPage() {
+  const { t } = useTranslation('auth');
+
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-      <div className="max-w-lg w-full">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-text-primary">Welcome to Satuso</h1>
-          <p className="text-text-secondary mt-2">
+    <div className="min-h-screen flex">
+      {/* Left Panel - Organization Creation Form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white min-h-screen">
+        {/* Logo */}
+        <a href="https://satuso.com">
+          <img src="/logo.svg" alt="Satuso" className="h-20 mb-8" />
+        </a>
+
+        {/* Welcome Header */}
+        <div className="text-center mb-6 max-w-sm">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome to Satuso</h1>
+          <p className="text-gray-500 mt-2">
             Create your organization to get started.
           </p>
         </div>
 
+        {/* Clerk CreateOrganization */}
         <CreateOrganization
           afterCreateOrganizationUrl="/"
           appearance={{
+            variables: {
+              colorPrimary: '#171717',
+              colorText: '#171717',
+              colorTextSecondary: '#525252',
+              colorBackground: '#FFFFFF',
+              colorInputBackground: '#FFFFFF',
+              colorInputText: '#171717',
+              borderRadius: '0.5rem',
+            },
             elements: {
-              rootBox: 'w-full',
-              card: 'shadow-sm border border-border rounded-xl',
+              rootBox: 'w-full max-w-sm',
+              card: 'shadow-none border border-gray-200 rounded-xl',
               headerTitle: 'hidden',
               headerSubtitle: 'hidden',
+              formButtonPrimary: 'bg-gray-900 hover:bg-gray-800',
             },
           }}
         />
+      </div>
+
+      {/* Right Panel - Marketing */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gray-900 text-white p-12 flex-col items-center justify-center">
+        <div className="max-w-md text-center">
+          <h1 className="text-4xl font-bold mb-4">
+            {t('signIn.marketing.headline')}
+          </h1>
+          <p className="text-lg text-gray-400 mb-8">
+            {t('signIn.marketing.subheadline')}
+          </p>
+
+          <div className="space-y-4 inline-block text-left">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-gray-300">{t('signIn.marketing.features.pipeline')}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-gray-300">{t('signIn.marketing.features.reminders')}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-gray-300">{t('signIn.marketing.features.contacts')}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

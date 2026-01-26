@@ -222,8 +222,12 @@ dashboard.get('/forecast', async (c) => {
     endMonth = startMonth + 2;
   }
 
-  const quarterStart = new Date(year, startMonth, 1).toISOString().split('T')[0];
-  const quarterEnd = new Date(year, endMonth + 1, 0).toISOString().split('T')[0];
+  // Build date strings directly to avoid timezone issues
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const quarterStart = `${year}-${pad(startMonth + 1)}-01`;
+  // Last day of endMonth: use day 0 of next month
+  const lastDay = new Date(Date.UTC(year, endMonth + 1, 0)).getUTCDate();
+  const quarterEnd = `${year}-${pad(endMonth + 1)}-${pad(lastDay)}`;
 
   // Get deals with close dates in this quarter
   const deals = await c.env.DB.prepare(`
@@ -248,11 +252,11 @@ dashboard.get('/forecast', async (c) => {
   const ownerMap = new Map<string, { id: string; name: string }>();
   const monthData = new Map<string, Map<string, number>>();
 
-  // Initialize months for the quarter
+  // Initialize months for the quarter (build strings directly to avoid timezone issues)
   const months: string[] = [];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   for (let m = startMonth; m <= endMonth; m++) {
-    const monthDate = new Date(year, m, 1);
-    const monthKey = monthDate.toISOString().slice(0, 7); // YYYY-MM format
+    const monthKey = `${year}-${pad(m + 1)}`; // YYYY-MM format
     months.push(monthKey);
     monthData.set(monthKey, new Map());
   }
@@ -289,9 +293,9 @@ dashboard.get('/forecast', async (c) => {
   // Build chart data
   const owners = Array.from(ownerMap.values());
   const chartData = months.map((monthKey) => {
-    const monthDate = new Date(monthKey + '-01');
-    // Use UTC timezone to avoid timezone offset issues (e.g., April 1st UTC becoming March 31st in PST)
-    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+    // Extract month index from YYYY-MM format and use monthNames array
+    const monthIndex = parseInt(monthKey.slice(5, 7), 10) - 1;
+    const monthLabel = monthNames[monthIndex];
     const monthOwners = monthData.get(monthKey) || new Map();
 
     const row: Record<string, number | string> = { monthLabel };
@@ -303,7 +307,7 @@ dashboard.get('/forecast', async (c) => {
 
   // Calculate summary for next month (first month of quarter if 'this', or first month of next quarter)
   const nextMonthKey = quarter === 'this'
-    ? new Date(currentYear, currentMonth + 1, 1).toISOString().slice(0, 7)
+    ? `${currentYear}-${pad(currentMonth + 2)}`
     : months[0];
 
   let nextMonthRaw = 0;

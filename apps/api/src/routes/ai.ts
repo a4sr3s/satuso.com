@@ -21,16 +21,58 @@ ai.use('/tts', aiAudioRateLimiter);
 // Helper to fetch compact CRM context for AI (optimized for token limits)
 // Filters by org_id when provided to ensure data isolation
 async function getCRMContext(db: D1Database, orgId?: string): Promise<string> {
+  // Fetch sales reps with their performance metrics - filtered by org_id
+  const salesReps = orgId
+    ? await db.prepare(`
+        SELECT
+          u.id,
+          u.name,
+          u.email,
+          u.job_function,
+          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN 1 END) as active_deals,
+          COALESCE(SUM(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.value END), 0) as pipeline_value,
+          COUNT(CASE WHEN d.stage = 'closed_won' THEN 1 END) as deals_won,
+          COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value END), 0) as revenue_won,
+          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.spin_progress END) as avg_spin_progress,
+          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) END) as avg_days_in_stage,
+          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') AND d.spin_progress < 2 THEN 1 END) as deals_needing_discovery
+        FROM users u
+        LEFT JOIN deals d ON d.owner_id = u.id AND d.org_id = ?
+        WHERE u.org_id = ?
+        GROUP BY u.id, u.name, u.email, u.job_function
+        ORDER BY pipeline_value DESC
+      `).bind(orgId, orgId).all()
+    : await db.prepare(`
+        SELECT
+          u.id,
+          u.name,
+          u.email,
+          u.job_function,
+          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN 1 END) as active_deals,
+          COALESCE(SUM(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.value END), 0) as pipeline_value,
+          COUNT(CASE WHEN d.stage = 'closed_won' THEN 1 END) as deals_won,
+          COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value END), 0) as revenue_won,
+          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.spin_progress END) as avg_spin_progress,
+          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) END) as avg_days_in_stage,
+          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') AND d.spin_progress < 2 THEN 1 END) as deals_needing_discovery
+        FROM users u
+        LEFT JOIN deals d ON d.owner_id = u.id
+        GROUP BY u.id, u.name, u.email, u.job_function
+        ORDER BY pipeline_value DESC
+      `).all();
+
   // Fetch deals with key info only - filtered by org_id
   const deals = orgId
     ? await db.prepare(`
         SELECT
           d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
           co.name as company_name,
-          c.name as contact_name
+          c.name as contact_name,
+          u.name as owner_name
         FROM deals d
         LEFT JOIN contacts c ON d.contact_id = c.id
         LEFT JOIN companies co ON d.company_id = co.id
+        LEFT JOIN users u ON d.owner_id = u.id
         WHERE d.org_id = ?
         ORDER BY d.value DESC
         LIMIT 20
@@ -39,10 +81,12 @@ async function getCRMContext(db: D1Database, orgId?: string): Promise<string> {
         SELECT
           d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
           co.name as company_name,
-          c.name as contact_name
+          c.name as contact_name,
+          u.name as owner_name
         FROM deals d
         LEFT JOIN contacts c ON d.contact_id = c.id
         LEFT JOIN companies co ON d.company_id = co.id
+        LEFT JOIN users u ON d.owner_id = u.id
         ORDER BY d.value DESC
         LIMIT 20
       `).all();
@@ -101,11 +145,21 @@ async function getCRMContext(db: D1Database, orgId?: string): Promise<string> {
   // Build compact context
   let context = `## CRM DATA
 
-### DEALS (${deals.results.length} shown)
+### SALES REPS (${salesReps.results.length} team members)
+`;
+
+  for (const rep of salesReps.results as any[]) {
+    const role = rep.job_function ? rep.job_function.toUpperCase() : 'REP';
+    const avgSpin = rep.avg_spin_progress !== null ? (rep.avg_spin_progress as number).toFixed(1) : '0';
+    const avgDays = rep.avg_days_in_stage !== null ? Math.round(rep.avg_days_in_stage as number) : 0;
+    context += `• ${rep.name} (${role}): ${rep.active_deals} active deals, $${(rep.pipeline_value || 0).toLocaleString()} pipeline, ${rep.deals_won} won ($${(rep.revenue_won || 0).toLocaleString()}), Avg SPIN: ${avgSpin}/4, Avg ${avgDays}d in stage, ${rep.deals_needing_discovery} needs discovery\n`;
+  }
+
+  context += `\n### DEALS (${deals.results.length} shown)
 `;
 
   for (const deal of deals.results as any[]) {
-    context += `• ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, ${deal.company_name || 'No company'}, SPIN: ${deal.spin_progress}/4\n`;
+    context += `• ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, ${deal.company_name || 'No company'}, Owner: ${deal.owner_name || 'Unassigned'}, SPIN: ${deal.spin_progress}/4\n`;
   }
 
   context += `\n### CONTACTS (${contacts.results.length} shown)\n`;
@@ -492,6 +546,14 @@ ${crmContext}
 - Give specific NEXT STEPS with names and actions
 - Challenge weak pipeline and missing discovery data
 
+## SALES REP COACHING
+- You have full visibility into each rep's performance metrics
+- Track active deals, pipeline value, won deals, and SPIN progress per rep
+- Identify reps who are falling behind (high avg days in stage, low SPIN progress)
+- Know which reps need help with discovery (deals_needing_discovery > 0)
+- Help managers understand team performance and where to focus coaching
+- When asked about a specific rep, give detailed analysis of their pipeline
+
 ## RESPONSE FORMAT (CRITICAL)
 1. Use markdown with **bold** for names, numbers, priorities
 2. Each item on its OWN LINE with bullet points
@@ -499,7 +561,7 @@ ${crmContext}
 4. End with clear NEXT ACTIONS
 5. Keep it concise - busy reps need quick answers
 
-Always give your honest assessment. If a deal looks weak, say so. Your job is to help them WIN.`,
+Always give your honest assessment. If a deal looks weak, say so. If a rep is struggling, be direct about it. Your job is to help them WIN.`,
     };
 
     const llmMessages = [systemMessage, ...messages.map((m: { role: string; content: string }) => ({

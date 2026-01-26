@@ -106,9 +106,10 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
         console.log('Created user:', { userId, email });
 
         // Now create organization with 30-day trial (owner_id can now reference the user)
+        // Set onboarding_completed = 1 since we're auto-creating the org
         const orgResult = await c.env.DB.prepare(
-          `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, onboarding_completed, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
         ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
 
         if (!orgResult.success) {

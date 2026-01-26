@@ -160,6 +160,51 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     const isGrandfathered = user.trial_ends_at === null; // NULL means grandfathered/paid
     const hasAccess = isSubscriptionActive || isInTrial || isGrandfathered;
 
+    // Create trial expiration notifications (only for users in trial, not subscribed)
+    if (isInTrial && !isSubscriptionActive && trialEndsAt) {
+      const now = new Date();
+      const daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const today = now.toISOString().split('T')[0];
+
+      // Only create notifications at 7, 3, and 1 days remaining
+      if (daysRemaining === 7 || daysRemaining === 3 || daysRemaining === 1) {
+        try {
+          // Check if we've already created a notification today for this threshold
+          const existingNotification = await c.env.DB.prepare(
+            `SELECT id FROM notifications
+             WHERE user_id = ? AND title LIKE ? AND DATE(created_at) = ?`
+          ).bind(user.id, `%trial%${daysRemaining}%`, today).first();
+
+          if (!existingNotification) {
+            const { nanoid } = await import('nanoid');
+            const notificationId = nanoid();
+            const title = daysRemaining === 1
+              ? 'Your trial ends tomorrow!'
+              : `${daysRemaining} days left in your trial`;
+            const message = daysRemaining === 1
+              ? 'Subscribe now to keep access to all your data and features.'
+              : `Your free trial ends in ${daysRemaining} days. Subscribe to continue using Satuso.`;
+
+            await c.env.DB.prepare(
+              `INSERT INTO notifications (id, user_id, type, title, message, action_url, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`
+            ).bind(
+              notificationId,
+              user.id,
+              daysRemaining === 1 ? 'error' : 'warning',
+              title,
+              message,
+              '/subscribe',
+              now.toISOString()
+            ).run();
+          }
+        } catch (notifError) {
+          // Don't fail auth if notification creation fails
+          console.error('Failed to create trial notification:', notifError);
+        }
+      }
+    }
+
     c.set('userId', user.id);
     c.set('user', {
       id: user.id,

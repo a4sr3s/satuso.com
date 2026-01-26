@@ -418,3 +418,28 @@ export const workboardsApi = {
   duplicate: (id: string) =>
     api.post<ApiResponse<Workboard>>(`/workboards/${id}/duplicate`),
 };
+
+// Notifications API
+export interface Notification {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string | null;
+  read: number;
+  action_url: string | null;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  list: (params?: { limit?: string; unread_only?: string }) =>
+    api.get<ApiResponse<Notification[]>>('/notifications', params),
+
+  getUnreadCount: () =>
+    api.get<ApiResponse<{ unread: number }>>('/notifications/count'),
+
+  markAsRead: (id: string) =>
+    api.patch<ApiResponse<null>>(`/notifications/${id}/read`),
+
+  markAllAsRead: () =>
+    api.post<ApiResponse<null>>('/notifications/mark-all-read'),
+};

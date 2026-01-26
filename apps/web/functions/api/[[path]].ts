@@ -17,6 +17,7 @@ import search from './_routes/search';
 import workboards from './_routes/workboards';
 import organizations from './_routes/organizations';
 import billing from './_routes/billing';
+import notifications from './_routes/notifications';
 
 export interface Env {
   DB: D1Database;
@@ -70,6 +71,7 @@ app.route('/search', search);
 app.route('/workboards', workboards);
 app.route('/organizations', organizations);
 app.route('/billing', billing);
+app.route('/notifications', notifications);
 
 // 404 handler
 app.notFound((c) => {

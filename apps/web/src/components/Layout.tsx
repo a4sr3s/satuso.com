@@ -1,12 +1,15 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { OrganizationSwitcher, UserButton } from '@clerk/clerk-react';
+import { useUser, useOrganization } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
 
 export default function Layout() {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useUser();
+  const { organization } = useOrganization();
 
   // Get page title based on current route
   const getPageTitle = () => {
@@ -29,35 +32,21 @@ export default function Layout() {
         {/* Header */}
         <header className="h-12 border-b border-border bg-white flex items-center justify-between px-6">
           <h1 className="text-sm font-medium text-text-primary">{getPageTitle()}</h1>
-          <div className="flex items-center gap-2">
-            <OrganizationSwitcher
-              hidePersonal
-              afterCreateOrganizationUrl="/"
-              afterSelectOrganizationUrl="/"
-              appearance={{
-                elements: {
-                  rootBox: 'flex items-center',
-                  organizationSwitcherTrigger: 'px-2 py-1 rounded-lg hover:bg-surface',
-                  organizationPreviewAvatarBox: 'hidden',
-                  organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
-                  organizationSwitcherPopoverCard: 'shadow-lg border border-border',
-                  organizationSwitcherPopoverFooter: 'hidden',
-                  organizationSwitcherPopoverActionButton__manageOrganization: 'hidden',
-                },
-              }}
-            />
-            <UserButton
-              afterSignOutUrl="/sign-in"
-              appearance={{
-                elements: {
-                  avatarBox: 'w-7 h-7',
-                  userButtonPopoverCard: 'shadow-lg border border-border',
-                  userButtonPopoverFooter: 'hidden',
-                  userButtonPopoverActionButton__manageAccount: 'hidden',
-                },
-              }}
-            />
-          </div>
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-surface transition-colors"
+          >
+            <span className="text-sm font-medium text-text-primary">
+              {organization?.name || 'Personal'}
+            </span>
+            {user?.imageUrl && (
+              <img
+                src={user.imageUrl}
+                alt={user.fullName || 'User'}
+                className="w-7 h-7 rounded-full object-cover"
+              />
+            )}
+          </button>
         </header>
         <div className="p-6">
           <Outlet />

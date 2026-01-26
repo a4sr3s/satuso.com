@@ -12,7 +12,7 @@ import {
   CheckSquare,
   ChevronDown,
 } from 'lucide-react';
-import { UserButton, OrganizationSwitcher } from '@clerk/clerk-react';
+import { useUser, useOrganization } from '@clerk/clerk-react';
 
 const mainNav = [
   { name: 'Home', href: '/', icon: Home },
@@ -25,6 +25,8 @@ const mainNav = [
 export default function TopNav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useUser();
+  const { organization } = useOrganization();
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const isActive = (href: string) => {
@@ -133,37 +135,22 @@ export default function TopNav() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
           </button>
 
-          {/* Organization Switcher + User */}
-          <div className="flex items-center gap-2 pl-2 border-l border-border">
-            <OrganizationSwitcher
-              hidePersonal
-              afterCreateOrganizationUrl="/"
-              afterSelectOrganizationUrl="/"
-              appearance={{
-                elements: {
-                  rootBox: 'flex items-center',
-                  organizationSwitcherTrigger: 'px-2 py-1.5 rounded-lg hover:bg-surface border-0 shadow-none',
-                  organizationPreviewAvatarBox: 'w-8 h-8',
-                  organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
-                  organizationSwitcherPopoverCard: 'shadow-lg border border-border',
-                  organizationSwitcherPopoverActionButton: 'hover:bg-surface',
-                  organizationSwitcherPopoverActionButton__manageOrganization: 'hidden',
-                },
-              }}
-            />
-            <UserButton
-              afterSignOutUrl="/sign-in"
-              appearance={{
-                elements: {
-                  avatarBox: 'w-8 h-8',
-                  userButtonPopoverCard: 'shadow-lg border border-border',
-                  userButtonPopoverActionButton: 'hover:bg-surface',
-                  userButtonPopoverFooter: 'hidden',
-                  userButtonPopoverActionButton__manageAccount: 'hidden',
-                },
-              }}
-            />
-          </div>
+          {/* Organization + User */}
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center gap-2 pl-3 border-l border-border px-2 py-1.5 rounded-lg hover:bg-surface transition-colors"
+          >
+            <span className="text-sm font-medium text-text-primary">
+              {organization?.name || 'Personal'}
+            </span>
+            {user?.imageUrl && (
+              <img
+                src={user.imageUrl}
+                alt={user.fullName || 'User'}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            )}
+          </button>
         </div>
       </div>
 

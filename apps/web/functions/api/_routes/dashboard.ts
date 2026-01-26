@@ -227,16 +227,34 @@ dashboard.get('/at-risk', async (c) => {
 dashboard.get('/forecast', async (c) => {
   const user = c.get('user');
   const orgParam = user.organization_id || user.id;
+  const quarter = c.req.query('quarter') || 'this';
+
   const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const currentQuarter = Math.floor(currentMonth / 3);
 
-  // Next month boundaries
-  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split('T')[0];
-  const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1).toISOString().split('T')[0];
+  // Helper to build date strings without timezone issues
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // This quarter boundaries
-  const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
-  const thisQuarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 1).toISOString().split('T')[0];
+  // Calculate quarter boundaries based on 'this' or 'next'
+  let startMonth: number, endMonth: number, year: number;
+
+  if (quarter === 'next') {
+    const nextQuarter = (currentQuarter + 1) % 4;
+    year = nextQuarter === 0 ? currentYear + 1 : currentYear;
+    startMonth = nextQuarter * 3;
+    endMonth = startMonth + 2;
+  } else {
+    year = currentYear;
+    startMonth = currentQuarter * 3;
+    endMonth = startMonth + 2;
+  }
+
+  // Build date strings directly (YYYY-MM-DD format)
+  const quarterStart = `${year}-${pad(startMonth + 1)}-01`;
+  const quarterEnd = `${year}-${pad(endMonth + 1)}-31`; // Using 31 is fine, DB will handle it
 
   // Chart data: monthly revenue grouped by owner
   const chartResults = await c.env.DB.prepare(`
@@ -252,11 +270,11 @@ dashboard.get('/forecast', async (c) => {
     WHERE d.stage NOT IN ('closed_won', 'closed_lost')
       AND d.close_date IS NOT NULL
       AND d.close_date >= ?
-      AND d.close_date < ?
+      AND d.close_date <= ?
       AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     GROUP BY month, u.id, u.name
     ORDER BY month ASC, weighted_value DESC
-  `).bind(currentMonthStart, thisQuarterEnd, orgParam).all<{
+  `).bind(quarterStart, quarterEnd, orgParam).all<{
     month: string;
     owner_id: string | null;
     owner_name: string | null;
@@ -265,8 +283,8 @@ dashboard.get('/forecast', async (c) => {
     weighted_value: number;
   }>();
 
-  // Summary: next month total
-  const nextMonthResult = await c.env.DB.prepare(`
+  // Summary: quarter total
+  const quarterResult = await c.env.DB.prepare(`
     SELECT
       COUNT(*) as deal_count,
       COALESCE(SUM(d.value), 0) as raw_value,
@@ -274,26 +292,9 @@ dashboard.get('/forecast', async (c) => {
     FROM deals d
     WHERE d.stage NOT IN ('closed_won', 'closed_lost')
       AND d.close_date IS NOT NULL
-      AND d.close_date >= ? AND d.close_date < ?
+      AND d.close_date >= ? AND d.close_date <= ?
       AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
-  `).bind(nextMonthStart, nextMonthEnd, orgParam).first<{
-    deal_count: number;
-    raw_value: number;
-    weighted_value: number;
-  }>();
-
-  // Summary: this quarter total (current month through end of quarter)
-  const thisQuarterResult = await c.env.DB.prepare(`
-    SELECT
-      COUNT(*) as deal_count,
-      COALESCE(SUM(d.value), 0) as raw_value,
-      COALESCE(SUM(d.value * COALESCE(d.probability, 50) / 100.0), 0) as weighted_value
-    FROM deals d
-    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
-      AND d.close_date IS NOT NULL
-      AND d.close_date >= ? AND d.close_date < ?
-      AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
-  `).bind(currentMonthStart, thisQuarterEnd, orgParam).first<{
+  `).bind(quarterStart, quarterEnd, orgParam).first<{
     deal_count: number;
     raw_value: number;
     weighted_value: number;
@@ -301,20 +302,24 @@ dashboard.get('/forecast', async (c) => {
 
   const summary = {
     nextMonth: {
-      dealCount: nextMonthResult?.deal_count || 0,
-      rawValue: nextMonthResult?.raw_value || 0,
-      weightedValue: nextMonthResult?.weighted_value || 0,
+      dealCount: 0,
+      rawValue: 0,
+      weightedValue: 0,
     },
     thisQuarter: {
-      dealCount: thisQuarterResult?.deal_count || 0,
-      rawValue: thisQuarterResult?.raw_value || 0,
-      weightedValue: thisQuarterResult?.weighted_value || 0,
+      dealCount: quarterResult?.deal_count || 0,
+      rawValue: quarterResult?.raw_value || 0,
+      weightedValue: Math.round(quarterResult?.weighted_value || 0),
     },
   };
 
-  // Build chart data
-  const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const months = [...new Set(chartResults.results.map(r => r.month))].sort();
+  // Build the 3 months for this quarter
+  const quarterMonths: string[] = [];
+  for (let m = startMonth; m <= endMonth; m++) {
+    quarterMonths.push(`${year}-${pad(m + 1)}`);
+  }
+
+  // Get owners from results
   const ownersMap = new Map<string, string>();
   for (const row of chartResults.results) {
     if (row.owner_id && row.owner_name) {
@@ -323,7 +328,8 @@ dashboard.get('/forecast', async (c) => {
   }
   const owners = Array.from(ownersMap.entries()).map(([id, name]) => ({ id, name }));
 
-  const data = months.map(month => {
+  // Build chart data - ensure all 3 months are present even if no data
+  const data = quarterMonths.map(month => {
     const monthIndex = parseInt(month.split('-')[1]) - 1;
     const entry: Record<string, number | string> = {
       month,
@@ -343,8 +349,9 @@ dashboard.get('/forecast', async (c) => {
   return c.json({
     success: true,
     data: {
+      quarter,
       summary,
-      chart: { months, owners, data },
+      chart: { months: quarterMonths, owners, data },
     },
   });
 });

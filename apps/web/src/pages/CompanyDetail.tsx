@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Building2, Globe, Edit, Plus } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Edit, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { companiesApi, contactsApi } from '@/lib/api';
@@ -10,7 +10,7 @@ import Card, { CardHeader } from '@/components/ui/Card';
 import { StageBadge, StatusBadge } from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import SpinProgress from '@/components/ui/SpinProgress';
-import Modal from '@/components/ui/Modal';
+import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 
 export default function CompanyDetailPage() {
@@ -19,6 +19,7 @@ export default function CompanyDetailPage() {
   const queryClient = useQueryClient();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', title: '' });
   const [editForm, setEditForm] = useState({
     name: '',
@@ -56,6 +57,17 @@ export default function CompanyDetailPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => companiesApi.delete(id!),
+    onSuccess: () => {
+      toast.success('Company deleted');
+      navigate('/companies');
+    },
+    onError: () => {
+      toast.error('Failed to delete company');
     },
   });
 
@@ -362,16 +374,41 @@ export default function CompanyDetailPage() {
               placeholder="Brief description of the company"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-border-light">
-            <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={updateMutation.isPending}>
-              Save Changes
-            </Button>
+          <div className="flex justify-between pt-4 border-t border-border-light">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditModal(false);
+                setShowDeleteConfirm(true);
+              }}
+              className="flex items-center gap-2 text-sm text-text-muted hover:text-error transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" onClick={() => setShowEditModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={updateMutation.isPending}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        title="Delete Company"
+        message={`Are you sure you want to delete "${company.name}"? This will not delete associated contacts or deals, but they will no longer be linked to this company.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
 
       {/* Add Contact Modal */}
       <Modal

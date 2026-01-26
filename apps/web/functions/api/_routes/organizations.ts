@@ -424,7 +424,7 @@ organizations.delete('/account', async (c) => {
         'DELETE FROM activities WHERE organization_id = ?'
       ).bind(org.id).run();
 
-      // Delete deal_team entries
+      // Delete deal_team entries (both by deal and by user references)
       await c.env.DB.prepare(
         `DELETE FROM deal_team WHERE deal_id IN (SELECT id FROM deals WHERE organization_id = ?)`
       ).bind(org.id).run();
@@ -454,25 +454,31 @@ organizations.delete('/account', async (c) => {
         'DELETE FROM workboards WHERE organization_id = ?'
       ).bind(org.id).run();
 
-      // Delete notifications
+      // Delete notifications for this user
       await c.env.DB.prepare(
         'DELETE FROM notifications WHERE user_id = ?'
       ).bind(user.id).run();
 
-      // Delete organization invites
+      // Delete organization invites (must be before user due to invited_by FK)
       await c.env.DB.prepare(
         'DELETE FROM organization_invites WHERE organization_id = ?'
       ).bind(org.id).run();
 
-      // Delete the user
+      // Clear user's organization_id to break circular reference
       await c.env.DB.prepare(
-        'DELETE FROM users WHERE id = ?'
+        'UPDATE users SET organization_id = NULL WHERE id = ?'
       ).bind(user.id).run();
 
-      // Delete the organization
+      // Delete the organization FIRST (before user, since owner_id references user)
+      // This works now because we cleared the user's org_id above
       await c.env.DB.prepare(
         'DELETE FROM organizations WHERE id = ?'
       ).bind(org.id).run();
+
+      // Now delete the user (no more FK references to it)
+      await c.env.DB.prepare(
+        'DELETE FROM users WHERE id = ?'
+      ).bind(user.id).run();
     } else {
       // Just delete the user, reassign ownership if needed
       if (isOwner && !isOnlyUser) {
@@ -509,6 +515,21 @@ organizations.delete('/account', async (c) => {
         }
       }
 
+      // Clear deal_team.assigned_by references to this user
+      await c.env.DB.prepare(
+        'UPDATE deal_team SET assigned_by = NULL WHERE assigned_by = ?'
+      ).bind(user.id).run();
+
+      // Delete deal_team entries where user is a member
+      await c.env.DB.prepare(
+        'DELETE FROM deal_team WHERE user_id = ?'
+      ).bind(user.id).run();
+
+      // Delete pending invites created by this user (invited_by is NOT NULL)
+      await c.env.DB.prepare(
+        'DELETE FROM organization_invites WHERE invited_by = ? AND accepted_at IS NULL'
+      ).bind(user.id).run();
+
       // Delete user's notifications
       await c.env.DB.prepare(
         'DELETE FROM notifications WHERE user_id = ?'
@@ -520,25 +541,7 @@ organizations.delete('/account', async (c) => {
       ).bind(user.id).run();
     }
 
-    // Delete user from Clerk
-    if (c.env.CLERK_SECRET_KEY) {
-      try {
-        // Get the clerk_id for this user
-        const userRecord = await c.env.DB.prepare(
-          'SELECT clerk_id FROM users WHERE id = ?'
-        ).bind(user.id).first<{ clerk_id: string }>();
-
-        // User is already deleted, so we need to get clerk_id from context or JWT
-        // The clerk_id should be from the auth middleware - we can get it from the payload
-        // For now, we'll rely on Clerk's own deletion through the frontend signOut
-        // The user account in Clerk will be deleted via Clerk's dashboard or the user can do it
-        console.log('User deleted from database. Clerk account should be deleted separately.');
-      } catch (clerkError) {
-        console.error('Error with Clerk deletion:', clerkError);
-        // Don't fail the request, user is already deleted from our DB
-      }
-    }
-
+    console.log('User deleted from database successfully:', user.id);
     return c.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     console.error('Error deleting account:', error);

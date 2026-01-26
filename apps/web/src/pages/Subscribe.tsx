@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useClerk } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 import { billingApi } from '@/lib/api';
 import { useSubscription } from '@/hooks/useSubscription';
 
@@ -16,9 +17,17 @@ const FEATURES = [
 
 export default function SubscribePage() {
   const { signOut } = useClerk();
-  const { isInTrial, trialDaysRemaining, status } = useSubscription();
+  const navigate = useNavigate();
+  const { isInTrial, trialDaysRemaining, status, isActive, isLoading } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect active subscribers to main app
+  useEffect(() => {
+    if (!isLoading && isActive) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, isActive, navigate]);
 
   const handleSubscribe = async () => {
     setLoading(true);
@@ -36,6 +45,18 @@ export default function SubscribePage() {
 
   // Determine if trial has expired (not in trial, not active subscription)
   const trialExpired = !isInTrial && status !== 'active' && status !== 'trialing';
+
+  // Show loading state while checking subscription
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">

@@ -11,8 +11,6 @@ import {
   Users,
   CreditCard,
   Puzzle,
-  Check,
-  Trash2,
   AlertTriangle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -182,177 +180,193 @@ function AccountTab() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Profile */}
-      <Card>
-        <CardHeader
-          title="Profile"
-          description="Your personal information visible to your team."
-        />
-        <div className="px-4 pb-4 space-y-5">
-          <div className="flex items-center gap-4">
+    <div className="space-y-8">
+      {/* Profile Section */}
+      <section>
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Profile</h3>
+            <p className="text-sm text-gray-500 mt-0.5">Your personal information visible to your team</p>
+          </div>
+          {hasChanges && (
+            <Button onClick={handleSave} isLoading={isSaving} size="sm">
+              Save Changes
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-6">
+          {/* Avatar */}
+          <div className="flex-shrink-0">
             <div className="relative">
               <img
                 src={user.imageUrl}
                 alt={user.fullName || 'Profile'}
-                className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm"
+                className="w-20 h-20 rounded-full object-cover ring-4 ring-gray-100"
               />
               <button
                 onClick={() => openUserProfile()}
-                className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-border shadow-sm hover:bg-gray-50 transition-colors"
+                className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
                 title="Change photo"
               >
-                <Camera className="h-3.5 w-3.5 text-text-muted" />
+                <Camera className="h-4 w-4 text-gray-600" />
               </button>
             </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="flex-1 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Enter first name"
+              />
+              <Input
+                label="Last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Enter last name"
+              />
+            </div>
+
             <div>
-              <p className="text-sm font-medium text-text-primary">{user.fullName || 'No name set'}</p>
-              <p className="text-xs text-text-muted">Click camera to update photo</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Enter first name"
-            />
-            <Input
-              label="Last name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Enter last name"
-            />
-          </div>
-
-          {hasChanges && (
-            <div className="flex justify-end">
-              <Button onClick={handleSave} isLoading={isSaving}>
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* Email */}
-      <Card>
-        <CardHeader
-          title="Email"
-          description="Your primary email for notifications and sign-in."
-        />
-        <div className="px-4 pb-4">
-          <div className="flex items-center justify-between p-3 bg-surface rounded-lg">
-            <div className="flex items-center gap-3">
-              <Mail className="h-4 w-4 text-text-muted" />
-              <span className="text-sm text-text-primary">{primaryEmail}</span>
-              <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
-                Primary
-              </span>
-            </div>
-            <button
-              onClick={() => openUserProfile()}
-              className="text-xs text-primary hover:text-primary/80 font-medium"
-            >
-              Manage
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Preferences */}
-      <Card>
-        <CardHeader
-          title="Preferences"
-          description="Customize your experience."
-        />
-        <div className="px-4 pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Globe className="h-4 w-4 text-text-muted" />
-              <span className="text-sm text-text-primary">Language</span>
-            </div>
-            <div className="flex gap-2">
-              {Object.values(LANGUAGES).map((lang) => (
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <div className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                <Mail className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-700 flex-1">{primaryEmail}</span>
+                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                  Primary
+                </span>
                 <button
-                  key={lang.code}
-                  onClick={() => setLanguage(lang.code as LanguageCode)}
-                  className={clsx(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors',
-                    currentLang === lang.code
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white text-text-primary border-border hover:border-gray-300'
-                  )}
+                  onClick={() => openUserProfile()}
+                  className="text-xs text-gray-500 hover:text-gray-700 font-medium"
                 >
-                  <span>{lang.flag}</span>
-                  <span>{lang.name}</span>
-                  {currentLang === lang.code && <Check className="h-3.5 w-3.5" />}
+                  Change
                 </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Security & Account Actions */}
-      <Card>
-        <CardHeader
-          title="Security"
-          description="Manage your password and account access."
-        />
-        <div className="px-4 pb-4 space-y-2">
-          <button
-            onClick={() => openUserProfile()}
-            className="w-full flex items-center justify-between p-3 bg-surface rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Shield className="h-4 w-4 text-text-muted" />
-              <span className="text-sm text-text-primary">Password & Security</span>
-            </div>
-            <span className="text-xs text-text-muted">Manage →</span>
-          </button>
-
-          <div className="pt-3 mt-3 border-t border-border">
-            <button
-              onClick={() => signOut({ redirectUrl: '/' })}
-              className="w-full flex items-center justify-between p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm font-medium">Sign out</span>
               </div>
-            </button>
+            </div>
           </div>
         </div>
-      </Card>
+      </section>
+
+      <hr className="border-gray-200" />
+
+      {/* Preferences Section */}
+      <section>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-900">Preferences</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Customize your experience</p>
+        </div>
+
+        <div className="flex items-center justify-between py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Globe className="h-4 w-4 text-gray-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Language</p>
+              <p className="text-xs text-gray-500">Choose your preferred language</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {Object.values(LANGUAGES).map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setLanguage(lang.code as LanguageCode)}
+                className={clsx(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all',
+                  currentLang === lang.code
+                    ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                )}
+              >
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <hr className="border-gray-200" />
+
+      {/* Security Section */}
+      <section>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-900">Security</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your account security</p>
+        </div>
+
+        <button
+          onClick={() => openUserProfile()}
+          className="w-full flex items-center justify-between py-3 group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
+              <Shield className="h-4 w-4 text-gray-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-medium text-gray-900">Password & Security</p>
+              <p className="text-xs text-gray-500">Update password, enable 2FA</p>
+            </div>
+          </div>
+          <span className="text-sm text-gray-400 group-hover:text-gray-600 transition-colors">Manage &rarr;</span>
+        </button>
+      </section>
+
+      <hr className="border-gray-200" />
+
+      {/* Account Actions */}
+      <section>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center">
+              <LogOut className="h-4 w-4 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Sign out</p>
+              <p className="text-xs text-gray-500">Sign out of your account on this device</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => signOut({ redirectUrl: '/' })}
+          >
+            Sign Out
+          </Button>
+        </div>
+      </section>
+
+      <hr className="border-gray-200" />
 
       {/* Danger Zone */}
-      <Card>
-        <CardHeader
-          title="Danger Zone"
-          description="Irreversible and destructive actions."
-        />
-        <div className="px-4 pb-4">
-          <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-red-800">Delete Account</h4>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-3 border-red-300 text-red-600 hover:bg-red-100"
-                  onClick={() => setShowDeleteModal(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-1.5" />
-                  Delete Account
-                </Button>
-              </div>
+      <section>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-red-600">Danger Zone</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Irreversible actions</p>
+        </div>
+
+        <div className="flex items-center justify-between py-3 px-4 border border-red-200 bg-red-50/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">Delete account</p>
+              <p className="text-xs text-gray-500">Permanently remove your account and data</p>
             </div>
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Delete
+          </Button>
         </div>
-      </Card>
+      </section>
 
       {/* Delete Account Confirmation Modal */}
       {showDeleteModal && (
@@ -813,8 +827,14 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-2xl">
-        {activeTab === 'account' && <AccountTab />}
+      <div className="max-w-3xl">
+        {activeTab === 'account' && (
+          <Card>
+            <div className="p-6">
+              <AccountTab />
+            </div>
+          </Card>
+        )}
         {activeTab === 'workspace' && <WorkspaceTab />}
         {activeTab === 'billing' && <BillingTab />}
         {activeTab === 'integrations' && <IntegrationsTab />}

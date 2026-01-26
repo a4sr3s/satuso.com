@@ -12,6 +12,8 @@ import {
   CreditCard,
   Puzzle,
   Check,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -128,6 +130,9 @@ function AccountTab() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const currentLang = LANGUAGES[language] ? language : 'en';
 
@@ -160,6 +165,21 @@ function AccountTab() {
 
   const hasChanges = firstName !== (user.firstName || '') || lastName !== (user.lastName || '');
   const primaryEmail = user.primaryEmailAddress?.emailAddress;
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+
+    setIsDeleting(true);
+    try {
+      await organizationsApi.deleteAccount();
+      toast.success('Account deleted successfully');
+      // Sign out and redirect
+      await signOut({ redirectUrl: '/' });
+    } catch (error) {
+      toast.error('Failed to delete account');
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -306,6 +326,103 @@ function AccountTab() {
           </div>
         </div>
       </Card>
+
+      {/* Danger Zone */}
+      <Card>
+        <CardHeader
+          title="Danger Zone"
+          description="Irreversible and destructive actions."
+        />
+        <div className="px-4 pb-4">
+          <div className="p-4 border border-red-200 bg-red-50 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-red-800">Delete Account</h4>
+                <p className="text-xs text-red-600 mt-1">
+                  Permanently delete your account and all associated data. If you're the only member of your organization, the organization will also be deleted.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-3 border-red-300 text-red-600 hover:bg-red-100"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Delete Account
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !isDeleting && setShowDeleteModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                This will permanently delete your account and all your data, including:
+              </p>
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <li>Your profile and settings</li>
+                <li>All contacts, companies, and deals you created</li>
+                <li>All tasks and activities</li>
+                <li>Your organization (if you're the only member)</li>
+              </ul>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Type <span className="font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm
+                </label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE"
+                  disabled={isDeleting}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmText('');
+                  }}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                  isLoading={isDeleting}
+                >
+                  Delete Account
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

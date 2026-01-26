@@ -72,9 +72,9 @@ function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* Auth routes */}
-        <Route path="/sign-in/*" element={<SignInPage />} />
-        <Route path="/sign-up/*" element={<SignUpPage />} />
+        {/* Auth routes - using hash routing so no splat needed */}
+        <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
         {/* Legacy route redirect */}
         <Route path="/login" element={<Navigate to="/sign-in" replace />} />
 

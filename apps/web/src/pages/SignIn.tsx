@@ -15,8 +15,7 @@ export default function SignInPage() {
 
         {/* Clerk SignIn */}
         <SignIn
-          routing="path"
-          path="/sign-in"
+          routing="hash"
           signUpUrl="/sign-up"
           forceRedirectUrl="/"
           appearance={{

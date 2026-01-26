@@ -290,7 +290,8 @@ dashboard.get('/forecast', async (c) => {
   const owners = Array.from(ownerMap.values());
   const chartData = months.map((monthKey) => {
     const monthDate = new Date(monthKey + '-01');
-    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
+    // Use UTC timezone to avoid timezone offset issues (e.g., April 1st UTC becoming March 31st in PST)
+    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
     const monthOwners = monthData.get(monthKey) || new Map();
 
     const row: Record<string, number | string> = { monthLabel };

@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Circle,
   ListTodo,
+  Trash2,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -80,6 +81,7 @@ export default function DealDetailPage() {
   const [pendingStageMove, setPendingStageMove] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<DealTeamRole>('owner');
   const [confirmStageMove, setConfirmStageMove] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     value: '',
@@ -251,6 +253,17 @@ export default function DealDetailPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => dealsApi.delete(id!),
+    onSuccess: () => {
+      toast.success('Deal deleted');
+      navigate('/deals');
+    },
+    onError: () => {
+      toast.error('Failed to delete deal');
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -358,6 +371,13 @@ export default function DealDetailPage() {
           >
             <Edit className="h-4 w-4" />
             Edit
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="text-error hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
           <Button onClick={() => setShowActivityModal(true)}>
             <Plus className="h-4 w-4" />
@@ -1075,6 +1095,20 @@ export default function DealDetailPage() {
         message={`Are you sure you want to move this deal from ${deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1).replace('_', ' ')} to ${confirmStageMove ? confirmStageMove.charAt(0).toUpperCase() + confirmStageMove.slice(1).replace('_', ' ') : ''}?`}
         confirmLabel="Move"
         isLoading={moveMutation.isPending}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          deleteMutation.mutate();
+        }}
+        title="Delete Deal"
+        message={`Are you sure you want to delete "${deal.name}"? This action cannot be undone and will remove all associated activities and team assignments.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
       />
     </div>
   );

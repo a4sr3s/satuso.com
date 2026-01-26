@@ -77,6 +77,21 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     // Extract Clerk organization ID from JWT (when user has selected an org)
     const clerkOrgId = payload.org_id as string | undefined;
 
+    // Sync user's org_id if they're authenticated within a Clerk organization
+    // This ensures sales rep filtering works correctly in AI chat
+    if (clerkOrgId && user) {
+      // Check if we need to update the user's org_id
+      const currentOrgId = await c.env.DB.prepare(
+        'SELECT org_id FROM users WHERE id = ?'
+      ).bind(user.id).first<{ org_id: string | null }>();
+
+      if (currentOrgId?.org_id !== clerkOrgId) {
+        await c.env.DB.prepare(
+          'UPDATE users SET org_id = ?, updated_at = ? WHERE id = ?'
+        ).bind(clerkOrgId, new Date().toISOString(), user.id).run();
+      }
+    }
+
     c.set('userId', user.id);
     c.set('orgId', clerkOrgId);
     c.set('user', {

@@ -208,6 +208,13 @@ deals.post('/', zValidator('json', createDealSchema), async (c) => {
     now
   ).run();
 
+  // Add creator as owner in deal_team table
+  const teamId = nanoid();
+  await c.env.DB.prepare(`
+    INSERT INTO deal_team (id, deal_id, user_id, role, assigned_at, assigned_by)
+    VALUES (?, ?, ?, 'owner', ?, ?)
+  `).bind(teamId, id, userId, now, userId).run();
+
   const deal = await c.env.DB.prepare('SELECT * FROM deals WHERE id = ?').bind(id).first();
 
   return c.json({ success: true, data: deal }, 201);

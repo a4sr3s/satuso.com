@@ -19,15 +19,28 @@ ai.use('/tts', aiAudioRateLimiter);
 async function getCRMContext(db: D1Database, orgId: string): Promise<string> {
   const orgFilter = `AND owner_id IN (SELECT id FROM users WHERE organization_id = ?)`;
 
-  // Fetch deals with key info only
+  // Fetch sales reps/team members in this organization
+  const salesReps = await db.prepare(`
+    SELECT u.id, u.name, u.email, u.role,
+      (SELECT COUNT(*) FROM deals WHERE owner_id = u.id AND stage NOT IN ('closed_won', 'closed_lost')) as active_deals,
+      (SELECT COALESCE(SUM(value), 0) FROM deals WHERE owner_id = u.id AND stage NOT IN ('closed_won', 'closed_lost')) as pipeline_value,
+      (SELECT COUNT(*) FROM deals WHERE owner_id = u.id AND stage = 'closed_won') as won_deals
+    FROM users u
+    WHERE u.organization_id = ?
+    ORDER BY u.name
+  `).bind(orgId).all();
+
+  // Fetch deals with key info including owner name
   const deals = await db.prepare(`
     SELECT
       d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
       co.name as company_name,
-      c.name as contact_name
+      c.name as contact_name,
+      u.name as owner_name
     FROM deals d
     LEFT JOIN contacts c ON d.contact_id = c.id
     LEFT JOIN companies co ON d.company_id = co.id
+    LEFT JOIN users u ON d.owner_id = u.id
     WHERE d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
     ORDER BY d.value DESC
     LIMIT 20
@@ -65,11 +78,15 @@ async function getCRMContext(db: D1Database, orgId: string): Promise<string> {
   // Build compact context
   let context = `## CRM DATA
 
-### DEALS (${deals.results.length} shown)
+### SALES TEAM (${salesReps.results.length} reps)
 `;
+  for (const rep of salesReps.results as any[]) {
+    context += `• ${rep.name} (${rep.role}): ${rep.active_deals} active deals, $${(rep.pipeline_value || 0).toLocaleString()} pipeline, ${rep.won_deals} won\n`;
+  }
 
+  context += `\n### DEALS (${deals.results.length} shown)\n`;
   for (const deal of deals.results as any[]) {
-    context += `• ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, ${deal.company_name || 'No company'}, SPIN: ${deal.spin_progress}/4\n`;
+    context += `• ${deal.name}: $${(deal.value || 0).toLocaleString()}, ${deal.stage}, ${deal.company_name || 'No company'}, Owner: ${deal.owner_name || 'Unassigned'}, SPIN: ${deal.spin_progress}/4\n`;
   }
 
   context += `\n### CONTACTS (${contacts.results.length} shown)\n`;

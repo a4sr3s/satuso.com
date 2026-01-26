@@ -32,7 +32,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     // Check if user exists in our database
     let user = await c.env.DB.prepare(
-      `SELECT u.id, u.email, u.name, u.role, u.organization_id, o.subscription_status
+      `SELECT u.id, u.email, u.name, u.role, u.organization_id, o.subscription_status, o.trial_ends_at
        FROM users u
        LEFT JOIN organizations o ON u.organization_id = o.id
        WHERE u.clerk_id = ?`
@@ -43,6 +43,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       role: string;
       organization_id: string | null;
       subscription_status: string | null;
+      trial_ends_at: string | null;
     }>();
 
     // If user doesn't exist, create them with an organization
@@ -51,18 +52,20 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       const userId = nanoid();
       const orgId = nanoid();
       const now = new Date().toISOString();
+      // Set trial to expire in 30 days
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Create organization first
+      // Create organization first with 30-day trial
       await c.env.DB.prepare(
-        `INSERT INTO organizations (id, name, plan, user_limit, owner_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, now, now).run();
+        `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
 
       // Create user
       await c.env.DB.prepare(
-        `INSERT INTO users (id, clerk_id, email, name, role, organization_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'admin', orgId, now, now).run();
+        `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
 
       user = {
         id: userId,
@@ -71,12 +74,20 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
         role: 'admin',
         organization_id: orgId,
         subscription_status: 'inactive',
+        trial_ends_at: trialEndsAt,
       };
     }
 
     if (!user) {
       return c.json({ success: false, error: 'User not found' }, 401);
     }
+
+    // Calculate if user has active access (subscription active OR in trial OR grandfathered)
+    const isSubscriptionActive = user.subscription_status === 'active';
+    const trialEndsAt = user.trial_ends_at ? new Date(user.trial_ends_at) : null;
+    const isInTrial = trialEndsAt !== null && trialEndsAt > new Date();
+    const isGrandfathered = user.trial_ends_at === null; // NULL means grandfathered/paid
+    const hasAccess = isSubscriptionActive || isInTrial || isGrandfathered;
 
     c.set('userId', user.id);
     c.set('user', {
@@ -88,9 +99,9 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       subscription_status: user.subscription_status || 'inactive',
     });
 
-    // Subscription gate: reject unpaid orgs (except billing routes)
+    // Subscription gate: reject users without access (except billing routes)
     const path = c.req.path;
-    if (!path.includes('/billing') && user.subscription_status !== 'active') {
+    if (!path.includes('/billing') && !hasAccess) {
       return c.json({ success: false, error: 'Subscription required', code: 'SUBSCRIPTION_REQUIRED' }, 402);
     }
 

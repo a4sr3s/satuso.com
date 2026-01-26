@@ -20,6 +20,7 @@ import ai from './routes/ai';
 import search from './routes/search';
 import workboards from './routes/workboards';
 import organizations from './routes/organizations';
+import billing from './routes/billing';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -63,6 +64,7 @@ app.route('/api/ai', ai);
 app.route('/api/search', search);
 app.route('/api/workboards', workboards);
 app.route('/api/organizations', organizations);
+app.route('/api/billing', billing);
 
 // 404 handler
 app.notFound((c) => {

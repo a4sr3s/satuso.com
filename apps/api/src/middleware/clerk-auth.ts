@@ -63,12 +63,14 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       const userId = nanoid();
       const orgId = nanoid();
       const now = new Date().toISOString();
+      // Set trial to expire in 30 days
+      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Create organization first
+      // Create organization first with 30-day trial
       await c.env.DB.prepare(
-        `INSERT INTO organizations (id, name, plan, user_limit, owner_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(orgId, `${clerkFullName}'s Organization`, 'standard', 5, userId, now, now).run();
+        `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(orgId, `${clerkFullName}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
 
       // Create user (password_hash='clerk_managed' for Clerk-authenticated users)
       await c.env.DB.prepare(

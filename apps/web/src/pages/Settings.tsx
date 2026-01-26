@@ -521,7 +521,7 @@ function WorkspaceTab() {
 }
 
 function BillingTab() {
-  const { status } = useSubscription();
+  const { status, isInTrial, trialDaysRemaining } = useSubscription();
   const [loading, setLoading] = useState(false);
 
   const handleManageBilling = async () => {
@@ -536,6 +536,40 @@ function BillingTab() {
       setLoading(false);
     }
   };
+
+  const handleSubscribe = async () => {
+    setLoading(true);
+    try {
+      const res = await billingApi.createCheckoutSession();
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } catch {
+      toast.error('Failed to start checkout');
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = () => {
+    if (isInTrial) {
+      return {
+        className: 'bg-blue-100 text-blue-700',
+        label: `Trial - ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} left`,
+      };
+    }
+    if (status === 'active') {
+      return { className: 'bg-green-100 text-green-700', label: 'Active' };
+    }
+    if (status === 'past_due') {
+      return { className: 'bg-yellow-100 text-yellow-700', label: 'Past Due' };
+    }
+    if (status === 'canceled') {
+      return { className: 'bg-gray-100 text-gray-600', label: 'Canceled' };
+    }
+    return { className: 'bg-gray-100 text-gray-600', label: 'Inactive' };
+  };
+
+  const badge = getStatusBadge();
 
   return (
     <div className="space-y-6">
@@ -555,26 +589,37 @@ function BillingTab() {
                 <p className="text-xs text-text-muted">$29 per user / month</p>
               </div>
             </div>
-            <span className={clsx(
-              'text-xs font-medium px-2.5 py-1 rounded-full',
-              status === 'active'
-                ? 'bg-green-100 text-green-700'
-                : status === 'past_due'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-gray-100 text-gray-600'
-            )}>
-              {status === 'active' ? 'Active' : status === 'past_due' ? 'Past Due' : status === 'canceled' ? 'Canceled' : 'Inactive'}
+            <span className={clsx('text-xs font-medium px-2.5 py-1 rounded-full', badge.className)}>
+              {badge.label}
             </span>
           </div>
 
-          <Button
-            variant="secondary"
-            onClick={handleManageBilling}
-            isLoading={loading}
-            className="w-full"
-          >
-            Manage Billing & Invoices
-          </Button>
+          {isInTrial ? (
+            <div className="space-y-3">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Your free trial ends in <strong>{trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''}</strong>.
+                  Subscribe now to continue using all features.
+                </p>
+              </div>
+              <Button
+                onClick={handleSubscribe}
+                isLoading={loading}
+                className="w-full"
+              >
+                Subscribe Now
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={handleManageBilling}
+              isLoading={loading}
+              className="w-full"
+            >
+              Manage Billing & Invoices
+            </Button>
+          )}
         </div>
       </Card>
     </div>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useUser, useOrganization } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
+import TrialBanner from './TrialBanner';
 
 export default function Layout() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export default function Layout() {
     <div className="min-h-screen bg-surface">
       <Sidebar />
       <main className="pl-sidebar">
+        <TrialBanner />
         {/* Header */}
         <header className="h-12 border-b border-border bg-white flex items-center justify-between px-6">
           <h1 className="text-sm font-medium text-text-primary">{getPageTitle()}</h1>

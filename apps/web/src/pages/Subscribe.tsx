@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useClerk } from '@clerk/clerk-react';
 import { billingApi } from '@/lib/api';
+import { useSubscription } from '@/hooks/useSubscription';
 
 const FEATURES = [
   'Unlimited contacts & companies',
@@ -15,6 +16,7 @@ const FEATURES = [
 
 export default function SubscribePage() {
   const { signOut } = useClerk();
+  const { isInTrial, trialDaysRemaining, status } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +34,9 @@ export default function SubscribePage() {
     }
   };
 
+  // Determine if trial has expired (not in trial, not active subscription)
+  const trialExpired = !isInTrial && status !== 'active' && status !== 'trialing';
+
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Subscribe Form */}
@@ -43,6 +48,22 @@ export default function SubscribePage() {
 
         {/* Subscribe Card */}
         <div className="w-full max-w-sm">
+          {/* Trial Status Message */}
+          {trialExpired && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm font-medium text-red-800">Your free trial has ended</p>
+              <p className="text-xs text-red-600 mt-1">Subscribe now to continue using Satuso</p>
+            </div>
+          )}
+          {isInTrial && trialDaysRemaining > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <p className="text-sm font-medium text-blue-800">
+                {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} left in your free trial
+              </p>
+              <p className="text-xs text-blue-600 mt-1">Subscribe to keep all your data after the trial ends</p>
+            </div>
+          )}
+
           <div className="border border-gray-200 rounded-xl p-6">
             <div className="mb-6">
               <div className="flex items-baseline gap-1">

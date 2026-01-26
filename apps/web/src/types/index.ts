@@ -283,10 +283,14 @@ export interface RecentSearch {
 // ============================================
 
 export interface SubscriptionInfo {
-  status: 'active' | 'inactive' | 'past_due' | 'canceled';
+  status: 'active' | 'inactive' | 'past_due' | 'canceled' | 'trialing';
   plan: string;
   stripeCustomerId: string | null;
   onboardingCompleted: boolean;
+  isInTrial: boolean;
+  trialEndsAt: string | null;
+  trialDaysRemaining: number;
+  isActive: boolean;
 }
 
 // ============================================

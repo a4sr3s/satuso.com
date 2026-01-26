@@ -245,8 +245,8 @@ export const dashboardApi = {
   atRisk: () =>
     api.get<ApiResponse<Deal[]>>('/dashboard/at-risk'),
 
-  forecast: () =>
-    api.get<ApiResponse<ForecastData>>('/dashboard/forecast'),
+  forecast: (quarter: 'this' | 'next' = 'this') =>
+    api.get<ApiResponse<ForecastData>>('/dashboard/forecast', { quarter }),
 };
 
 // Helper to get auth headers for custom fetch calls

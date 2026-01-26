@@ -56,9 +56,14 @@ export default function DashboardPage() {
     queryFn: () => tasksApi.counts(),
   });
 
-  const { data: forecast } = useQuery({
-    queryKey: ['dashboard', 'forecast'],
-    queryFn: () => dashboardApi.forecast(),
+  const { data: forecastThisQuarter } = useQuery({
+    queryKey: ['dashboard', 'forecast', 'this'],
+    queryFn: () => dashboardApi.forecast('this'),
+  });
+
+  const { data: forecastNextQuarter } = useQuery({
+    queryKey: ['dashboard', 'forecast', 'next'],
+    queryFn: () => dashboardApi.forecast('next'),
   });
 
   const getActivityIcon = (type: string) => {
@@ -96,7 +101,8 @@ export default function DashboardPage() {
   };
 
   const metricsData = metrics?.data;
-  const forecastData = forecast?.data;
+  const forecastThisQuarterData = forecastThisQuarter?.data;
+  const forecastNextQuarterData = forecastNextQuarter?.data;
   const activityData = activity?.data || [];
   const pipelineData = pipeline?.data || [];
   const atRiskData = atRisk?.data || [];
@@ -157,8 +163,23 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Forecast */}
-      {forecastData && <ForecastChart data={forecastData} />}
+      {/* Forecast Charts - Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {forecastThisQuarterData && (
+          <ForecastChart
+            data={forecastThisQuarterData}
+            title="This Quarter"
+            quarterLabel="Weighted Forecast"
+          />
+        )}
+        {forecastNextQuarterData && (
+          <ForecastChart
+            data={forecastNextQuarterData}
+            title="Next Quarter"
+            quarterLabel="Weighted Forecast"
+          />
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Activity Feed */}

@@ -192,6 +192,158 @@ dashboard.get('/pipeline', async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Get forecast data
+dashboard.get('/forecast', async (c) => {
+  const orgId = c.get('orgId');
+  const { quarter = 'this' } = c.req.query();
+
+  const orgFilter = orgId ? ' AND d.org_id = ?' : '';
+  const orgParams = orgId ? [orgId] : [];
+
+  // Calculate quarter date ranges
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Determine quarter boundaries
+  const currentQuarter = Math.floor(currentMonth / 3);
+  let startMonth: number, endMonth: number, year: number;
+
+  if (quarter === 'next') {
+    // Next quarter
+    const nextQuarter = (currentQuarter + 1) % 4;
+    year = nextQuarter === 0 ? currentYear + 1 : currentYear;
+    startMonth = nextQuarter * 3;
+    endMonth = startMonth + 2;
+  } else {
+    // This quarter
+    year = currentYear;
+    startMonth = currentQuarter * 3;
+    endMonth = startMonth + 2;
+  }
+
+  const quarterStart = new Date(year, startMonth, 1).toISOString().split('T')[0];
+  const quarterEnd = new Date(year, endMonth + 1, 0).toISOString().split('T')[0];
+
+  // Get deals with close dates in this quarter
+  const deals = await c.env.DB.prepare(`
+    SELECT
+      d.id,
+      d.name,
+      d.value,
+      d.probability,
+      d.close_date,
+      d.owner_id,
+      u.name as owner_name
+    FROM deals d
+    LEFT JOIN users u ON d.owner_id = u.id
+    WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+      AND d.close_date >= ?
+      AND d.close_date <= ?
+      ${orgFilter}
+    ORDER BY d.close_date ASC
+  `).bind(quarterStart, quarterEnd, ...orgParams).all();
+
+  // Group by owner and month
+  const ownerMap = new Map<string, { id: string; name: string }>();
+  const monthData = new Map<string, Map<string, number>>();
+
+  // Initialize months for the quarter
+  const months: string[] = [];
+  for (let m = startMonth; m <= endMonth; m++) {
+    const monthDate = new Date(year, m, 1);
+    const monthKey = monthDate.toISOString().slice(0, 7); // YYYY-MM format
+    months.push(monthKey);
+    monthData.set(monthKey, new Map());
+  }
+
+  let totalRawValue = 0;
+  let totalWeightedValue = 0;
+  let dealCount = 0;
+
+  for (const deal of deals.results as any[]) {
+    if (!deal.close_date || !deal.value) continue;
+
+    const monthKey = deal.close_date.slice(0, 7);
+    const ownerId = deal.owner_id || 'unassigned';
+    const ownerName = deal.owner_name || 'Unassigned';
+    const probability = deal.probability || 50;
+    const weightedValue = (deal.value * probability) / 100;
+
+    // Track owner
+    if (!ownerMap.has(ownerId)) {
+      ownerMap.set(ownerId, { id: ownerId, name: ownerName });
+    }
+
+    // Add to month data
+    if (monthData.has(monthKey)) {
+      const monthOwners = monthData.get(monthKey)!;
+      monthOwners.set(ownerId, (monthOwners.get(ownerId) || 0) + weightedValue);
+    }
+
+    totalRawValue += deal.value;
+    totalWeightedValue += weightedValue;
+    dealCount++;
+  }
+
+  // Build chart data
+  const owners = Array.from(ownerMap.values());
+  const chartData = months.map((monthKey) => {
+    const monthDate = new Date(monthKey + '-01');
+    const monthLabel = monthDate.toLocaleDateString('en-US', { month: 'short' });
+    const monthOwners = monthData.get(monthKey) || new Map();
+
+    const row: Record<string, number | string> = { monthLabel };
+    for (const owner of owners) {
+      row[`owner_${owner.id}`] = monthOwners.get(owner.id) || 0;
+    }
+    return row;
+  });
+
+  // Calculate summary for next month (first month of quarter if 'this', or first month of next quarter)
+  const nextMonthKey = quarter === 'this'
+    ? new Date(currentYear, currentMonth + 1, 1).toISOString().slice(0, 7)
+    : months[0];
+
+  let nextMonthRaw = 0;
+  let nextMonthWeighted = 0;
+  let nextMonthCount = 0;
+
+  for (const deal of deals.results as any[]) {
+    if (!deal.close_date || !deal.value) continue;
+    if (deal.close_date.slice(0, 7) === nextMonthKey) {
+      const probability = deal.probability || 50;
+      nextMonthRaw += deal.value;
+      nextMonthWeighted += (deal.value * probability) / 100;
+      nextMonthCount++;
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      quarter: quarter === 'next' ? 'next' : 'this',
+      summary: {
+        nextMonth: {
+          dealCount: nextMonthCount,
+          rawValue: nextMonthRaw,
+          weightedValue: Math.round(nextMonthWeighted),
+        },
+        thisQuarter: {
+          dealCount,
+          rawValue: totalRawValue,
+          weightedValue: Math.round(totalWeightedValue),
+        },
+      },
+      chart: {
+        months,
+        owners,
+        data: chartData,
+      },
+    },
+  });
+});
+
 // Get at-risk deals
 dashboard.get('/at-risk', async (c) => {
   const orgId = c.get('orgId');

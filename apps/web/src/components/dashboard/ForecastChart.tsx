@@ -20,24 +20,21 @@ function formatDollar(value: number): string {
 
 interface ForecastChartProps {
   data: ForecastData;
+  title: string;
+  quarterLabel: string;
 }
 
-export default function ForecastChart({ data }: ForecastChartProps) {
+export default function ForecastChart({ data, title, quarterLabel }: ForecastChartProps) {
   const { summary, chart } = data;
 
   return (
-    <Card>
+    <Card className="h-full">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-text-primary">Revenue Forecast</h3>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-xs text-text-muted">Next Month</p>
-            <p className="text-sm font-semibold text-text-primary">{formatDollar(summary.nextMonth.weightedValue)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-text-muted">This Quarter</p>
-            <p className="text-sm font-semibold text-text-primary">{formatDollar(summary.thisQuarter.weightedValue)}</p>
-          </div>
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+        <div className="text-right">
+          <p className="text-xs text-text-muted">{quarterLabel}</p>
+          <p className="text-lg font-semibold text-text-primary">{formatDollar(summary.thisQuarter.weightedValue)}</p>
+          <p className="text-xs text-text-muted">{summary.thisQuarter.dealCount} deals</p>
         </div>
       </div>
       {chart.data.length > 0 && (

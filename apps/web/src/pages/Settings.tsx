@@ -173,8 +173,10 @@ function AccountTab() {
       toast.success('Account deleted successfully');
       // Sign out and redirect
       await signOut({ redirectUrl: '/' });
-    } catch (error) {
-      toast.error('Failed to delete account');
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      const message = error?.message || 'Failed to delete account';
+      toast.error(message);
       setIsDeleting(false);
     }
   };

@@ -417,68 +417,83 @@ organizations.delete('/account', async (c) => {
   try {
     if (shouldDeleteOrg) {
       // Delete all organization data
-      // Order matters due to foreign keys - delete child records first
+      // Data tables use owner_id (not organization_id), so we delete by owner
+      // Since user is the only member, all data belongs to them
+      console.log('Starting org deletion for org:', org.id, 'user:', user.id);
 
       // Delete activities (references contacts, companies, deals)
+      console.log('Deleting activities...');
       await c.env.DB.prepare(
-        'DELETE FROM activities WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM activities WHERE owner_id = ?'
+      ).bind(user.id).run();
 
-      // Delete deal_team entries (both by deal and by user references)
+      // Delete deal_team entries for user's deals
+      console.log('Deleting deal_team...');
       await c.env.DB.prepare(
-        `DELETE FROM deal_team WHERE deal_id IN (SELECT id FROM deals WHERE organization_id = ?)`
-      ).bind(org.id).run();
+        `DELETE FROM deal_team WHERE deal_id IN (SELECT id FROM deals WHERE owner_id = ?)`
+      ).bind(user.id).run();
 
       // Delete deals
+      console.log('Deleting deals...');
       await c.env.DB.prepare(
-        'DELETE FROM deals WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM deals WHERE owner_id = ?'
+      ).bind(user.id).run();
 
       // Delete tasks
+      console.log('Deleting tasks...');
       await c.env.DB.prepare(
-        'DELETE FROM tasks WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM tasks WHERE owner_id = ?'
+      ).bind(user.id).run();
 
       // Delete contacts (after activities that might reference them)
+      console.log('Deleting contacts...');
       await c.env.DB.prepare(
-        'DELETE FROM contacts WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM contacts WHERE owner_id = ?'
+      ).bind(user.id).run();
 
       // Delete companies (after contacts and activities)
+      console.log('Deleting companies...');
       await c.env.DB.prepare(
-        'DELETE FROM companies WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM companies WHERE owner_id = ?'
+      ).bind(user.id).run();
 
       // Delete workboards
+      console.log('Deleting workboards...');
       await c.env.DB.prepare(
-        'DELETE FROM workboards WHERE organization_id = ?'
-      ).bind(org.id).run();
+        'DELETE FROM workboards WHERE owner_id = ?'
+      ).bind(user.id).run();
 
       // Delete notifications for this user
+      console.log('Deleting notifications...');
       await c.env.DB.prepare(
         'DELETE FROM notifications WHERE user_id = ?'
       ).bind(user.id).run();
 
-      // Delete organization invites (must be before user due to invited_by FK)
+      // Delete organization invites (must be before org deletion)
+      console.log('Deleting organization_invites...');
       await c.env.DB.prepare(
         'DELETE FROM organization_invites WHERE organization_id = ?'
       ).bind(org.id).run();
 
       // Clear user's organization_id to break circular reference
+      console.log('Clearing user organization_id...');
       await c.env.DB.prepare(
         'UPDATE users SET organization_id = NULL WHERE id = ?'
       ).bind(user.id).run();
 
       // Delete the organization FIRST (before user, since owner_id references user)
-      // This works now because we cleared the user's org_id above
+      console.log('Deleting organization...');
       await c.env.DB.prepare(
         'DELETE FROM organizations WHERE id = ?'
       ).bind(org.id).run();
 
       // Now delete the user (no more FK references to it)
+      console.log('Deleting user...');
       await c.env.DB.prepare(
         'DELETE FROM users WHERE id = ?'
       ).bind(user.id).run();
+
+      console.log('All deletions complete');
     } else {
       // Just delete the user, reassign ownership if needed
       if (isOwner && !isOnlyUser) {
@@ -543,9 +558,12 @@ organizations.delete('/account', async (c) => {
 
     console.log('User deleted from database successfully:', user.id);
     return c.json({ success: true, message: 'Account deleted successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting account:', error);
-    return c.json({ success: false, error: 'Failed to delete account' }, 500);
+    console.error('Error message:', error?.message);
+    console.error('Error cause:', error?.cause);
+    const errorMessage = error?.message ? `Failed to delete account: ${error.message}` : 'Failed to delete account';
+    return c.json({ success: false, error: errorMessage }, 500);
   }
 });
 

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { OrganizationSwitcher, UserButton } from '@clerk/clerk-react';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
-import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Layout() {
   const { t } = useTranslation();
@@ -31,7 +30,6 @@ export default function Layout() {
         <header className="h-12 border-b border-border bg-white flex items-center justify-between px-6">
           <h1 className="text-sm font-medium text-text-primary">{getPageTitle()}</h1>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher />
             <OrganizationSwitcher
               hidePersonal
               afterCreateOrganizationUrl="/"
@@ -44,6 +42,7 @@ export default function Layout() {
                   organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
                   organizationSwitcherPopoverCard: 'shadow-lg border border-border',
                   organizationSwitcherPopoverFooter: 'hidden',
+                  organizationSwitcherPopoverActionButton__manageOrganization: 'hidden',
                 },
               }}
             />
@@ -54,6 +53,7 @@ export default function Layout() {
                   avatarBox: 'w-7 h-7',
                   userButtonPopoverCard: 'shadow-lg border border-border',
                   userButtonPopoverFooter: 'hidden',
+                  userButtonPopoverActionButton__manageAccount: 'hidden',
                 },
               }}
             />

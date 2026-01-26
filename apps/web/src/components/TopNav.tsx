@@ -147,6 +147,7 @@ export default function TopNav() {
                   organizationPreviewMainIdentifier: 'text-sm font-medium text-text-primary',
                   organizationSwitcherPopoverCard: 'shadow-lg border border-border',
                   organizationSwitcherPopoverActionButton: 'hover:bg-surface',
+                  organizationSwitcherPopoverActionButton__manageOrganization: 'hidden',
                 },
               }}
             />
@@ -158,6 +159,7 @@ export default function TopNav() {
                   userButtonPopoverCard: 'shadow-lg border border-border',
                   userButtonPopoverActionButton: 'hover:bg-surface',
                   userButtonPopoverFooter: 'hidden',
+                  userButtonPopoverActionButton__manageAccount: 'hidden',
                 },
               }}
             />

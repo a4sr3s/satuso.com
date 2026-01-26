@@ -35,6 +35,7 @@ import { SpinPanel } from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import Avatar from '@/components/ui/Avatar';
+import { ActionMenu } from '@/components/ui/Table';
 
 const stages = ['lead', 'qualified', 'discovery', 'proposal', 'negotiation', 'closed_won', 'closed_lost'];
 
@@ -355,6 +356,10 @@ export default function DealDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button onClick={() => setShowActivityModal(true)}>
+            <Plus className="h-4 w-4" />
+            Log Activity
+          </Button>
           <Button
             variant="secondary"
             onClick={() => {
@@ -372,17 +377,16 @@ export default function DealDetailPage() {
             <Edit className="h-4 w-4" />
             Edit
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="text-error hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => setShowActivityModal(true)}>
-            <Plus className="h-4 w-4" />
-            Log Activity
-          </Button>
+          <ActionMenu
+            items={[
+              {
+                label: 'Delete deal',
+                onClick: () => setShowDeleteConfirm(true),
+                icon: <Trash2 className="h-4 w-4" />,
+                variant: 'danger',
+              },
+            ]}
+          />
         </div>
       </div>
 

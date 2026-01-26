@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, Plus, LogOut, User } from 'lucide-react';
-import { useUser, useClerk } from '@clerk/clerk-react';
+import { Search, Bell, Plus, LogOut } from 'lucide-react';
+import { useUser, useClerk, useOrganization } from '@clerk/clerk-react';
 import Avatar from './ui/Avatar';
 
 export default function Header() {
   const navigate = useNavigate();
   const { user } = useUser();
+  const { organization } = useOrganization();
   const { signOut } = useClerk();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -76,13 +77,17 @@ export default function Header() {
           <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
         </button>
 
-        {/* User Menu */}
+        {/* User Info & Menu */}
         <div className="relative">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 p-1 rounded-md hover:bg-surface transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface transition-colors"
           >
-            <Avatar name={user?.fullName || 'User'} size="md" />
+            <Avatar name={user?.fullName || 'User'} size="sm" />
+            <div className="text-left hidden sm:block">
+              <p className="text-sm font-medium text-text-primary leading-tight">{user?.fullName}</p>
+              <p className="text-xs text-text-muted leading-tight">{organization?.name || 'Personal'}</p>
+            </div>
           </button>
 
           {showUserMenu && (
@@ -91,25 +96,18 @@ export default function Header() {
                 className="fixed inset-0 z-10"
                 onClick={() => setShowUserMenu(false)}
               />
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-md shadow-lg z-20">
-                <div className="px-3 py-2 border-b border-border">
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-border rounded-lg shadow-lg z-20">
+                <div className="px-3 py-3 border-b border-border">
                   <p className="text-sm font-medium text-text-primary">{user?.fullName}</p>
                   <p className="text-xs text-text-muted">{user?.primaryEmailAddress?.emailAddress}</p>
+                  {organization && (
+                    <p className="text-xs text-primary mt-1">{organization.name}</p>
+                  )}
                 </div>
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      navigate('/settings');
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-surface"
-                  >
-                    <User className="h-4 w-4" />
-                    Profile Settings
-                  </button>
+                <div className="p-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50 rounded-md transition-colors"
                   >
                     <LogOut className="h-4 w-4" />
                     Sign Out

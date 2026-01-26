@@ -195,7 +195,11 @@ dashboard.get('/pipeline', async (c) => {
 // Get forecast data
 dashboard.get('/forecast', async (c) => {
   const orgId = c.get('orgId');
-  const { quarter = 'this' } = c.req.query();
+  // Use direct query param access - Hono's c.req.query('key') returns string | undefined
+  const quarter = c.req.query('quarter') || 'this';
+
+  // DEBUG: Log the received quarter parameter
+  console.log('FORECAST API - quarter param:', quarter, 'full URL:', c.req.url);
 
   const orgFilter = orgId ? ' AND d.org_id = ?' : '';
   const orgParams = orgId ? [orgId] : [];
@@ -215,11 +219,13 @@ dashboard.get('/forecast', async (c) => {
     year = nextQuarter === 0 ? currentYear + 1 : currentYear;
     startMonth = nextQuarter * 3;
     endMonth = startMonth + 2;
+    console.log('FORECAST API - NEXT quarter:', { nextQuarter, year, startMonth, endMonth });
   } else {
     // This quarter
     year = currentYear;
     startMonth = currentQuarter * 3;
     endMonth = startMonth + 2;
+    console.log('FORECAST API - THIS quarter:', { currentQuarter, year, startMonth, endMonth });
   }
 
   // Build date strings directly to avoid timezone issues
@@ -328,6 +334,15 @@ dashboard.get('/forecast', async (c) => {
     success: true,
     data: {
       quarter: quarter === 'next' ? 'next' : 'this',
+      _debug: {
+        quarterParam: quarter,
+        startMonth,
+        endMonth,
+        year,
+        quarterStart,
+        quarterEnd,
+        monthsArray: months,
+      },
       summary: {
         nextMonth: {
           dealCount: nextMonthCount,

@@ -29,12 +29,14 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     // Get or create user from Clerk data
     const clerkUserId = payload.sub;
     const email = payload.email as string | undefined;
-    // Build full name from Clerk's first_name and last_name, or fall back to name field
-    const firstName = payload.first_name as string | undefined;
-    const lastName = payload.last_name as string | undefined;
+    // Build full name from Clerk's firstName/lastName (camelCase) or first_name/last_name (snake_case)
+    const firstName = (payload.firstName as string) || (payload.first_name as string) || undefined;
+    const lastName = (payload.lastName as string) || (payload.last_name as string) || undefined;
     const clerkFullName = firstName && lastName
       ? `${firstName} ${lastName}`.trim()
-      : (payload.name as string) || firstName || email?.split('@')[0] || 'User';
+      : firstName
+        ? firstName
+        : (payload.name as string) || email?.split('@')[0] || 'User';
 
     // Check if user exists in our database
     let user = await c.env.DB.prepare(

@@ -37,7 +37,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     let firstName = (payload.firstName as string) || (payload.first_name as string);
     let lastName = (payload.lastName as string) || (payload.last_name as string);
 
-    // If email not in JWT, fetch from Clerk API
+    // If email not in JWT, fetch from Clerk API (this is the common case)
     if (!email) {
       try {
         const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
@@ -45,9 +45,18 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
         email = clerkUser.emailAddresses?.[0]?.emailAddress;
         firstName = firstName || clerkUser.firstName || undefined;
         lastName = lastName || clerkUser.lastName || undefined;
+        console.log('Fetched user from Clerk API:', { email, firstName, lastName, clerkUserId });
       } catch (clerkError) {
         console.error('Failed to fetch user from Clerk:', clerkError);
+        // Don't silently continue - we need the email to create the user
+        return c.json({ success: false, error: 'Failed to fetch user data from authentication provider' }, 500);
       }
+    }
+
+    // If we still don't have an email, we cannot proceed
+    if (!email) {
+      console.error('No email found for user:', clerkUserId);
+      return c.json({ success: false, error: 'No email address associated with account' }, 400);
     }
 
     const name = firstName && lastName
@@ -73,7 +82,8 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     }>();
 
     // If user doesn't exist, create them with an organization
-    if (!user && email) {
+    if (!user) {
+      console.log('Creating new user:', { email, clerkUserId, name });
       try {
         const { nanoid } = await import('nanoid');
         const userId = nanoid();
@@ -113,6 +123,7 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
           subscription_status: 'inactive',
           trial_ends_at: trialEndsAt,
         };
+        console.log('Successfully created user and organization:', { userId, orgId, email });
       } catch (dbError) {
         console.error('Database error during user creation:', dbError);
         return c.json({ success: false, error: 'Database error' }, 500);
@@ -120,9 +131,9 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
     }
 
     if (!user) {
-      // If we get here, either email was missing or something else went wrong
-      console.error('User not found and could not be created. Email:', email, 'ClerkId:', clerkUserId);
-      return c.json({ success: false, error: 'User not found' }, 401);
+      // This should not happen - if we reach here, something unexpected occurred
+      console.error('User creation failed unexpectedly. Email:', email, 'ClerkId:', clerkUserId);
+      return c.json({ success: false, error: 'Failed to create user account' }, 500);
     }
 
     // Calculate if user has active access (subscription active OR in trial OR grandfathered)

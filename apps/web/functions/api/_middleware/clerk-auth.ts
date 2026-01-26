@@ -27,8 +27,18 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     // Get or create user from Clerk data
     const clerkUserId = payload.sub;
-    const email = payload.email as string | undefined;
-    const name = (payload.name as string) || (payload.first_name as string) || email?.split('@')[0] || 'User';
+    // Try multiple places where Clerk might store email
+    const email = (payload.email as string)
+      || (payload.primary_email_address as string)
+      || ((payload.email_addresses as any)?.[0]?.email_address as string)
+      || undefined;
+    const firstName = (payload.firstName as string) || (payload.first_name as string);
+    const lastName = (payload.lastName as string) || (payload.last_name as string);
+    const name = firstName && lastName
+      ? `${firstName} ${lastName}`.trim()
+      : firstName
+        ? firstName
+        : (payload.name as string) || email?.split('@')[0] || 'User';
 
     // Check if user exists in our database
     let user = await c.env.DB.prepare(
@@ -48,37 +58,54 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
 
     // If user doesn't exist, create them with an organization
     if (!user && email) {
-      const { nanoid } = await import('nanoid');
-      const userId = nanoid();
-      const orgId = nanoid();
-      const now = new Date().toISOString();
-      // Set trial to expire in 30 days
-      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        const { nanoid } = await import('nanoid');
+        const userId = nanoid();
+        const orgId = nanoid();
+        const now = new Date().toISOString();
+        // Set trial to expire in 30 days
+        const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Create organization first with 30-day trial
-      await c.env.DB.prepare(
-        `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
+        // Create organization first with 30-day trial
+        const orgResult = await c.env.DB.prepare(
+          `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
 
-      // Create user
-      await c.env.DB.prepare(
-        `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
+        if (!orgResult.success) {
+          console.error('Failed to create organization:', orgResult);
+          return c.json({ success: false, error: 'Failed to create organization' }, 500);
+        }
 
-      user = {
-        id: userId,
-        email: email.toLowerCase(),
-        name,
-        role: 'admin',
-        organization_id: orgId,
-        subscription_status: 'inactive',
-        trial_ends_at: trialEndsAt,
-      };
+        // Create user
+        const userResult = await c.env.DB.prepare(
+          `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', orgId, now, now).run();
+
+        if (!userResult.success) {
+          console.error('Failed to create user:', userResult);
+          return c.json({ success: false, error: 'Failed to create user' }, 500);
+        }
+
+        user = {
+          id: userId,
+          email: email.toLowerCase(),
+          name,
+          role: 'admin',
+          organization_id: orgId,
+          subscription_status: 'inactive',
+          trial_ends_at: trialEndsAt,
+        };
+      } catch (dbError) {
+        console.error('Database error during user creation:', dbError);
+        return c.json({ success: false, error: 'Database error' }, 500);
+      }
     }
 
     if (!user) {
+      // If we get here, either email was missing or something else went wrong
+      console.error('User not found and could not be created. Email:', email, 'ClerkId:', clerkUserId);
       return c.json({ success: false, error: 'User not found' }, 401);
     }
 

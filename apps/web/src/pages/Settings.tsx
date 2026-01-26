@@ -339,9 +339,6 @@ function AccountTab() {
               <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-red-800">Delete Account</h4>
-                <p className="text-xs text-red-600 mt-1">
-                  Permanently delete your account and all associated data. If you're the only member of your organization, the organization will also be deleted.
-                </p>
                 <Button
                   variant="secondary"
                   size="sm"

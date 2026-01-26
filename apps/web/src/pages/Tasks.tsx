@@ -190,13 +190,18 @@ export default function TasksPage() {
           {tasks.map((task: any) => (
             <div
               key={task.id}
+              onClick={() => task.deal_id && navigate(`/deals/${task.deal_id}`)}
               className={clsx(
                 'flex items-start gap-3 p-4 bg-white border border-border rounded-lg hover:shadow-card transition-shadow',
-                task.completed && 'opacity-60'
+                task.completed && 'opacity-60',
+                task.deal_id && 'cursor-pointer'
               )}
             >
               <button
-                onClick={() => toggleMutation.mutate(task.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMutation.mutate(task.id);
+                }}
                 className="mt-0.5 flex-shrink-0"
               >
                 {task.completed ? (
@@ -233,16 +238,16 @@ export default function TasksPage() {
                     </span>
                   )}
                   {task.deal_name && (
-                    <button
-                      onClick={() => navigate(`/deals/${task.deal_id}`)}
-                      className="text-primary hover:underline"
-                    >
+                    <span className="text-primary">
                       {task.deal_name}
-                    </button>
+                    </span>
                   )}
                   {task.contact_name && (
                     <button
-                      onClick={() => navigate(`/contacts/${task.contact_id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/contacts/${task.contact_id}`);
+                      }}
                       className="text-primary hover:underline"
                     >
                       {task.contact_name}
@@ -251,7 +256,10 @@ export default function TasksPage() {
                 </div>
               </div>
               <button
-                onClick={() => setDeleteId(task.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteId(task.id);
+                }}
                 className="p-1 text-text-muted hover:text-error transition-colors"
               >
                 <Trash2 className="h-4 w-4" />

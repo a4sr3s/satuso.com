@@ -205,7 +205,7 @@ export default function DashboardPage() {
                   {t('dashboard:activity.noActivity')}
                 </p>
               ) : (
-                activityData.slice(0, 6).map((item: any) => {
+                activityData.slice(0, 5).map((item: any) => {
                   const Icon = getActivityIcon(item.type);
                   const isClickable = !!item.deal_id;
                   return (

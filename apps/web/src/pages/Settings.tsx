@@ -37,6 +37,7 @@ const TABS = [
   { id: 'workspace', label: 'Workspace', icon: Building2 },
   { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'integrations', label: 'Integrations', icon: Puzzle },
+  { id: 'danger', label: 'Danger Zone', icon: AlertTriangle, className: 'text-red-500' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -128,9 +129,6 @@ function AccountTab() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const currentLang = LANGUAGES[language] ? language : 'en';
 
@@ -163,23 +161,6 @@ function AccountTab() {
 
   const hasChanges = firstName !== (user.firstName || '') || lastName !== (user.lastName || '');
   const primaryEmail = user.primaryEmailAddress?.emailAddress;
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE') return;
-
-    setIsDeleting(true);
-    try {
-      await organizationsApi.deleteAccount();
-      toast.success('Account deleted successfully');
-      // Sign out and redirect
-      await signOut({ redirectUrl: '/' });
-    } catch (error: any) {
-      console.error('Delete account error:', error);
-      const message = error?.message || 'Failed to delete account';
-      toast.error(message);
-      setIsDeleting(false);
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -342,100 +323,6 @@ function AccountTab() {
         </div>
       </section>
 
-      <hr className="border-gray-200" />
-
-      {/* Danger Zone */}
-      <section>
-        <div className="mb-4">
-          <h3 className="text-base font-semibold text-red-600">Danger Zone</h3>
-          <p className="text-sm text-gray-500 mt-0.5">Irreversible actions</p>
-        </div>
-
-        <div className="flex items-center justify-between py-3 px-4 border border-red-200 bg-red-50/50 rounded-lg">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">Delete account</p>
-              <p className="text-xs text-gray-500">Permanently remove your account and data</p>
-            </div>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="border-red-200 text-red-600 hover:bg-red-100 hover:border-red-300"
-            onClick={() => setShowDeleteModal(true)}
-          >
-            Delete
-          </Button>
-        </div>
-      </section>
-
-      {/* Delete Account Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => !isDeleting && setShowDeleteModal(false)}
-          />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
-                <p className="text-sm text-gray-500">This action cannot be undone</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                This will permanently delete your account and all your data, including:
-              </p>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                <li>Your profile and settings</li>
-                <li>All contacts, companies, and deals you created</li>
-                <li>All tasks and activities</li>
-                <li>Your organization (if you're the only member)</li>
-              </ul>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Type <span className="font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm
-                </label>
-                <Input
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Type DELETE"
-                  disabled={isDeleting}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeleteConfirmText('');
-                  }}
-                  disabled={isDeleting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1 bg-red-600 hover:bg-red-700"
-                  onClick={handleDeleteAccount}
-                  disabled={deleteConfirmText !== 'DELETE' || isDeleting}
-                  isLoading={isDeleting}
-                >
-                  Delete Account
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -870,6 +757,139 @@ function IntegrationsTab() {
   );
 }
 
+function DangerZoneTab() {
+  const { signOut } = useClerk();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return;
+
+    setIsDeleting(true);
+    try {
+      await organizationsApi.deleteAccount();
+      toast.success('Account deleted successfully');
+      // Sign out and redirect
+      await signOut({ redirectUrl: '/' });
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      const message = error?.message || 'Failed to delete account';
+      toast.error(message);
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-semibold text-red-800">Warning: Irreversible Actions</h3>
+            <p className="text-sm text-red-600 mt-1">
+              Actions on this page cannot be undone. Please proceed with caution.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <section>
+        <div className="mb-4">
+          <h3 className="text-base font-semibold text-gray-900">Delete Account</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Permanently remove your account and all associated data</p>
+        </div>
+
+        <div className="flex items-center justify-between py-4 px-4 border border-red-200 bg-red-50/50 rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Delete your account</p>
+              <p className="text-xs text-gray-500">This will permanently delete all your data</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            className="border-red-300 text-red-600 hover:bg-red-100 hover:border-red-400"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Delete Account
+          </Button>
+        </div>
+      </section>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !isDeleting && setShowDeleteModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                This will permanently delete your account and all your data, including:
+              </p>
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <li>Your profile and settings</li>
+                <li>All contacts, companies, and deals you created</li>
+                <li>All tasks and activities</li>
+                <li>Your organization (if you're the only member)</li>
+              </ul>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Type <span className="font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm
+                </label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE"
+                  disabled={isDeleting}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmText('');
+                  }}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                  isLoading={isDeleting}
+                >
+                  Delete Account
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('account');
 
@@ -879,6 +899,7 @@ export default function SettingsPage() {
       <div className="flex gap-1 border-b border-border">
         {TABS.map((tab) => {
           const Icon = tab.icon;
+          const isDanger = tab.id === 'danger';
           return (
             <button
               key={tab.id}
@@ -886,14 +907,17 @@ export default function SettingsPage() {
               className={clsx(
                 'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative',
                 activeTab === tab.id
-                  ? 'text-primary'
-                  : 'text-text-muted hover:text-text-primary'
+                  ? isDanger ? 'text-red-600' : 'text-primary'
+                  : isDanger ? 'text-red-400 hover:text-red-600' : 'text-text-muted hover:text-text-primary'
               )}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                <span className={clsx(
+                  'absolute bottom-0 left-0 right-0 h-0.5 rounded-full',
+                  isDanger ? 'bg-red-600' : 'bg-primary'
+                )} />
               )}
             </button>
           );
@@ -912,6 +936,13 @@ export default function SettingsPage() {
         {activeTab === 'workspace' && <WorkspaceTab />}
         {activeTab === 'billing' && <BillingTab />}
         {activeTab === 'integrations' && <IntegrationsTab />}
+        {activeTab === 'danger' && (
+          <Card>
+            <div className="p-6">
+              <DangerZoneTab />
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

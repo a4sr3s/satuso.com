@@ -12,15 +12,29 @@ dashboard.get('/metrics', async (c) => {
   const orgId = c.get('orgId');
   const today = new Date().toISOString().split('T')[0];
 
+  // SECURITY: If no organization is selected, return empty metrics
+  // This prevents data leakage between organizations
+  if (!orgId) {
+    return c.json({
+      success: true,
+      data: {
+        totalRevenue: { value: 0, previousValue: 0, change: 0, changeDirection: 'neutral', sparklineData: [0, 0, 0, 0, 0, 0, 0] },
+        activeDeals: { value: 0, previousValue: 0, change: 0, changeDirection: 'neutral', sparklineData: [] },
+        conversionRate: { value: 0, previousValue: 0, change: 0, changeDirection: 'neutral', sparklineData: [] },
+        tasksDueToday: { value: 0, previousValue: 0, change: 0, changeDirection: 'neutral', sparklineData: [] },
+      },
+    });
+  }
+
   // Get current month start
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();
 
-  // Build org filter
-  const orgFilter = orgId ? ' AND org_id = ?' : '';
-  const orgParams = orgId ? [orgId] : [];
+  // Build org filter - orgId is guaranteed to exist at this point
+  const orgFilter = ' AND org_id = ?';
+  const orgParams = [orgId];
 
   // Total revenue this month
   const revenueThisMonth = await c.env.DB.prepare(`
@@ -140,8 +154,14 @@ dashboard.get('/activity', async (c) => {
   const { limit = '10' } = c.req.query();
   const orgId = c.get('orgId');
 
-  const orgFilter = orgId ? ' WHERE a.org_id = ?' : '';
-  const orgParams = orgId ? [orgId] : [];
+  // SECURITY: If no organization is selected, return empty activity
+  if (!orgId) {
+    return c.json({ success: true, data: [] });
+  }
+
+  // orgId is guaranteed to exist at this point
+  const orgFilter = ' WHERE a.org_id = ?';
+  const orgParams = [orgId];
 
   const activities = await c.env.DB.prepare(`
     SELECT
@@ -166,8 +186,19 @@ dashboard.get('/activity', async (c) => {
 // Get pipeline summary
 dashboard.get('/pipeline', async (c) => {
   const orgId = c.get('orgId');
-  const orgFilter = orgId ? ' AND org_id = ?' : '';
-  const orgParams = orgId ? [orgId] : [];
+
+  // SECURITY: If no organization is selected, return empty pipeline
+  if (!orgId) {
+    const stageOrder = ['lead', 'qualified', 'proposal', 'negotiation'];
+    return c.json({
+      success: true,
+      data: stageOrder.map(stage => ({ stage, count: 0, totalValue: 0 })),
+    });
+  }
+
+  // orgId is guaranteed to exist at this point
+  const orgFilter = ' AND org_id = ?';
+  const orgParams = [orgId];
 
   const pipeline = await c.env.DB.prepare(`
     SELECT
@@ -198,11 +229,27 @@ dashboard.get('/forecast', async (c) => {
   // Use direct query param access - Hono's c.req.query('key') returns string | undefined
   const quarter = c.req.query('quarter') || 'this';
 
+  // SECURITY: If no organization is selected, return empty forecast
+  if (!orgId) {
+    return c.json({
+      success: true,
+      data: {
+        quarter: quarter === 'next' ? 'next' : 'this',
+        summary: {
+          nextMonth: { dealCount: 0, rawValue: 0, weightedValue: 0 },
+          thisQuarter: { dealCount: 0, rawValue: 0, weightedValue: 0 },
+        },
+        chart: { months: [], owners: [], data: [] },
+      },
+    });
+  }
+
   // DEBUG: Log the received quarter parameter
   console.log('FORECAST API - quarter param:', quarter, 'full URL:', c.req.url);
 
-  const orgFilter = orgId ? ' AND d.org_id = ?' : '';
-  const orgParams = orgId ? [orgId] : [];
+  // orgId is guaranteed to exist at this point
+  const orgFilter = ' AND d.org_id = ?';
+  const orgParams = [orgId];
 
   // Calculate quarter date ranges
   const now = new Date();
@@ -367,8 +414,15 @@ dashboard.get('/forecast', async (c) => {
 // Get at-risk deals
 dashboard.get('/at-risk', async (c) => {
   const orgId = c.get('orgId');
-  const orgFilter = orgId ? ' AND d.org_id = ?' : '';
-  const orgParams = orgId ? [orgId] : [];
+
+  // SECURITY: If no organization is selected, return empty at-risk deals
+  if (!orgId) {
+    return c.json({ success: true, data: [] });
+  }
+
+  // orgId is guaranteed to exist at this point
+  const orgFilter = ' AND d.org_id = ?';
+  const orgParams = [orgId];
 
   // Deals with no activity in 14+ days or low SPIN progress
   const atRiskDeals = await c.env.DB.prepare(`

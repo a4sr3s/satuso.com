@@ -19,128 +19,72 @@ ai.use('/stt', strictRateLimiter);
 ai.use('/tts', aiAudioRateLimiter);
 
 // Helper to fetch compact CRM context for AI (optimized for token limits)
-// Filters by org_id when provided to ensure data isolation
-async function getCRMContext(db: D1Database, orgId?: string): Promise<string> {
+// SECURITY: Requires org_id to prevent cross-tenant data leakage
+async function getCRMContext(db: D1Database, orgId: string): Promise<string> {
   // Fetch sales reps with their performance metrics - filtered by org_id
-  const salesReps = orgId
-    ? await db.prepare(`
-        SELECT
-          u.id,
-          u.name,
-          u.email,
-          u.job_function,
-          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN 1 END) as active_deals,
-          COALESCE(SUM(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.value END), 0) as pipeline_value,
-          COUNT(CASE WHEN d.stage = 'closed_won' THEN 1 END) as deals_won,
-          COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value END), 0) as revenue_won,
-          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.spin_progress END) as avg_spin_progress,
-          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) END) as avg_days_in_stage,
-          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') AND d.spin_progress < 2 THEN 1 END) as deals_needing_discovery
-        FROM users u
-        LEFT JOIN deals d ON d.owner_id = u.id AND d.org_id = ?
-        WHERE u.org_id = ?
-        GROUP BY u.id, u.name, u.email, u.job_function
-        ORDER BY pipeline_value DESC
-      `).bind(orgId, orgId).all()
-    : await db.prepare(`
-        SELECT
-          u.id,
-          u.name,
-          u.email,
-          u.job_function,
-          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN 1 END) as active_deals,
-          COALESCE(SUM(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.value END), 0) as pipeline_value,
-          COUNT(CASE WHEN d.stage = 'closed_won' THEN 1 END) as deals_won,
-          COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value END), 0) as revenue_won,
-          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.spin_progress END) as avg_spin_progress,
-          AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) END) as avg_days_in_stage,
-          COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') AND d.spin_progress < 2 THEN 1 END) as deals_needing_discovery
-        FROM users u
-        LEFT JOIN deals d ON d.owner_id = u.id
-        GROUP BY u.id, u.name, u.email, u.job_function
-        ORDER BY pipeline_value DESC
-      `).all();
+  const salesReps = await db.prepare(`
+    SELECT
+      u.id,
+      u.name,
+      u.email,
+      u.job_function,
+      COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN 1 END) as active_deals,
+      COALESCE(SUM(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.value END), 0) as pipeline_value,
+      COUNT(CASE WHEN d.stage = 'closed_won' THEN 1 END) as deals_won,
+      COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value END), 0) as revenue_won,
+      AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN d.spin_progress END) as avg_spin_progress,
+      AVG(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') THEN CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) END) as avg_days_in_stage,
+      COUNT(CASE WHEN d.stage NOT IN ('closed_won', 'closed_lost') AND d.spin_progress < 2 THEN 1 END) as deals_needing_discovery
+    FROM users u
+    LEFT JOIN deals d ON d.owner_id = u.id AND d.org_id = ?
+    WHERE u.org_id = ?
+    GROUP BY u.id, u.name, u.email, u.job_function
+    ORDER BY pipeline_value DESC
+  `).bind(orgId, orgId).all();
 
   // Fetch deals with key info only - filtered by org_id
-  const deals = orgId
-    ? await db.prepare(`
-        SELECT
-          d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
-          co.name as company_name,
-          c.name as contact_name,
-          u.name as owner_name
-        FROM deals d
-        LEFT JOIN contacts c ON d.contact_id = c.id
-        LEFT JOIN companies co ON d.company_id = co.id
-        LEFT JOIN users u ON d.owner_id = u.id
-        WHERE d.org_id = ?
-        ORDER BY d.value DESC
-        LIMIT 20
-      `).bind(orgId).all()
-    : await db.prepare(`
-        SELECT
-          d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
-          co.name as company_name,
-          c.name as contact_name,
-          u.name as owner_name
-        FROM deals d
-        LEFT JOIN contacts c ON d.contact_id = c.id
-        LEFT JOIN companies co ON d.company_id = co.id
-        LEFT JOIN users u ON d.owner_id = u.id
-        ORDER BY d.value DESC
-        LIMIT 20
-      `).all();
+  const deals = await db.prepare(`
+    SELECT
+      d.id, d.name, d.value, d.stage, d.spin_progress, d.close_date,
+      co.name as company_name,
+      c.name as contact_name,
+      u.name as owner_name
+    FROM deals d
+    LEFT JOIN contacts c ON d.contact_id = c.id
+    LEFT JOIN companies co ON d.company_id = co.id
+    LEFT JOIN users u ON d.owner_id = u.id
+    WHERE d.org_id = ?
+    ORDER BY d.value DESC
+    LIMIT 20
+  `).bind(orgId).all();
 
   // Fetch contacts summary - filtered by org_id
-  const contacts = orgId
-    ? await db.prepare(`
-        SELECT c.id, c.name, c.email, c.title, co.name as company_name
-        FROM contacts c
-        LEFT JOIN companies co ON c.company_id = co.id
-        WHERE c.org_id = ?
-        ORDER BY c.created_at DESC
-        LIMIT 15
-      `).bind(orgId).all()
-    : await db.prepare(`
-        SELECT c.id, c.name, c.email, c.title, co.name as company_name
-        FROM contacts c
-        LEFT JOIN companies co ON c.company_id = co.id
-        ORDER BY c.created_at DESC
-        LIMIT 15
-      `).all();
+  const contacts = await db.prepare(`
+    SELECT c.id, c.name, c.email, c.title, co.name as company_name
+    FROM contacts c
+    LEFT JOIN companies co ON c.company_id = co.id
+    WHERE c.org_id = ?
+    ORDER BY c.created_at DESC
+    LIMIT 15
+  `).bind(orgId).all();
 
   // Fetch companies summary - filtered by org_id
-  const companies = orgId
-    ? await db.prepare(`
-        SELECT co.id, co.name, co.industry,
-          (SELECT COUNT(*) FROM deals WHERE company_id = co.id AND org_id = ?) as deal_count
-        FROM companies co
-        WHERE co.org_id = ?
-        ORDER BY co.name
-        LIMIT 15
-      `).bind(orgId, orgId).all()
-    : await db.prepare(`
-        SELECT co.id, co.name, co.industry,
-          (SELECT COUNT(*) FROM deals WHERE company_id = co.id) as deal_count
-        FROM companies co
-        ORDER BY co.name
-        LIMIT 15
-      `).all();
+  const companies = await db.prepare(`
+    SELECT co.id, co.name, co.industry,
+      (SELECT COUNT(*) FROM deals WHERE company_id = co.id AND org_id = ?) as deal_count
+    FROM companies co
+    WHERE co.org_id = ?
+    ORDER BY co.name
+    LIMIT 15
+  `).bind(orgId, orgId).all();
 
   // Fetch pipeline metrics - filtered by org_id
-  const pipelineMetrics = orgId
-    ? await db.prepare(`
-        SELECT stage, COUNT(*) as count, SUM(value) as total_value
-        FROM deals
-        WHERE org_id = ? AND stage NOT IN ('closed_won', 'closed_lost')
-        GROUP BY stage
-      `).bind(orgId).all()
-    : await db.prepare(`
-        SELECT stage, COUNT(*) as count, SUM(value) as total_value
-        FROM deals
-        WHERE stage NOT IN ('closed_won', 'closed_lost')
-        GROUP BY stage
-      `).all();
+  const pipelineMetrics = await db.prepare(`
+    SELECT stage, COUNT(*) as count, SUM(value) as total_value
+    FROM deals
+    WHERE org_id = ? AND stage NOT IN ('closed_won', 'closed_lost')
+    GROUP BY stage
+  `).bind(orgId).all();
 
   // Build compact context
   let context = `## CRM DATA
@@ -388,35 +332,29 @@ Keep questions conversational and natural. Return ONLY the JSON, no other text.`
 ai.get('/insights', async (c) => {
   const orgId = c.get('orgId');
 
+  // SECURITY: If no organization is selected, return empty insights
+  // This prevents data leakage between organizations
+  if (!orgId) {
+    return c.json({ success: true, data: [] }, 200, {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    });
+  }
+
   try {
-    // Get pipeline context for AI with SPIN details - filtered by org_id
-    const deals = orgId
-      ? await c.env.DB.prepare(`
-          SELECT
-            d.id, d.name, d.value, d.stage, d.spin_progress,
-            d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
-            co.name as company_name,
-            CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
-            CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
-          FROM deals d
-          LEFT JOIN companies co ON d.company_id = co.id
-          WHERE d.org_id = ? AND d.stage NOT IN ('closed_won', 'closed_lost')
-          ORDER BY d.value DESC
-          LIMIT 10
-        `).bind(orgId).all()
-      : await c.env.DB.prepare(`
-          SELECT
-            d.id, d.name, d.value, d.stage, d.spin_progress,
-            d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
-            co.name as company_name,
-            CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
-            CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
-          FROM deals d
-          LEFT JOIN companies co ON d.company_id = co.id
-          WHERE d.stage NOT IN ('closed_won', 'closed_lost')
-          ORDER BY d.value DESC
-          LIMIT 10
-        `).all();
+    // Get pipeline context for AI with SPIN details - orgId is guaranteed to exist at this point
+    const deals = await c.env.DB.prepare(`
+      SELECT
+        d.id, d.name, d.value, d.stage, d.spin_progress,
+        d.spin_situation, d.spin_problem, d.spin_implication, d.spin_need_payoff,
+        co.name as company_name,
+        CAST((julianday('now') - julianday(d.stage_changed_at)) AS INTEGER) as days_in_stage,
+        CAST((julianday('now') - julianday(COALESCE((SELECT MAX(created_at) FROM activities WHERE deal_id = d.id), d.created_at))) AS INTEGER) as days_since_activity
+      FROM deals d
+      LEFT JOIN companies co ON d.company_id = co.id
+      WHERE d.org_id = ? AND d.stage NOT IN ('closed_won', 'closed_lost')
+      ORDER BY d.value DESC
+      LIMIT 10
+    `).bind(orgId).all();
 
     // Build context for AI with SPIN focus
     let context = `## ACTIVE PIPELINE WITH SPIN STATUS\n`;
@@ -506,6 +444,12 @@ ai.get('/rate-limit-status', async (c) => {
 ai.post('/chat', async (c) => {
   const { messages } = await c.req.json();
   const orgId = c.get('orgId');
+
+  // SECURITY: Require organization to be selected for AI chat
+  // This prevents data leakage between organizations
+  if (!orgId) {
+    return c.json({ success: false, error: 'Please select an organization to use AI features' }, 403);
+  }
 
   if (!messages || !Array.isArray(messages)) {
     return c.json({ success: false, error: 'Messages array is required' }, 400);

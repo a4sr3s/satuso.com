@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useOrganization } from '@clerk/clerk-react';
 import {
   Phone,
   Mail,
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const { formatRelativeDate } = useLocale();
   const navigate = useNavigate();
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const { organization } = useOrganization();
 
   const { data: metrics } = useQuery({
     queryKey: ['dashboard', 'metrics'],
@@ -47,8 +49,9 @@ export default function DashboardPage() {
   });
 
   const { data: insights } = useQuery({
-    queryKey: ['ai', 'insights'],
+    queryKey: ['ai', 'insights', organization?.id],
     queryFn: () => aiApi.insights(),
+    enabled: !!organization, // Only fetch when org is selected
   });
 
   const { data: taskCounts } = useQuery({

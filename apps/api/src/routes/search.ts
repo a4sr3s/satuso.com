@@ -15,71 +15,48 @@ search.get('/', async (c) => {
     return c.json({ success: true, data: [] });
   }
 
+  // SECURITY: If no organization is selected, return empty results
+  // This prevents data leakage between organizations
+  if (!orgId) {
+    return c.json({ success: true, data: [] });
+  }
+
   const searchTerm = `%${q}%`;
   const limitNum = Math.min(parseInt(limit), 50);
   const perTypeLimit = Math.ceil(limitNum / 4);
 
   // Search contacts - filtered by org_id
-  const contacts = orgId
-    ? await c.env.DB.prepare(`
-        SELECT id, name, email as subtitle, 'contact' as type
-        FROM contacts
-        WHERE org_id = ? AND (name LIKE ? OR email LIKE ?)
-        LIMIT ?
-      `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all()
-    : await c.env.DB.prepare(`
-        SELECT id, name, email as subtitle, 'contact' as type
-        FROM contacts
-        WHERE name LIKE ? OR email LIKE ?
-        LIMIT ?
-      `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  const contacts = await c.env.DB.prepare(`
+    SELECT id, name, email as subtitle, 'contact' as type
+    FROM contacts
+    WHERE org_id = ? AND (name LIKE ? OR email LIKE ?)
+    LIMIT ?
+  `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all();
 
   // Search companies - filtered by org_id
-  const companies = orgId
-    ? await c.env.DB.prepare(`
-        SELECT id, name, domain as subtitle, 'company' as type
-        FROM companies
-        WHERE org_id = ? AND (name LIKE ? OR domain LIKE ?)
-        LIMIT ?
-      `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all()
-    : await c.env.DB.prepare(`
-        SELECT id, name, domain as subtitle, 'company' as type
-        FROM companies
-        WHERE name LIKE ? OR domain LIKE ?
-        LIMIT ?
-      `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  const companies = await c.env.DB.prepare(`
+    SELECT id, name, domain as subtitle, 'company' as type
+    FROM companies
+    WHERE org_id = ? AND (name LIKE ? OR domain LIKE ?)
+    LIMIT ?
+  `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all();
 
   // Search deals - filtered by org_id
-  const deals = orgId
-    ? await c.env.DB.prepare(`
-        SELECT d.id, d.name, co.name as subtitle, 'deal' as type
-        FROM deals d
-        LEFT JOIN companies co ON d.company_id = co.id
-        WHERE d.org_id = ? AND d.name LIKE ?
-        LIMIT ?
-      `).bind(orgId, searchTerm, perTypeLimit).all()
-    : await c.env.DB.prepare(`
-        SELECT d.id, d.name, co.name as subtitle, 'deal' as type
-        FROM deals d
-        LEFT JOIN companies co ON d.company_id = co.id
-        WHERE d.name LIKE ?
-        LIMIT ?
-      `).bind(searchTerm, perTypeLimit).all();
+  const deals = await c.env.DB.prepare(`
+    SELECT d.id, d.name, co.name as subtitle, 'deal' as type
+    FROM deals d
+    LEFT JOIN companies co ON d.company_id = co.id
+    WHERE d.org_id = ? AND d.name LIKE ?
+    LIMIT ?
+  `).bind(orgId, searchTerm, perTypeLimit).all();
 
   // Search activities - filtered by org_id
-  const activities = orgId
-    ? await c.env.DB.prepare(`
-        SELECT id, subject as name, type as subtitle, 'activity' as type
-        FROM activities
-        WHERE org_id = ? AND (subject LIKE ? OR content LIKE ?)
-        LIMIT ?
-      `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all()
-    : await c.env.DB.prepare(`
-        SELECT id, subject as name, type as subtitle, 'activity' as type
-        FROM activities
-        WHERE subject LIKE ? OR content LIKE ?
-        LIMIT ?
-      `).bind(searchTerm, searchTerm, perTypeLimit).all();
+  const activities = await c.env.DB.prepare(`
+    SELECT id, subject as name, type as subtitle, 'activity' as type
+    FROM activities
+    WHERE org_id = ? AND (subject LIKE ? OR content LIKE ?)
+    LIMIT ?
+  `).bind(orgId, searchTerm, searchTerm, perTypeLimit).all();
 
   // Combine and format results
   const results = [
@@ -121,8 +98,14 @@ search.get('/recent', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
 
+  // SECURITY: If no organization is selected, return empty results
+  // This prevents data leakage between organizations
+  if (!orgId) {
+    return c.json({ success: true, data: [] });
+  }
+
   // Get recently viewed/modified items from KV cache (scoped to org)
-  const recentKey = orgId ? `recent:${orgId}:${userId}` : `recent:${userId}`;
+  const recentKey = `recent:${orgId}:${userId}`;
   const cached = await c.env.KV.get(recentKey);
 
   if (cached) {
@@ -130,21 +113,13 @@ search.get('/recent', async (c) => {
   }
 
   // Fallback: get recently created items - filtered by org_id
-  const recentContacts = orgId
-    ? await c.env.DB.prepare(`
-        SELECT id, name, 'contact' as type FROM contacts WHERE org_id = ? ORDER BY updated_at DESC LIMIT 3
-      `).bind(orgId).all()
-    : await c.env.DB.prepare(`
-        SELECT id, name, 'contact' as type FROM contacts ORDER BY updated_at DESC LIMIT 3
-      `).all();
+  const recentContacts = await c.env.DB.prepare(`
+    SELECT id, name, 'contact' as type FROM contacts WHERE org_id = ? ORDER BY updated_at DESC LIMIT 3
+  `).bind(orgId).all();
 
-  const recentDeals = orgId
-    ? await c.env.DB.prepare(`
-        SELECT id, name, 'deal' as type FROM deals WHERE org_id = ? ORDER BY updated_at DESC LIMIT 3
-      `).bind(orgId).all()
-    : await c.env.DB.prepare(`
-        SELECT id, name, 'deal' as type FROM deals ORDER BY updated_at DESC LIMIT 3
-      `).all();
+  const recentDeals = await c.env.DB.prepare(`
+    SELECT id, name, 'deal' as type FROM deals WHERE org_id = ? ORDER BY updated_at DESC LIMIT 3
+  `).bind(orgId).all();
 
   const results = [
     ...recentContacts.results.map((r: any) => ({
@@ -170,8 +145,13 @@ search.post('/recent', async (c) => {
   const orgId = c.get('orgId');
   const { type, id, title, url } = await c.req.json();
 
+  // SECURITY: Require organization to be selected
+  if (!orgId) {
+    return c.json({ success: false, error: 'Organization required' }, 403);
+  }
+
   // Scope recent items key by org
-  const recentKey = orgId ? `recent:${orgId}:${userId}` : `recent:${userId}`;
+  const recentKey = `recent:${orgId}:${userId}`;
   const cached = await c.env.KV.get(recentKey);
 
   let recent: any[] = cached ? JSON.parse(cached) : [];

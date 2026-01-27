@@ -181,6 +181,16 @@ export const dealsApi = {
 
   getAvailableUsers: (dealId: string, params?: Record<string, string>) =>
     api.get<ApiResponse<Array<{ id: string; name: string; email: string; job_function: string | null }>>>(`/deals/${dealId}/team/available`, params),
+
+  // Deal Contacts
+  getContacts: (dealId: string) =>
+    api.get<ApiResponse<Contact[]>>(`/deals/${dealId}/contacts`),
+
+  addContact: (dealId: string, contactId: string) =>
+    api.post<ApiResponse<{ id: string; deal_id: string; contact_id: string }>>(`/deals/${dealId}/contacts`, { contact_id: contactId }),
+
+  removeContact: (dealId: string, contactId: string) =>
+    api.delete<ApiResponse<null>>(`/deals/${dealId}/contacts/${contactId}`),
 };
 
 // Activities API

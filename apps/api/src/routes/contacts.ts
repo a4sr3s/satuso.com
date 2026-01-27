@@ -13,7 +13,7 @@ contacts.use('*', clerkAuthMiddleware);
 
 // List contacts
 contacts.get('/', async (c) => {
-  const { search, status, ownerId, ...paginationQuery } = c.req.query();
+  const { search, status, ownerId, company_id, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
   const orgId = c.get('orgId');
@@ -52,6 +52,11 @@ contacts.get('/', async (c) => {
   if (ownerId) {
     query += ` AND c.owner_id = ?`;
     params.push(ownerId);
+  }
+
+  if (company_id) {
+    query += ` AND c.company_id = ?`;
+    params.push(company_id);
   }
 
   // Get total count

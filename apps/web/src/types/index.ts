@@ -102,6 +102,13 @@ export interface Deal {
   // Populated in detail views
   activities?: Activity[];
   team?: DealTeamMember[];
+  contacts?: Array<{
+    id: string;
+    name: string;
+    email: string | null;
+    title: string | null;
+    status: string | null;
+  }>;
 }
 
 export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'task';

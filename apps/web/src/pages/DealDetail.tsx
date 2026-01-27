@@ -88,8 +88,8 @@ export default function DealDetailPage() {
     close_date: '',
     stage: '',
     company_id: '',
-    contact_id: '',
   });
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskForm, setTaskForm] = useState({
     subject: '',
@@ -141,8 +141,8 @@ export default function DealDetailPage() {
   });
 
   const { data: contactsData } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => contactsApi.list(),
+    queryKey: ['contacts', { company_id: editForm.company_id }],
+    queryFn: () => contactsApi.list(editForm.company_id ? { company_id: editForm.company_id } : {}),
     enabled: showEditModal,
   });
 
@@ -264,6 +264,20 @@ export default function DealDetailPage() {
     },
   });
 
+  const addContactMutation = useMutation({
+    mutationFn: (contactId: string) => dealsApi.addContact(id!, contactId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals', id] });
+    },
+  });
+
+  const removeContactMutation = useMutation({
+    mutationFn: (contactId: string) => dealsApi.removeContact(id!, contactId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals', id] });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -351,7 +365,7 @@ export default function DealDetailPage() {
           </div>
           <p className="text-text-secondary">
             {deal.company_name || 'No company'}
-            {deal.contact_name && ` · ${deal.contact_name}`}
+            {deal.contacts && deal.contacts.length > 0 && ` · ${deal.contacts.map((c: any) => c.name).join(', ')}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -368,8 +382,8 @@ export default function DealDetailPage() {
                 close_date: deal.close_date || '',
                 stage: deal.stage || '',
                 company_id: deal.company_id || '',
-                contact_id: deal.contact_id || '',
               });
+              setSelectedContactIds(deal.contacts?.map((c: any) => c.id) || []);
               setShowEditModal(true);
             }}
           >
@@ -453,16 +467,21 @@ export default function DealDetailPage() {
                 </button>
               </div>
             )}
-            {deal.contact_name && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">Contact</span>
-                <button
-                  onClick={() => navigate(`/contacts/${deal.contact_id}`)}
-                  className="text-sm text-primary hover:underline flex items-center gap-2"
-                >
-                  <User className="h-4 w-4" />
-                  {deal.contact_name}
-                </button>
+            {deal.contacts && deal.contacts.length > 0 && (
+              <div className="flex items-start justify-between">
+                <span className="text-sm text-text-secondary">Contacts</span>
+                <div className="flex flex-col items-end gap-1">
+                  {deal.contacts.map((contact: any) => (
+                    <button
+                      key={contact.id}
+                      onClick={() => navigate(`/contacts/${contact.id}`)}
+                      className="text-sm text-primary hover:underline flex items-center gap-2"
+                    >
+                      <User className="h-4 w-4" />
+                      {contact.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             <div className="flex items-center justify-between">
@@ -917,20 +936,33 @@ export default function DealDetailPage() {
         title="Edit Deal"
       >
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            updateMutation.mutate({
+            // Update deal info
+            await updateMutation.mutateAsync({
               name: editForm.name,
               value: editForm.value ? parseFloat(editForm.value) : undefined,
               close_date: editForm.close_date || undefined,
               stage: editForm.stage || undefined,
               company_id: editForm.company_id || undefined,
-              contact_id: editForm.contact_id || undefined,
-            }, {
-              onSuccess: () => {
-                setShowEditModal(false);
-              },
             });
+
+            // Sync contacts - determine what to add and remove
+            const currentContactIds = deal.contacts?.map((c: any) => c.id) || [];
+            const contactsToAdd = selectedContactIds.filter(id => !currentContactIds.includes(id));
+            const contactsToRemove = currentContactIds.filter((id: string) => !selectedContactIds.includes(id));
+
+            // Add new contacts
+            for (const contactId of contactsToAdd) {
+              await addContactMutation.mutateAsync(contactId);
+            }
+
+            // Remove contacts
+            for (const contactId of contactsToRemove) {
+              await removeContactMutation.mutateAsync(contactId);
+            }
+
+            setShowEditModal(false);
           }}
           className="space-y-4"
         >
@@ -965,7 +997,11 @@ export default function DealDetailPage() {
             <label className="label">Company</label>
             <select
               value={editForm.company_id}
-              onChange={(e) => setEditForm({ ...editForm, company_id: e.target.value })}
+              onChange={(e) => {
+                setEditForm({ ...editForm, company_id: e.target.value });
+                // Clear selected contacts when company changes
+                setSelectedContactIds([]);
+              }}
               className="input"
             >
               <option value="">No company</option>
@@ -977,19 +1013,58 @@ export default function DealDetailPage() {
             </select>
           </div>
           <div>
-            <label className="label">Contact</label>
-            <select
-              value={editForm.contact_id}
-              onChange={(e) => setEditForm({ ...editForm, contact_id: e.target.value })}
-              className="input"
-            >
-              <option value="">No contact</option>
-              {contacts.map((contact: any) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name}
-                </option>
-              ))}
-            </select>
+            <label className="label">
+              Contacts
+              {!editForm.company_id && (
+                <span className="text-xs text-text-muted font-normal ml-2">
+                  (Select a company first)
+                </span>
+              )}
+            </label>
+            {editForm.company_id ? (
+              contacts.length === 0 ? (
+                <p className="text-sm text-text-muted py-2">
+                  No contacts found for this company.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-border-light rounded-lg p-2">
+                  {contacts.map((contact: any) => {
+                    const isSelected = selectedContactIds.includes(contact.id);
+                    return (
+                      <label
+                        key={contact.id}
+                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? 'bg-primary-light' : 'hover:bg-surface'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedContactIds([...selectedContactIds, contact.id]);
+                            } else {
+                              setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
+                            }
+                          }}
+                          className="rounded border-border-light text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-text-primary">{contact.name}</p>
+                          {contact.email && (
+                            <p className="text-xs text-text-muted">{contact.email}</p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              <p className="text-sm text-text-muted py-2 border border-border-light rounded-lg p-2">
+                Select a company to see available contacts.
+              </p>
+            )}
           </div>
           <Input
             label="Expected Close Date"

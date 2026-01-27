@@ -24,6 +24,7 @@ export default function OnboardingPage() {
         {/* Clerk CreateOrganization */}
         <CreateOrganization
           afterCreateOrganizationUrl="/"
+          skipInvitationScreen={true}
           appearance={{
             variables: {
               colorPrimary: '#171717',

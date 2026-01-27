@@ -4,6 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
 import { createActivitySchema, updateActivitySchema } from '../_schemas';
+import { assertCanAccess, AccessDeniedError } from '../_utils/access-control';
 
 const activities = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -109,6 +110,17 @@ activities.get('/feed', async (c) => {
 // Get single activity
 activities.get('/:id', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
+
+  // Access control check
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) {
+      return c.json({ success: false, error: error.message }, 403);
+    }
+    throw error;
+  }
 
   const activity = await c.env.DB.prepare(`
     SELECT
@@ -180,7 +192,18 @@ activities.post('/', zValidator('json', createActivitySchema), async (c) => {
 activities.patch('/:id', zValidator('json', updateActivitySchema), async (c) => {
   const { id } = c.req.param();
   const body = c.req.valid('json');
+  const user = c.get('user');
   const now = new Date().toISOString();
+
+  // Access control check
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) {
+      return c.json({ success: false, error: error.message }, 403);
+    }
+    throw error;
+  }
 
   const fields: string[] = [];
   const params: any[] = [];
@@ -233,7 +256,18 @@ activities.patch('/:id', zValidator('json', updateActivitySchema), async (c) => 
 // Complete activity/task
 activities.post('/:id/complete', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
   const now = new Date().toISOString();
+
+  // Access control check
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) {
+      return c.json({ success: false, error: error.message }, 403);
+    }
+    throw error;
+  }
 
   await c.env.DB.prepare(`
     UPDATE activities SET completed = 1, completed_at = ?, updated_at = ? WHERE id = ?
@@ -247,6 +281,17 @@ activities.post('/:id/complete', async (c) => {
 // Delete activity
 activities.delete('/:id', async (c) => {
   const { id } = c.req.param();
+  const user = c.get('user');
+
+  // Access control check
+  try {
+    await assertCanAccess(c.env.DB, user, 'activity', id);
+  } catch (error) {
+    if (error instanceof AccessDeniedError) {
+      return c.json({ success: false, error: error.message }, 403);
+    }
+    throw error;
+  }
 
   await c.env.DB.prepare('DELETE FROM activities WHERE id = ?').bind(id).run();
 

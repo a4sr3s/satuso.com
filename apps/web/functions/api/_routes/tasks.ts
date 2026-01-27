@@ -3,12 +3,14 @@ import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 import { createTaskSchema, updateTaskSchema } from '../_schemas';
 import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/access-control';
 
 const tasks = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 tasks.use('*', clerkAuthMiddleware);
+tasks.use('*', standardRateLimiter);
 
 // List tasks
 tasks.get('/', async (c) => {

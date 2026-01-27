@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 import { createDealSchema, updateDealSchema, moveDealSchema, addDealTeamMemberSchema, updateDealTeamMemberSchema } from '../_schemas';
 import { parsePagination } from '../_utils/pagination';
 import { getDealAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/access-control';
@@ -10,6 +11,7 @@ import { getDealAccessFilter, assertCanAccess, AccessDeniedError } from '../_uti
 const deals = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 deals.use('*', clerkAuthMiddleware);
+deals.use('*', standardRateLimiter);
 
 // List deals
 deals.get('/', async (c) => {
@@ -546,14 +548,21 @@ deals.get('/:id/team/available', async (c) => {
     throw e;
   }
 
+  // SECURITY: Only return users within the same organization
+  const orgId = user.organization_id;
+  if (!orgId) {
+    return c.json({ success: true, data: [] }); // No org = no team members available
+  }
+
   let query = `
     SELECT id, name, email, job_function
     FROM users
-    WHERE id NOT IN (
-      SELECT user_id FROM deal_team WHERE deal_id = ?${role ? ' AND role = ?' : ''}
-    )
+    WHERE organization_id = ?
+      AND id NOT IN (
+        SELECT user_id FROM deal_team WHERE deal_id = ?${role ? ' AND role = ?' : ''}
+      )
   `;
-  const params: any[] = [dealId];
+  const params: any[] = [orgId, dealId];
   if (role) params.push(role);
 
   if (job_function) {

@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 
 const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 dashboard.use('*', clerkAuthMiddleware);
+dashboard.use('*', standardRateLimiter); // Rate limit expensive dashboard queries
 
 // Get dashboard metrics
 dashboard.get('/metrics', async (c) => {

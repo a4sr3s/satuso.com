@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 import { createCompanySchema, updateCompanySchema } from '../_schemas';
 import { parsePagination } from '../_utils/pagination';
 import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/access-control';
@@ -10,6 +11,7 @@ import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/a
 const companies = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 companies.use('*', clerkAuthMiddleware);
+companies.use('*', standardRateLimiter);
 
 // List companies
 companies.get('/', async (c) => {
@@ -20,18 +22,16 @@ companies.get('/', async (c) => {
   // Apply row-level access control
   const accessFilter = getAccessFilter(user, 'c.owner_id');
 
-  // Use LEFT JOINs with GROUP BY instead of correlated subqueries for better performance
+  // Use subqueries to avoid cartesian product issues with multiple LEFT JOINs
   let query = `
     SELECT
       c.*,
       u.name as owner_name,
-      COUNT(DISTINCT con.id) as contact_count,
-      COUNT(DISTINCT d.id) as deal_count,
-      COALESCE(SUM(CASE WHEN d.stage = 'closed_won' THEN d.value ELSE 0 END), 0) as total_revenue
+      (SELECT COUNT(*) FROM contacts WHERE company_id = c.id) as contact_count,
+      (SELECT COUNT(*) FROM deals WHERE company_id = c.id) as deal_count,
+      (SELECT COALESCE(SUM(value), 0) FROM deals WHERE company_id = c.id AND stage = 'closed_won') as total_revenue
     FROM companies c
     LEFT JOIN users u ON c.owner_id = u.id
-    LEFT JOIN contacts con ON con.company_id = c.id
-    LEFT JOIN deals d ON d.company_id = c.id
     WHERE 1=1${accessFilter.sql}
   `;
   const params: any[] = [...accessFilter.params];
@@ -65,8 +65,8 @@ companies.get('/', async (c) => {
   const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>();
   const total = countResult?.total || 0;
 
-  // Get paginated results with GROUP BY
-  query += ` GROUP BY c.id ORDER BY c.created_at DESC LIMIT ? OFFSET ?`;
+  // Get paginated results
+  query += ` ORDER BY c.created_at DESC LIMIT ? OFFSET ?`;
   params.push(limit, offset);
 
   const results = await c.env.DB.prepare(query).bind(...params).all();

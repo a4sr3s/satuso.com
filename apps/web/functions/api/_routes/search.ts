@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 
 const search = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 search.use('*', clerkAuthMiddleware);
+search.use('*', standardRateLimiter);
 
 // Global search
 search.get('/', async (c) => {

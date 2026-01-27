@@ -46,14 +46,22 @@ export async function canAccessResource(
   }
 
   // Verify the resource belongs to the same organization
-  if (user.organization_id) {
-    const ownerOrg = await db
-      .prepare('SELECT organization_id FROM users WHERE id = ?')
-      .bind(resource.owner_id)
-      .first<{ organization_id: string | null }>();
+  // SECURITY: Always check organization boundary - never allow null org bypass
+  const ownerOrg = await db
+    .prepare('SELECT organization_id FROM users WHERE id = ?')
+    .bind(resource.owner_id)
+    .first<{ organization_id: string | null }>();
 
+  // If user has an org, resource owner must be in same org
+  // If user has no org, they can only access their own resources (checked below)
+  if (user.organization_id) {
     if (ownerOrg?.organization_id !== user.organization_id) {
       return false; // Cross-org access denied
+    }
+  } else {
+    // User without organization can ONLY access their own resources
+    if (resource.owner_id !== user.id) {
+      return false;
     }
   }
 

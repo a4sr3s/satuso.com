@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../_types';
 import { clerkAuthMiddleware } from '../_middleware/clerk-auth';
+import { standardRateLimiter } from '../_middleware/rate-limit';
 import { createContactSchema, updateContactSchema } from '../_schemas';
 import { parsePagination } from '../_utils/pagination';
 import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/access-control';
@@ -10,6 +11,7 @@ import { getAccessFilter, assertCanAccess, AccessDeniedError } from '../_utils/a
 const contacts = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 contacts.use('*', clerkAuthMiddleware);
+contacts.use('*', standardRateLimiter);
 
 // List contacts
 contacts.get('/', async (c) => {

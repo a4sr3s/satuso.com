@@ -308,6 +308,13 @@ Keep questions conversational and natural. Return ONLY the JSON, no other text.`
 // Get AI insights for dashboard
 ai.get('/insights', async (c) => {
   try {
+    const user = c.get('user');
+    const orgId = user?.organization_id;
+
+    if (!orgId) {
+      return c.json({ success: true, data: [] });
+    }
+
     const deals = await c.env.DB.prepare(`
       SELECT
         d.id, d.name, d.value, d.stage, d.spin_progress,
@@ -318,9 +325,10 @@ ai.get('/insights', async (c) => {
       FROM deals d
       LEFT JOIN companies co ON d.company_id = co.id
       WHERE d.stage NOT IN ('closed_won', 'closed_lost')
+        AND d.owner_id IN (SELECT id FROM users WHERE organization_id = ?)
       ORDER BY d.value DESC
       LIMIT 10
-    `).all();
+    `).bind(orgId).all();
 
     let context = `## ACTIVE PIPELINE WITH SPIN STATUS\n`;
 
@@ -345,10 +353,13 @@ SPIN FRAMEWORK:
 
 Return ONLY valid JSON array:
 [
-  {"type": "risk|suggestion", "title": "Max 6 words", "description": "One SPIN-focused action", "deal_id": "the_deal_id"}
+  {"type": "risk|suggestion", "title": "Max 6 words", "description": "One SPIN-focused action for [Deal Name]", "deal_id": "the_deal_id"}
 ]
 
-IMPORTANT: Include the deal_id from the brackets [deal_id] for each insight.`,
+IMPORTANT:
+- Use the DEAL NAME (after the brackets) when mentioning deals in title and description
+- Use the deal_id (from inside the brackets [deal_id]) ONLY in the deal_id field
+- Example: For "[abc123] Acme Enterprise", use "Acme Enterprise" in description, "abc123" in deal_id`,
       },
       {
         role: 'user',
@@ -378,7 +389,12 @@ IMPORTANT: Include the deal_id from the brackets [deal_id] for each insight.`,
     return c.json({ success: true, data: insights });
   } catch (error) {
     console.error('AI insights error:', error);
-    return c.json({ success: true, data: [] });
+    // Return error info in development, empty array in production
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMsg.includes('Rate limit')) {
+      return c.json({ success: true, data: [], error: 'rate_limited' });
+    }
+    return c.json({ success: true, data: [], error: errorMsg });
   }
 });
 

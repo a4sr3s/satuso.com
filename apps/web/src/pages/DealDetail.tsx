@@ -1022,48 +1022,54 @@ export default function DealDetailPage() {
               )}
             </label>
             {editForm.company_id ? (
-              contacts.length === 0 ? (
-                <p className="text-sm text-text-muted py-2">
-                  No contacts found for this company.
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-border-light rounded-lg p-2">
-                  {contacts.map((contact: any) => {
-                    const isSelected = selectedContactIds.includes(contact.id);
-                    return (
-                      <label
-                        key={contact.id}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                          isSelected ? 'bg-primary-light' : 'hover:bg-surface'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedContactIds([...selectedContactIds, contact.id]);
-                            } else {
-                              setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
-                            }
-                          }}
-                          className="rounded border-border-light text-primary focus:ring-primary"
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-text-primary">{contact.name}</p>
-                          {contact.email && (
-                            <p className="text-xs text-text-muted">{contact.email}</p>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )
+              (() => {
+                // Filter contacts by selected company (client-side filter as backup)
+                const companyContacts = contacts.filter((c: any) => c.company_id === editForm.company_id);
+                return companyContacts.length === 0 ? (
+                  <div className="input bg-surface text-text-muted text-center py-3">
+                    No contacts found for this company
+                  </div>
+                ) : (
+                  <div className="input p-0 overflow-hidden">
+                    <div className="max-h-40 overflow-y-auto divide-y divide-border-light">
+                      {companyContacts.map((contact: any) => {
+                        const isSelected = selectedContactIds.includes(contact.id);
+                        return (
+                          <label
+                            key={contact.id}
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isSelected ? 'bg-primary/5' : 'hover:bg-surface'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedContactIds([...selectedContactIds, contact.id]);
+                                } else {
+                                  setSelectedContactIds(selectedContactIds.filter(id => id !== contact.id));
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-text-primary truncate">{contact.name}</p>
+                              {contact.email && (
+                                <p className="text-xs text-text-muted truncate">{contact.email}</p>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
-              <p className="text-sm text-text-muted py-2 border border-border-light rounded-lg p-2">
-                Select a company to see available contacts.
-              </p>
+              <div className="input bg-surface text-text-muted text-center py-3">
+                Select a company to see available contacts
+              </div>
             )}
           </div>
           <Input

@@ -568,9 +568,41 @@ organizations.delete('/account', async (c) => {
 
     console.log('User deleted from database successfully:', user.id);
 
-    // Delete user from Clerk to prevent auto-recreation on next login
+    // Delete user and their organizations from Clerk
     try {
       const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+
+      // Get user's organization memberships before deleting the user
+      const memberships = await clerk.users.getOrganizationMembershipList({
+        userId: dbUser.clerk_id,
+      });
+
+      console.log('Found Clerk org memberships:', memberships.data.length);
+
+      // Delete organizations where user is the only member or admin
+      for (const membership of memberships.data) {
+        const orgId = membership.organization.id;
+        try {
+          // Get all members of this organization
+          const orgMembers = await clerk.organizations.getOrganizationMembershipList({
+            organizationId: orgId,
+          });
+
+          // If user is the only member, delete the organization
+          if (orgMembers.data.length === 1) {
+            console.log('Deleting Clerk organization (only member):', orgId);
+            await clerk.organizations.deleteOrganization(orgId);
+          } else {
+            // User is not the only member, just remove them from the org
+            console.log('Removing user from Clerk organization:', orgId);
+            // The user deletion will handle this automatically
+          }
+        } catch (orgError) {
+          console.error('Error processing Clerk organization:', orgId, orgError);
+        }
+      }
+
+      // Delete user from Clerk
       await clerk.users.deleteUser(dbUser.clerk_id);
       console.log('User deleted from Clerk successfully:', dbUser.clerk_id);
     } catch (clerkError) {

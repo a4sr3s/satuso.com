@@ -605,7 +605,7 @@ function WorkspaceTab() {
                 </div>
               )}
               <button
-                onClick={() => openOrganizationProfile()}
+                onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
                 className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-border shadow-sm hover:bg-gray-50 transition-colors"
                 title="Change logo"
               >
@@ -641,7 +641,7 @@ function WorkspaceTab() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => openOrganizationProfile()}
+              onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
             >
               <UserPlus className="h-4 w-4 mr-1.5" />
               Invite
@@ -677,7 +677,7 @@ function WorkspaceTab() {
               variant="secondary"
               size="sm"
               className="mt-3"
-              onClick={() => openOrganizationProfile()}
+              onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
             >
               Invite your first teammate
             </Button>

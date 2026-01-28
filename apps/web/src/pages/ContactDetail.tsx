@@ -14,6 +14,11 @@ import Input from '@/components/ui/Input';
 import { useState } from 'react';
 import { EnrichButton, EnrichContactModal } from '@/components/EnrichModal';
 
+function ensureUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `https://${url}`;
+}
+
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -223,7 +228,7 @@ export default function ContactDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">LinkedIn</span>
                 <a
-                  href={contact.linkedin_url}
+                  href={ensureUrl(contact.linkedin_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -237,7 +242,7 @@ export default function ContactDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Twitter</span>
                 <a
-                  href={contact.twitter_url}
+                  href={ensureUrl(contact.twitter_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -251,7 +256,7 @@ export default function ContactDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">GitHub</span>
                 <a
-                  href={contact.github_url}
+                  href={ensureUrl(contact.github_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -265,7 +270,7 @@ export default function ContactDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Facebook</span>
                 <a
-                  href={contact.facebook_url}
+                  href={ensureUrl(contact.facebook_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-primary hover:underline"

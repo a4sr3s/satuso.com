@@ -19,10 +19,27 @@ export const createContactSchema = z.object({
   phone: z.string().max(50, 'Phone is too long').optional(),
   title: z.string().max(100, 'Title is too long').optional(),
   companyId: z.string().optional(),
+  company_id: z.string().optional(),
   ownerId: z.string().optional(),
   status: z.enum(['active', 'inactive', 'lead']).optional(),
   source: z.string().max(50, 'Source is too long').optional(),
-  linkedinUrl: z.string().url('Invalid LinkedIn URL').optional().or(z.literal('')),
+  // Social profiles
+  linkedinUrl: z.string().max(200, 'LinkedIn URL is too long').optional().or(z.literal('')),
+  linkedin_url: z.string().max(200, 'LinkedIn URL is too long').optional().or(z.literal('')),
+  twitterUrl: z.string().max(200, 'Twitter URL is too long').optional().or(z.literal('')),
+  twitter_url: z.string().max(200, 'Twitter URL is too long').optional().or(z.literal('')),
+  githubUrl: z.string().max(200, 'GitHub URL is too long').optional().or(z.literal('')),
+  github_url: z.string().max(200, 'GitHub URL is too long').optional().or(z.literal('')),
+  facebookUrl: z.string().max(200, 'Facebook URL is too long').optional().or(z.literal('')),
+  facebook_url: z.string().max(200, 'Facebook URL is too long').optional().or(z.literal('')),
+  // Location
+  location: z.string().max(200, 'Location is too long').optional().or(z.literal('')),
+  locationCity: z.string().max(100, 'City is too long').optional().or(z.literal('')),
+  location_city: z.string().max(100, 'City is too long').optional().or(z.literal('')),
+  locationRegion: z.string().max(100, 'Region is too long').optional().or(z.literal('')),
+  location_region: z.string().max(100, 'Region is too long').optional().or(z.literal('')),
+  locationCountry: z.string().max(100, 'Country is too long').optional().or(z.literal('')),
+  location_country: z.string().max(100, 'Country is too long').optional().or(z.literal('')),
 });
 
 export const updateContactSchema = createContactSchema.partial();
@@ -30,10 +47,9 @@ export const updateContactSchema = createContactSchema.partial();
 // Company schemas
 export const createCompanySchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
-  domain: z.string().max(100, 'Domain is too long').optional(),
   industry: z.string().max(100, 'Industry is too long').optional(),
   employee_count: z.number().int().positive().optional(),
-  website: z.string().url('Invalid website URL').optional().or(z.literal('')),
+  website: z.string().max(200, 'Website is too long').optional().or(z.literal('')),
   description: z.string().max(1000, 'Description is too long').optional(),
   annual_revenue: z.number().positive().optional(),
 });

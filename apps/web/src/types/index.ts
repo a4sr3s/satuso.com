@@ -23,7 +23,16 @@ export interface Contact {
   owner_id: string;
   owner_name: string | null;
   last_contacted_at: string | null;
+  // Social profiles
   linkedin_url?: string | null;
+  twitter_url?: string | null;
+  github_url?: string | null;
+  facebook_url?: string | null;
+  // Location
+  location?: string | null;
+  location_city?: string | null;
+  location_region?: string | null;
+  location_country?: string | null;
   created_at: string;
   updated_at: string;
   // Populated in detail views
@@ -311,6 +320,16 @@ export interface CreateContactData {
   title?: string;
   company_id?: string;
   status?: Contact['status'];
+  // Social profiles
+  linkedin_url?: string;
+  twitter_url?: string;
+  github_url?: string;
+  facebook_url?: string;
+  // Location
+  location?: string;
+  location_city?: string;
+  location_region?: string;
+  location_country?: string;
 }
 
 export interface CreateCompanyData {

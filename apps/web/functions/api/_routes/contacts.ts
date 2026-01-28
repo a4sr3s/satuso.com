@@ -174,19 +174,39 @@ contacts.patch('/:id', zValidator('json', updateContactSchema), async (c) => {
   const fields: string[] = [];
   const params: any[] = [];
 
-  const allowedFields = ['name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'status', 'source', 'linkedin_url', 'last_contacted_at'];
+  const allowedFields = [
+    'name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'status', 'source',
+    'linkedin_url', 'twitter_url', 'github_url', 'facebook_url',
+    'location', 'location_city', 'location_region', 'location_country',
+    'last_contacted_at'
+  ];
   const fieldMap: Record<string, string> = {
     companyId: 'company_id',
     ownerId: 'owner_id',
     linkedinUrl: 'linkedin_url',
+    twitterUrl: 'twitter_url',
+    githubUrl: 'github_url',
+    facebookUrl: 'facebook_url',
+    locationCity: 'location_city',
+    locationRegion: 'location_region',
+    locationCountry: 'location_country',
     lastContactedAt: 'last_contacted_at',
   };
+
+  // Fields that should be null instead of empty string
+  const nullableFields = [
+    'company_id', 'owner_id', 'email', 'phone', 'title', 'source',
+    'linkedin_url', 'twitter_url', 'github_url', 'facebook_url',
+    'location', 'location_city', 'location_region', 'location_country'
+  ];
 
   for (const [key, value] of Object.entries(body)) {
     const dbField = fieldMap[key] || key;
     if (allowedFields.includes(dbField)) {
       fields.push(`${dbField} = ?`);
-      params.push(value);
+      // Convert empty strings to null for nullable fields
+      const finalValue = nullableFields.includes(dbField) && value === '' ? null : value;
+      params.push(finalValue);
     }
   }
 

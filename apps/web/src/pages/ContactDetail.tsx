@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Mail, Phone, Building2, Linkedin, Edit, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Building2, Linkedin, Edit, Plus, Trash2, Twitter, Github, Globe, MapPin } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { contactsApi, activitiesApi, companiesApi } from '@/lib/api';
@@ -37,6 +37,10 @@ export default function ContactDetailPage() {
     phone: string;
     title: string;
     linkedin_url: string;
+    twitter_url: string;
+    github_url: string;
+    facebook_url: string;
+    location: string;
     company_id: string | undefined;
   }>({
     name: '',
@@ -44,6 +48,10 @@ export default function ContactDetailPage() {
     phone: '',
     title: '',
     linkedin_url: '',
+    twitter_url: '',
+    github_url: '',
+    facebook_url: '',
+    location: '',
     company_id: '',
   });
 
@@ -147,6 +155,10 @@ export default function ContactDetailPage() {
                 phone: contact.phone || '',
                 title: contact.title || '',
                 linkedin_url: contact.linkedin_url || '',
+                twitter_url: contact.twitter_url || '',
+                github_url: contact.github_url || '',
+                facebook_url: contact.facebook_url || '',
+                location: contact.location || '',
                 company_id: contact.company_id || '',
               });
               setShowEditModal(true);
@@ -219,6 +231,57 @@ export default function ContactDetailPage() {
                   <Linkedin className="h-4 w-4" />
                   Profile
                 </a>
+              </div>
+            )}
+            {contact.twitter_url && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">Twitter</span>
+                <a
+                  href={contact.twitter_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Twitter className="h-4 w-4" />
+                  Profile
+                </a>
+              </div>
+            )}
+            {contact.github_url && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">GitHub</span>
+                <a
+                  href={contact.github_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Github className="h-4 w-4" />
+                  Profile
+                </a>
+              </div>
+            )}
+            {contact.facebook_url && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">Facebook</span>
+                <a
+                  href={contact.facebook_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Globe className="h-4 w-4" />
+                  Profile
+                </a>
+              </div>
+            )}
+            {contact.location && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">Location</span>
+                <span className="flex items-center gap-2 text-sm text-text-primary">
+                  <MapPin className="h-4 w-4 text-text-muted" />
+                  {contact.location}
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between">
@@ -354,6 +417,30 @@ export default function ContactDetailPage() {
             value={formData.linkedin_url}
             onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
             placeholder="https://linkedin.com/in/username"
+          />
+          <Input
+            label="Twitter URL"
+            value={formData.twitter_url}
+            onChange={(e) => setFormData({ ...formData, twitter_url: e.target.value })}
+            placeholder="https://twitter.com/username"
+          />
+          <Input
+            label="GitHub URL"
+            value={formData.github_url}
+            onChange={(e) => setFormData({ ...formData, github_url: e.target.value })}
+            placeholder="https://github.com/username"
+          />
+          <Input
+            label="Facebook URL"
+            value={formData.facebook_url}
+            onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
+            placeholder="https://facebook.com/username"
+          />
+          <Input
+            label="Location"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="City, State/Region, Country"
           />
           <div>
             <label className="label">Company</label>

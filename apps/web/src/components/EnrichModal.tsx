@@ -368,22 +368,24 @@ export function EnrichCompanyModal({ isOpen, onClose, company, onApply }: Enrich
   const [enrichedData, setEnrichedData] = useState<EnrichedCompanyData | null>(null);
   const [likelihood, setLikelihood] = useState<number | undefined>();
   const [matchedFields, setMatchedFields] = useState<string[] | undefined>();
+  const [websiteInput, setWebsiteInput] = useState('');
+
+  const effectiveWebsite = company.website || websiteInput.trim() || undefined;
 
   const handleEnrich = async () => {
     setIsLoading(true);
     setError(null);
 
-    // Check if we have required data - don't guess domains
-    if (!company.website && !company.name && !company.linkedin_url) {
-      setError('This company needs a website, name, or LinkedIn URL to enrich.');
+    // Require website or LinkedIn URL for reliable matching
+    if (!effectiveWebsite && !company.linkedin_url) {
+      setError('A website URL is required for company enrichment.');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Send actual data - no guessing
       const res = await integrationsApi.enrichCompany({
-        website: company.website || undefined,
+        website: effectiveWebsite,
         name: company.name,
         linkedin_url: company.linkedin_url || undefined,
       });
@@ -470,6 +472,11 @@ export function EnrichCompanyModal({ isOpen, onClose, company, onApply }: Enrich
       }
     });
 
+    // If user entered a website in the modal, save it too
+    if (websiteInput.trim() && !company.website) {
+      (updates as any).website = websiteInput.trim().includes('://') ? websiteInput.trim() : `https://${websiteInput.trim()}`;
+    }
+
     onApply(updates);
     onClose();
   };
@@ -490,9 +497,26 @@ export function EnrichCompanyModal({ isOpen, onClose, company, onApply }: Enrich
             <Sparkles className="h-12 w-12 text-primary mx-auto mb-3" />
             <h3 className="text-lg font-medium text-gray-900">Enrich Company Data</h3>
             <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-              Use People Data Labs to find additional information about this company based on their domain or name.
+              Use People Data Labs to find additional information about this company.
             </p>
-            <Button onClick={handleEnrich} className="mt-4">
+            {!company.website && !company.linkedin_url && (
+              <div className="mt-4 max-w-sm mx-auto">
+                <label className="block text-sm font-medium text-gray-700 text-left mb-1">
+                  Website URL <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  value={websiteInput}
+                  onChange={(e) => setWebsiteInput(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                />
+                <p className="text-xs text-gray-400 mt-1 text-left">
+                  A website URL is required for accurate company matching.
+                </p>
+              </div>
+            )}
+            <Button onClick={handleEnrich} className="mt-4" disabled={!company.website && !company.linkedin_url && !websiteInput.trim()}>
               <Sparkles className="h-4 w-4 mr-1.5" />
               Find Data
             </Button>

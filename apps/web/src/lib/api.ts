@@ -630,6 +630,29 @@ export interface EnrichmentResult<T> {
   raw: Record<string, unknown>;
 }
 
+export interface FoundContact {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  github_url: string | null;
+  facebook_url: string | null;
+  location: string | null;
+  location_city: string | null;
+  location_region: string | null;
+  location_country: string | null;
+  job_title_levels: string[];
+  job_title_role: string | null;
+}
+
+export interface CompanyContactSearchResult {
+  contacts: FoundContact[];
+  total: number;
+  credits_used: number;
+}
+
 export const integrationsApi = {
   listProviders: () =>
     api.get<ApiResponse<IntegrationProvider[]>>('/integrations/providers'),
@@ -675,4 +698,12 @@ export const integrationsApi = {
 
   getEnrichmentStatus: () =>
     api.get<ApiResponse<{ available: boolean; provider: string }>>('/integrations/enrich/status'),
+
+  // Company contact search
+  searchCompanyContacts: (data: {
+    website: string;
+    company_name?: string;
+    limit?: number;
+  }) =>
+    api.post<ApiResponse<CompanyContactSearchResult>>('/integrations/search/company-contacts', data),
 };

@@ -904,6 +904,165 @@ integrations.post('/enrich/company', zValidator('json', enrichCompanySchema), as
   }
 });
 
+// PDL Person Search response type
+interface PDLPersonSearchResponse {
+  status: number;
+  total?: number;
+  data?: Array<{
+    id?: string;
+    full_name?: string;
+    first_name?: string;
+    last_name?: string;
+    emails?: Array<{ address?: string; type?: string }>;
+    work_email?: string;
+    personal_emails?: string[];
+    recommended_personal_email?: string;
+    phone_numbers?: string[];
+    mobile_phone?: string;
+    linkedin_url?: string;
+    twitter_url?: string;
+    github_url?: string;
+    facebook_url?: string;
+    job_title?: string;
+    job_title_role?: string;
+    job_title_levels?: string[];
+    job_company_name?: string;
+    job_company_website?: string;
+    job_company_industry?: string;
+    job_start_date?: string;
+    location_name?: string;
+    location_locality?: string;
+    location_region?: string;
+    location_country?: string;
+    industry?: string;
+  }>;
+  error?: { message?: string };
+}
+
+// Search for key contacts at a company using PDL Person Search
+const searchCompanyContactsSchema = z.object({
+  website: z.string().min(1, 'Company website is required'),
+  company_name: z.string().optional(),
+  limit: z.number().int().min(1).max(10).default(5),
+});
+
+integrations.post('/search/company-contacts', zValidator('json', searchCompanyContactsSchema), async (c) => {
+  const user = c.get('user');
+  const params = c.req.valid('json');
+
+  if (!user.organization_id) {
+    return c.json({ success: false, error: 'No organization found' }, 404);
+  }
+
+  const apiKey = await getPdlApiKey(c.env.DB, user.organization_id);
+  if (!apiKey) {
+    return c.json({
+      success: false,
+      error: 'People Data Labs integration not configured. Ask an admin to set it up in Settings > Integrations.'
+    }, 400);
+  }
+
+  try {
+    // Extract domain from website URL
+    let domain = params.website;
+    try {
+      const url = new URL(domain.includes('://') ? domain : `https://${domain}`);
+      domain = url.hostname.replace(/^www\./, '');
+    } catch {
+      // If URL parsing fails, use as-is
+    }
+
+    // Build Elasticsearch DSL query for PDL Person Search
+    // Filter by company domain and senior title levels
+    const searchQuery = {
+      query: {
+        bool: {
+          must: [
+            {
+              term: { 'job_company_website': domain }
+            }
+          ],
+          should: [
+            { terms: { 'job_title_levels': ['cxo', 'vp', 'director', 'owner', 'partner'] } },
+            { terms: { 'job_title_role': ['leadership', 'operations', 'engineering', 'sales', 'marketing', 'finance'] } },
+          ],
+          minimum_should_match: 1
+        }
+      },
+      size: params.limit,
+    };
+
+    console.log(`[PDL] Person search request for company domain: ${domain}, limit: ${params.limit}`);
+
+    const response = await fetch('https://api.peopledatalabs.com/v5/person/search', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(searchQuery),
+    });
+
+    const result = await response.json() as PDLPersonSearchResponse;
+
+    console.log(`[PDL] Person search response: status=${response.status}, total=${result.total}, returned=${result.data?.length || 0}`);
+
+    if (response.status === 401 || response.status === 403) {
+      return c.json({ success: false, error: 'Invalid API key' }, 401);
+    }
+
+    if (response.status === 402) {
+      return c.json({ success: false, error: 'No API credits remaining' }, 402);
+    }
+
+    if (response.status !== 200) {
+      return c.json({ success: false, error: result.error?.message || 'Search failed' }, response.status as 400);
+    }
+
+    if (!result.data || result.data.length === 0) {
+      await logEnrichment(c.env.DB, user.organization_id, user.id, 'peopledatalabs', 'company_search', domain, 'no_match');
+      return c.json({
+        success: false,
+        error: 'No contacts found at this company. The company may not have enough data in our database.'
+      }, 404);
+    }
+
+    // Log enrichment - each person costs 1 credit
+    await logEnrichment(c.env.DB, user.organization_id, user.id, 'peopledatalabs', 'company_search', domain, 'success', result.data.length);
+
+    // Map results to our contact format
+    const contacts = result.data.map(person => ({
+      name: capitalizeName(person.full_name) || `${capitalizeName(person.first_name) || ''} ${capitalizeName(person.last_name) || ''}`.trim(),
+      email: person.work_email || person.personal_emails?.[0] || person.recommended_personal_email || person.emails?.[0]?.address || null,
+      phone: person.mobile_phone || person.phone_numbers?.[0] || null,
+      title: capitalizeName(person.job_title) || null,
+      linkedin_url: person.linkedin_url || null,
+      twitter_url: person.twitter_url || null,
+      github_url: person.github_url || null,
+      facebook_url: person.facebook_url || null,
+      location: person.location_name || null,
+      location_city: person.location_locality || null,
+      location_region: person.location_region || null,
+      location_country: person.location_country || null,
+      job_title_levels: person.job_title_levels || [],
+      job_title_role: person.job_title_role || null,
+    })).filter(c => c.name); // Filter out contacts without names
+
+    return c.json({
+      success: true,
+      data: {
+        contacts,
+        total: result.total || 0,
+        credits_used: result.data.length,
+      }
+    });
+  } catch (error) {
+    console.error('PDL company contact search error:', error);
+    await logEnrichment(c.env.DB, user.organization_id, user.id, 'peopledatalabs', 'company_search', params.website, 'failed');
+    return c.json({ success: false, error: 'Failed to search for contacts' }, 500);
+  }
+});
+
 // Check if enrichment is available for the org (for UI to show/hide enrich buttons)
 integrations.get('/enrich/status', async (c) => {
   const user = c.get('user');

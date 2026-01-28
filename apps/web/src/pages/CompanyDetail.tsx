@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Building2, Globe, Edit, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, Globe, Edit, Plus, Trash2, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { companiesApi, contactsApi } from '@/lib/api';
@@ -12,7 +12,7 @@ import Avatar from '@/components/ui/Avatar';
 import SpinProgress from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
-import { EnrichButton, EnrichCompanyModal } from '@/components/EnrichModal';
+import { EnrichButton, EnrichCompanyModal, FindContactsModal } from '@/components/EnrichModal';
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +22,7 @@ export default function CompanyDetailPage() {
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEnrichModal, setShowEnrichModal] = useState(false);
+  const [showFindContactsModal, setShowFindContactsModal] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', title: '' });
   const [editForm, setEditForm] = useState({
     name: '',
@@ -125,6 +126,13 @@ export default function CompanyDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => setShowFindContactsModal(true)}
+          >
+            <Users className="h-4 w-4" />
+            Find Contacts
+          </Button>
           <EnrichButton onClick={() => setShowEnrichModal(true)} />
           <Button
             variant="secondary"
@@ -463,6 +471,20 @@ export default function CompanyDetailPage() {
         }}
         onApply={(updates) => {
           updateMutation.mutate(updates);
+        }}
+      />
+
+      {/* Find Contacts Modal */}
+      <FindContactsModal
+        isOpen={showFindContactsModal}
+        onClose={() => setShowFindContactsModal(false)}
+        company={{
+          id: company.id,
+          name: company.name,
+          website: company.website,
+        }}
+        onContactsAdded={() => {
+          queryClient.invalidateQueries({ queryKey: ['companies', id] });
         }}
       />
     </div>

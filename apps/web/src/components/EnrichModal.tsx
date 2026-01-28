@@ -140,12 +140,16 @@ export function EnrichContactModal({ isOpen, onClose, contact, companyName, onAp
 
     try {
       // Send more data points for better matching
+      // Only send string values, filter out null/false/undefined
+      const toStringOrUndefined = (val: unknown): string | undefined =>
+        typeof val === 'string' && val.trim() ? val.trim() : undefined;
+
       const res = await integrationsApi.enrichContact({
-        email: contact.email || undefined,
-        linkedin_url: contact.linkedin_url || undefined,
-        name: contact.name,
-        company: companyName || undefined,
-        phone: contact.phone || undefined,
+        email: toStringOrUndefined(contact.email),
+        linkedin_url: toStringOrUndefined(contact.linkedin_url),
+        name: toStringOrUndefined(contact.name),
+        company: toStringOrUndefined(companyName),
+        phone: toStringOrUndefined(contact.phone),
       });
 
       const data = res.data?.enriched;
@@ -184,10 +188,20 @@ export function EnrichContactModal({ isOpen, onClose, contact, companyName, onAp
         { key: 'mobile_phone', label: 'Mobile Phone' },
       ];
 
+      // Helper to check if a value is displayable (not boolean, not empty)
+      const isValidValue = (value: unknown): boolean => {
+        if (value === undefined || value === null) return false;
+        if (typeof value === 'boolean') return false; // Don't display booleans
+        if (typeof value === 'string') return value.trim() !== '';
+        if (typeof value === 'number') return true;
+        if (Array.isArray(value)) return value.length > 0;
+        return false;
+      };
+
       const newFields: EnrichField[] = fieldConfig
         .filter(f => {
           const value = data[f.key as keyof EnrichedContactData];
-          return value !== undefined && value !== null && value !== '';
+          return isValidValue(value);
         })
         .map(f => ({
           key: f.key,
@@ -405,10 +419,20 @@ export function EnrichCompanyModal({ isOpen, onClose, company, onApply }: Enrich
         { key: 'ticker', label: 'Stock Ticker' },
       ];
 
+      // Helper to check if a value is displayable (not boolean, not empty)
+      const isValidValue = (value: unknown): boolean => {
+        if (value === undefined || value === null) return false;
+        if (typeof value === 'boolean') return false; // Don't display booleans
+        if (typeof value === 'string') return value.trim() !== '';
+        if (typeof value === 'number') return true;
+        if (Array.isArray(value)) return value.length > 0;
+        return false;
+      };
+
       const newFields: EnrichField[] = fieldConfig
         .filter(f => {
           const value = data[f.key];
-          return value !== undefined && value !== null && value !== '';
+          return isValidValue(value);
         })
         .map(f => ({
           key: f.key,

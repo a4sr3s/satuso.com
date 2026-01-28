@@ -611,6 +611,12 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
 
     console.log(`[PDL] Person enrichment response: status=${response.status}, likelihood=${result.likelihood}, hasData=${!!result.data}`);
 
+    // Log key fields for debugging
+    if (result.data) {
+      const d = result.data;
+      console.log(`[PDL] Key fields: name=${d.full_name}, email=${d.work_email || d.personal_emails?.[0]}, linkedin=${d.linkedin_url}, title=${d.job_title}, company=${d.job_company_name}`);
+    }
+
     if (response.status === 401 || response.status === 403) {
       return c.json({ success: false, error: 'Invalid API key' }, 401);
     }

@@ -330,6 +330,15 @@ async function getPdlApiKey(db: D1Database, organizationId: string): Promise<str
   return integration?.api_key || null;
 }
 
+// Helper to properly capitalize names (PDL often returns lowercase)
+function capitalizeName(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  return name
+    .split(' ')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
 // Helper to log enrichment
 async function logEnrichment(
   db: D1Database,
@@ -644,10 +653,10 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
 
     // Map PDL data to our contact fields (expanded)
     const enrichedData = {
-      // Identity
-      name: d.full_name || undefined,
-      first_name: d.first_name || undefined,
-      last_name: d.last_name || undefined,
+      // Identity - capitalize names since PDL often returns lowercase
+      name: capitalizeName(d.full_name),
+      first_name: capitalizeName(d.first_name),
+      last_name: capitalizeName(d.last_name),
 
       // Contact info
       email: d.work_email || d.personal_emails?.[0] || d.recommended_personal_email || undefined,
@@ -662,11 +671,11 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
       github_url: d.github_url || undefined,
       facebook_url: d.facebook_url || undefined,
 
-      // Current job
-      title: d.job_title || undefined,
+      // Current job - capitalize titles and company names
+      title: capitalizeName(d.job_title),
       job_title_role: d.job_title_role || undefined,
       job_title_levels: d.job_title_levels || undefined,
-      company_name: d.job_company_name || undefined,
+      company_name: capitalizeName(d.job_company_name),
       company_website: d.job_company_website || undefined,
       company_industry: d.job_company_industry || undefined,
       company_size: d.job_company_size || undefined,
@@ -684,10 +693,10 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
       // Demographics
       birth_year: d.birth_year || undefined,
 
-      // Experience (last 3 jobs)
+      // Experience (last 5 jobs) - capitalize names
       experience: d.experience?.slice(0, 5).map(exp => ({
-        title: exp.title?.name || undefined,
-        company: exp.company?.name || undefined,
+        title: capitalizeName(exp.title?.name),
+        company: capitalizeName(exp.company?.name),
         company_website: exp.company?.website || undefined,
         company_industry: exp.company?.industry || undefined,
         start_date: exp.start_date || undefined,
@@ -696,9 +705,9 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
         location: exp.location_names?.[0] || undefined,
       })) || undefined,
 
-      // Education
+      // Education - capitalize school names
       education: d.education?.map(edu => ({
-        school: edu.school?.name || undefined,
+        school: capitalizeName(edu.school?.name),
         degrees: edu.degrees || undefined,
         majors: edu.majors || undefined,
         start_date: edu.start_date || undefined,
@@ -825,8 +834,8 @@ integrations.post('/enrich/company', zValidator('json', enrichCompanySchema), as
     // Map PDL data to our company fields (expanded)
     // Note: Company enrichment returns fields at top level, not in data object
     const enrichedData = {
-      // Identity
-      name: result.display_name || result.name || undefined,
+      // Identity - capitalize company names
+      name: capitalizeName(result.display_name || result.name),
       alternative_names: result.alternative_names || undefined,
 
       // Website

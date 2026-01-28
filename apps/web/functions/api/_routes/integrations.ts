@@ -972,23 +972,12 @@ integrations.post('/search/company-contacts', zValidator('json', searchCompanyCo
       // If URL parsing fails, use as-is
     }
 
-    // Build Elasticsearch DSL query for PDL Person Search
+    // Build SQL query for PDL Person Search
     // Filter by company domain and senior title levels
+    const safeDomain = domain.replace(/'/g, '');
+    const sql = `SELECT * FROM person WHERE job_company_website='${safeDomain}' AND job_title_levels IN ('cxo', 'vp', 'director', 'owner', 'partner')`;
     const searchQuery = {
-      query: {
-        bool: {
-          must: [
-            {
-              term: { 'job_company_website': domain }
-            }
-          ],
-          should: [
-            { terms: { 'job_title_levels': ['cxo', 'vp', 'director', 'owner', 'partner'] } },
-            { terms: { 'job_title_role': ['leadership', 'operations', 'engineering', 'sales', 'marketing', 'finance'] } },
-          ],
-          minimum_should_match: 1
-        }
-      },
+      sql,
       size: params.limit,
     };
 

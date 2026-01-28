@@ -46,6 +46,7 @@ export const createCompanySchema = z.object({
   website: z.string().url('Invalid website URL').optional().or(z.literal('')),
   description: z.string().max(1000, 'Description is too long').optional(),
   annual_revenue: z.number().positive().optional(),
+  linkedin_url: z.string().url('Invalid LinkedIn URL').optional().or(z.literal('')),
 });
 
 export const updateCompanySchema = createCompanySchema.partial();

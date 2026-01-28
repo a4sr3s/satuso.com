@@ -50,6 +50,7 @@ export interface Company {
   logo_url: string | null;
   description?: string | null;
   annual_revenue?: number | null;
+  linkedin_url?: string | null;
   owner_id: string;
   contact_count: number;
   deal_count: number;

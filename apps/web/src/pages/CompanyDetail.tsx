@@ -12,6 +12,7 @@ import Avatar from '@/components/ui/Avatar';
 import SpinProgress from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import { EnrichButton, EnrichCompanyModal } from '@/components/EnrichModal';
 
 export default function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,10 +21,10 @@ export default function CompanyDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEnrichModal, setShowEnrichModal] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', title: '' });
   const [editForm, setEditForm] = useState({
     name: '',
-    domain: '',
     industry: '',
     employee_count: '',
     website: '',
@@ -44,6 +45,9 @@ export default function CompanyDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['companies', id] });
       setShowEditModal(false);
       toast.success('Company updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update company');
     },
   });
 
@@ -121,12 +125,12 @@ export default function CompanyDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <EnrichButton onClick={() => setShowEnrichModal(true)} />
           <Button
             variant="secondary"
             onClick={() => {
               setEditForm({
                 name: company.name || '',
-                domain: company.domain || '',
                 industry: company.industry || '',
                 employee_count: company.employee_count?.toString() || '',
                 website: company.website || '',
@@ -178,12 +182,6 @@ export default function CompanyDetailPage() {
         <Card>
           <CardHeader title="Company Information" />
           <div className="space-y-4">
-            {company.domain && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-secondary">Domain</span>
-                <span className="text-sm text-text-primary">{company.domain}</span>
-              </div>
-            )}
             {company.website && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Website</span>
@@ -325,7 +323,6 @@ export default function CompanyDetailPage() {
             e.preventDefault();
             updateMutation.mutate({
               name: editForm.name,
-              domain: editForm.domain || undefined,
               industry: editForm.industry || undefined,
               employee_count: editForm.employee_count ? parseInt(editForm.employee_count) : undefined,
               website: editForm.website || undefined,
@@ -339,12 +336,6 @@ export default function CompanyDetailPage() {
             value={editForm.name}
             onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
             required
-          />
-          <Input
-            label="Domain"
-            value={editForm.domain}
-            onChange={(e) => setEditForm({ ...editForm, domain: e.target.value })}
-            placeholder="example.com"
           />
           <Input
             label="Industry"
@@ -456,6 +447,24 @@ export default function CompanyDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Enrich Modal */}
+      <EnrichCompanyModal
+        isOpen={showEnrichModal}
+        onClose={() => setShowEnrichModal(false)}
+        company={{
+          id: company.id,
+          name: company.name,
+          website: company.website,
+          industry: company.industry,
+          employee_count: company.employee_count,
+          description: company.description,
+          linkedin_url: company.linkedin_url,
+        }}
+        onApply={(updates) => {
+          updateMutation.mutate(updates);
+        }}
+      />
     </div>
   );
 }

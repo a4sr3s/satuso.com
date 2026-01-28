@@ -174,7 +174,7 @@ companies.patch('/:id', zValidator('json', updateCompanySchema), async (c) => {
   const fields: string[] = [];
   const params: any[] = [];
 
-  const allowedFields = ['name', 'domain', 'industry', 'employee_count', 'annual_revenue', 'logo_url', 'website', 'description', 'owner_id'];
+  const allowedFields = ['name', 'domain', 'industry', 'employee_count', 'annual_revenue', 'logo_url', 'website', 'description', 'owner_id', 'linkedin_url'];
   const fieldMap: Record<string, string> = {
     employeeCount: 'employee_count',
     annualRevenue: 'annual_revenue',

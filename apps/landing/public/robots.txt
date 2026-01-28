@@ -1,0 +1,9 @@
+# Satuso - Sales CRM for Solopreneurs & Small Teams
+# https://satuso.com
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Sitemap
+Sitemap: https://satuso.com/sitemap-index.xml

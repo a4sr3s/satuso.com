@@ -45,6 +45,68 @@ const robotsContent = [
   noindex ? 'noindex' : 'index',
   nofollow ? 'nofollow' : 'follow',
 ].join(', ');
+
+// JSON-LD Structured Data
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Satuso",
+  "url": SITE.url,
+  "logo": `${SITE.url}/logo.svg`,
+  "description": SITE.description,
+  "foundingDate": "2024",
+  "sameAs": [],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "sales",
+    "url": `${SITE.url}/contact-sales`,
+  },
+};
+
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Satuso",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "url": SITE.url,
+  "description": "Sales CRM built for solopreneurs and small teams. Track leads, manage your pipeline, automate follow-ups, and close more deals.",
+  "offers": {
+    "@type": "Offer",
+    "price": "29",
+    "priceCurrency": "USD",
+    "priceValidUntil": "2026-12-31",
+    "availability": "https://schema.org/InStock",
+  },
+  "aggregateRating": undefined,
+  "featureList": "Visual Sales Pipeline, AI-Powered Insights, SPIN Selling Methodology, Contact Management, Deal Teams, Custom Workboards, Analytics Dashboard, Follow-Up Reminders",
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Satuso",
+  "url": SITE.url,
+  "description": SITE.description,
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": `${SITE.url}/?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const webPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": title,
+  "description": description,
+  "url": siteURL.href,
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "Satuso",
+    "url": SITE.url,
+  },
+};
 ---
 
 <!doctype html>
@@ -52,16 +114,18 @@ const robotsContent = [
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		
+
+		<!-- Theme Color -->
+		<meta name="theme-color" content="#1f2937" />
+		<meta name="color-scheme" content="light" />
+
 		<!-- Resource Hints -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-		
-		<!-- Preload Critical Resources -->
-		<link rel="preload" href="/favicon.ico" as="image" type="image/x-icon" />
-		
+
 		<!-- Primary Meta Tags -->
 		<title>{title}</title>
 		<meta name="title" content={title} />
@@ -70,21 +134,33 @@ const robotsContent = [
 		<meta name="author" content={SITE.author} />
 		<meta name="robots" content={robotsContent} />
 		<link rel="canonical" href={siteURL.href} />
-		
+		<link rel="alternate" hreflang="en" href={siteURL.href} />
+
 		<!-- Open Graph / Facebook -->
 		<meta property="og:type" content={ogType} />
 		<meta property="og:url" content={siteURL.href} />
 		<meta property="og:title" content={ogTitle} />
 		<meta property="og:description" content={ogDescription} />
 		<meta property="og:image" content={fullOgImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Satuso — Sales CRM for solopreneurs and small teams" />
 		<meta property="og:site_name" content="Satuso" />
-		
+		<meta property="og:locale" content="en_US" />
+
 		<!-- Twitter -->
 		<meta name="twitter:card" content={twitterCard} />
 		<meta name="twitter:url" content={siteURL.href} />
 		<meta name="twitter:title" content={twitterTitle} />
 		<meta name="twitter:description" content={twitterDescription} />
 		<meta name="twitter:image" content={fullTwitterImage} />
+		<meta name="twitter:image:alt" content="Satuso — Sales CRM for solopreneurs and small teams" />
+
+		<!-- JSON-LD Structured Data -->
+		<script type="application/ld+json" set:html={JSON.stringify(organizationSchema)} />
+		<script type="application/ld+json" set:html={JSON.stringify(softwareSchema)} />
+		<script type="application/ld+json" set:html={JSON.stringify(websiteSchema)} />
+		<script type="application/ld+json" set:html={JSON.stringify(webPageSchema)} />
 	</head>
 	<body class="min-h-screen bg-gray-50 flex flex-col">
 		<a

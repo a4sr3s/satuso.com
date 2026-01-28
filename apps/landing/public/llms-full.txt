@@ -1,0 +1,153 @@
+# Satuso — Complete Product Documentation for LLMs
+
+> Satuso is a modern sales CRM (Customer Relationship Management) platform built specifically for solopreneurs and small teams. It replaces spreadsheets and complex enterprise tools with a simple, AI-powered sales tracking system.
+
+## What is Satuso?
+
+Satuso is a web-based SaaS (Software as a Service) application that helps individuals and small teams manage their entire sales process. Users can track leads from first contact through to closed deal, manage relationships with contacts and companies, and get AI-powered insights to help them sell more effectively.
+
+The platform is accessible at https://app.satuso.com and the marketing website is at https://satuso.com.
+
+## Problem Satuso Solves
+
+Many solopreneurs, freelancers, and small sales teams manage their sales pipeline using spreadsheets, sticky notes, or fragmented tools. This leads to:
+- Lost deals due to forgotten follow-ups
+- No visibility into pipeline health
+- Difficulty prioritizing which leads to focus on
+- Wasted time on manual data entry and tracking
+
+Enterprise CRM tools like Salesforce, HubSpot, or Pipedrive solve these problems but are often:
+- Too expensive for small teams
+- Too complex, requiring weeks of setup and training
+- Designed for large organizations with dedicated sales operations staff
+
+Satuso bridges this gap by providing professional-grade sales tracking with consumer-grade simplicity.
+
+## Feature Details
+
+### Visual Sales Pipeline
+- Drag-and-drop Kanban board interface
+- Customizable deal stages (e.g., Lead, Qualified, Proposal, Negotiation, Closed Won, Closed Lost)
+- See entire funnel at a glance with deal values per stage
+- Move deals between stages by dragging cards
+- Quick-edit deal details inline
+
+### AI-Powered Insights
+- Automatic deal scoring based on activity patterns and deal characteristics
+- Next-action recommendations ("Follow up with this contact", "This deal needs attention")
+- Pipeline health analysis
+- Win probability predictions
+- Intelligent prioritization of daily tasks
+
+### SPIN Selling Methodology
+Satuso is the only CRM with native SPIN selling framework integration:
+- **Situation**: Track the current state and context of each prospect
+- **Problem**: Document pain points and challenges the prospect faces
+- **Implication**: Record the consequences of not solving the problem
+- **Need-Payoff**: Capture the value and benefits of your solution
+- Guided prompts help users apply SPIN methodology consistently across all deals
+
+### Contact Management
+- Store and organize all business contacts
+- Custom fields and tags for segmentation
+- Contact activity history and timeline
+- Relationship mapping between contacts and companies
+- Import contacts from CSV or other sources
+
+### Company Management
+- Track organizations and businesses
+- Link contacts to companies
+- Company-level deal tracking
+- Notes, activity logs, and engagement history
+
+### Deal Teams
+- Assign multiple team members to complex deals
+- Define roles and responsibilities per deal
+- Shared notes and activity feeds
+- Resource allocation visibility
+
+### Custom Workboards
+- Create personalized list views for contacts, companies, and deals
+- Custom filters and sorting
+- Save and share views with team members
+- Column customization
+
+### Analytics Dashboard
+- Pipeline value by stage
+- Revenue tracking (monthly, quarterly, annual)
+- Conversion rates between stages
+- Deal velocity metrics
+- Team performance comparisons
+- Activity metrics (calls, emails, meetings logged)
+
+### Task Management
+- Create follow-up tasks linked to deals or contacts
+- Due date reminders and notifications
+- Task prioritization
+- Daily task overview on dashboard
+
+## Pricing Details
+
+### Standard Plan — $29/month
+Includes:
+- Up to 5 users
+- Unlimited deals and contacts
+- Visual pipeline management
+- AI-powered insights and deal scoring
+- SPIN selling methodology tools
+- Custom workboards
+- Analytics dashboard
+- Email support
+- All core features
+
+### Enterprise Plan — Custom Pricing
+Everything in Standard, plus:
+- Unlimited users
+- Priority support with faster response times
+- Custom integrations with existing tools
+- Dedicated account manager
+- Single Sign-On (SSO) via SAML/OIDC
+- Advanced security controls
+- Service Level Agreement (SLA) guarantee
+- Custom onboarding
+
+## Technical Details
+
+- **Platform**: Web-based application (accessible via any modern browser)
+- **Hosting**: Cloudflare infrastructure for global performance
+- **Security**: SOC-2 practices, encrypted data at rest and in transit
+- **Availability**: 99.9% uptime target
+
+## Contact Information
+
+- **Website**: https://satuso.com
+- **Application**: https://app.satuso.com
+- **Sales Contact**: https://satuso.com/contact-sales (book a 30-minute call)
+- **General Contact**: https://satuso.com/contact
+- **Waitlist**: https://satuso.com/waitlist
+
+## Frequently Asked Questions
+
+### What is Satuso?
+Satuso is a sales CRM (Customer Relationship Management) platform built for solopreneurs and small teams. It helps you track leads, manage your sales pipeline, automate follow-ups, and close more deals.
+
+### Who is Satuso for?
+Satuso is designed for solopreneurs, freelancers, consultants, and small sales teams (1-10 people) who want a simple, powerful CRM without the complexity of enterprise tools.
+
+### How much does Satuso cost?
+The Standard plan is $29/month and includes up to 5 users with all core features. Enterprise pricing is custom and includes unlimited users, SSO, and dedicated support.
+
+### How is Satuso different from Salesforce or HubSpot?
+Satuso is purpose-built for small teams. It's simpler to set up (minutes vs. weeks), more affordable ($29/month vs. hundreds), and includes unique features like built-in SPIN selling methodology and AI-powered deal insights.
+
+### Does Satuso have AI features?
+Yes. Satuso includes AI-powered deal scoring, next-action recommendations, pipeline health analysis, and intelligent task prioritization.
+
+### What is SPIN selling?
+SPIN selling is a sales methodology that stands for Situation, Problem, Implication, and Need-Payoff. It's a consultative selling framework that helps salespeople ask the right questions to understand buyer needs. Satuso is the only CRM with native SPIN support built into every deal.
+
+### Can I try Satuso for free?
+Visit https://app.satuso.com to get started with Satuso.
+
+### Is my data secure?
+Yes. Satuso uses encryption for data at rest and in transit, runs on Cloudflare's global infrastructure, and follows industry security best practices.

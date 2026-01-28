@@ -2,178 +2,130 @@
 import Layout from "../layouts/Layout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
 import ScrollReveal from "../components/ScrollReveal.tsx";
+import { Icon } from "astro-icon/components";
 import { SITE } from "../config/site.mjs";
 ---
 
 <Layout
-  title={`About | ${SITE.title}`}
-  description="Learn more about Astro Base - a minimal, modern starter template for building fast websites with Astro, React, Tailwind CSS, and Framer Motion."
+  title={`About Satuso — Sales Tracking Built for Small Teams`}
+  description="Satuso is a modern sales CRM built for solopreneurs and small teams. Track leads, manage your pipeline, automate follow-ups, and close more deals without the complexity of enterprise tools."
   canonicalURL={`${SITE.url}/about`}
 >
   <Header />
+  <Breadcrumbs items={[{ label: "About" }]} />
   <main id="main-content" role="main">
     <section class="max-w-4xl mx-auto px-4 py-20">
       <ScrollReveal client:idle>
-        <h1 class="text-5xl font-bold text-gray-900 mb-4">Astro Base</h1>
+        <h1 class="text-5xl font-bold text-gray-900 mb-6 tracking-tight">
+          Sales tracking that<br />
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">actually makes sense</span>
+        </h1>
       </ScrollReveal>
       <ScrollReveal client:load delay={0.1}>
-        <p class="text-xl text-gray-600 mb-12">
-          A minimal, modern starter template for building fast websites with
-          Astro. This template includes everything you need to get started with
-          a beautiful landing page, complete with animations, icons, and content
-          management capabilities.
+        <p class="text-xl text-gray-600 mb-12 max-w-3xl">
+          Satuso is a sales CRM built for solopreneurs and small teams who are tired of juggling spreadsheets, sticky notes, and bloated enterprise software. We believe managing your sales pipeline should be simple, fast, and intuitive.
         </p>
       </ScrollReveal>
 
-      <div class="prose prose-lg max-w-none">
+      <div class="space-y-16">
         <ScrollReveal client:load delay={0.2}>
-          <h2>Features</h2>
-          <ul>
-            <li>
-              <strong>Astro</strong> - Lightning-fast static site generation
-            </li>
-            <li>
-              <strong>React</strong> - Component-based UI library for interactive
-              components
-            </li>
-            <li>
-              <strong>Tailwind CSS v4</strong> - Utility-first CSS framework for rapid
-              styling
-            </li>
-            <li>
-              <strong>Framer Motion</strong> - Smooth scroll reveal animations with
-              spring physics
-            </li>
-            <li>
-              <strong>Astro Icons</strong> - Beautiful icon component library with
-              Tabler icon set
-            </li>
-            <li><strong>MDX</strong> - Write JSX in your Markdown documents</li>
-            <li>
-              <strong>Sass</strong> - CSS preprocessor with variables, mixins, and
-              nesting
-            </li>
-            <li>
-              <strong>Tailwind Typography</strong> - Beautiful typography styles for
-              markdown content
-            </li>
-          </ul>
+          <div class="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 class="text-2xl font-bold text-gray-900 mb-4">Why we built Satuso</h2>
+              <p class="text-gray-600 mb-4">
+                Most CRMs are designed for large enterprises with dedicated sales ops teams. They're bloated, expensive, and take weeks to set up. Solopreneurs and small teams deserve something better.
+              </p>
+              <p class="text-gray-600">
+                Satuso gives you everything you need to track deals, manage contacts, and close more sales — without the complexity. Sign up, import your contacts, and start selling in minutes.
+              </p>
+            </div>
+            <div class="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8">
+              <div class="space-y-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Icon name="tabler:clock" class="w-5 h-5 text-blue-600" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p class="font-semibold text-gray-900">Set up in minutes</p>
+                    <p class="text-sm text-gray-600">No training required</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Icon name="tabler:wallet" class="w-5 h-5 text-purple-600" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p class="font-semibold text-gray-900">Affordable pricing</p>
+                    <p class="text-sm text-gray-600">Starting at $29/month</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Icon name="tabler:heart" class="w-5 h-5 text-green-600" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p class="font-semibold text-gray-900">Built for you</p>
+                    <p class="text-sm text-gray-600">Not for Fortune 500 companies</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal client:load delay={0.3}>
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">What makes Satuso different</h2>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="bg-white border border-gray-200 rounded-xl p-6">
+                <Icon name="tabler:brain" class="w-8 h-8 text-blue-600 mb-3" aria-hidden="true" />
+                <h3 class="font-semibold text-gray-900 mb-2">AI-Powered Insights</h3>
+                <p class="text-sm text-gray-600">
+                  Get intelligent deal scoring and recommendations so you know exactly which leads to focus on and when to follow up.
+                </p>
+              </div>
+              <div class="bg-white border border-gray-200 rounded-xl p-6">
+                <Icon name="tabler:message-circle" class="w-8 h-8 text-purple-600 mb-3" aria-hidden="true" />
+                <h3 class="font-semibold text-gray-900 mb-2">SPIN Selling Built In</h3>
+                <p class="text-sm text-gray-600">
+                  The only CRM with native SPIN selling methodology. Track Situation, Problem, Implication, and Need-Payoff for every deal.
+                </p>
+              </div>
+              <div class="bg-white border border-gray-200 rounded-xl p-6">
+                <Icon name="tabler:layout-kanban" class="w-8 h-8 text-green-600 mb-3" aria-hidden="true" />
+                <h3 class="font-semibold text-gray-900 mb-2">Visual Pipeline</h3>
+                <p class="text-sm text-gray-600">
+                  Drag-and-drop Kanban boards let you see your entire sales funnel at a glance. Move deals through stages effortlessly.
+                </p>
+              </div>
+            </div>
+          </div>
         </ScrollReveal>
 
         <ScrollReveal client:load delay={0.4}>
-          <h2>Getting Started</h2>
-          <h3>Installation</h3>
-          <ol>
-            <li>
-              <strong>Clone the repository</strong>
-              <pre><code>git clone https://github.com/jonnysmillie/astro-base.git
-cd astro-base</code></pre>
-            </li>
-            <li>
-              <strong>Install dependencies</strong>
-              <pre><code>npm install</code></pre>
-            </li>
-            <li>
-              <strong>Start the development server</strong>
-              <pre><code>npm run dev</code></pre>
-            </li>
-            <li>
-              <strong>Open your browser</strong> - Navigate to <code
-                >http://localhost:4321</code
+          <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-10 text-center text-white">
+            <h2 class="text-3xl font-bold mb-4">Ready to ditch the spreadsheets?</h2>
+            <p class="text-lg text-blue-100 mb-6 max-w-xl mx-auto">
+              Join solopreneurs and small teams who track their deals with Satuso.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href={`${SITE.appUrl}/login`}
+                class="inline-flex items-center justify-center gap-2 px-8 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors font-medium"
               >
-            </li>
-          </ol>
-        </ScrollReveal>
-
-        <ScrollReveal client:load delay={0.5}>
-          <h2>Available Scripts</h2>
-          <ul>
-            <li><code>npm install</code> - Installs dependencies</li>
-            <li>
-              <code>npm run dev</code> - Starts local dev server at <code
-                >localhost:4321</code
+                <Icon name="tabler:rocket" class="w-5 h-5" aria-hidden="true" />
+                Get Started Free
+              </a>
+              <a
+                href="/contact-sales"
+                class="inline-flex items-center justify-center gap-2 px-8 py-3 bg-transparent text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors font-medium"
               >
-            </li>
-            <li>
-              <code>npm run build</code> - Build your production site to <code
-                >./dist/</code
-              >
-            </li>
-            <li><code>npm run preview</code> - Preview your build locally</li>
-            <li>
-              <code>npm run astro</code> - Run CLI commands like <code
-                >astro add</code
-              >, <code>astro check</code>
-            </li>
-          </ul>
-        </ScrollReveal>
-
-        <ScrollReveal client:load delay={0.6}>
-          <h2>Styling</h2>
-
-          <h3>Tailwind CSS</h3>
-          <p>
-            This project uses Tailwind CSS v4 for styling. All components use
-            Tailwind utility classes.
-          </p>
-
-          <p><strong>Global Styles:</strong></p>
-          <ul>
-            <li>Located in <code>src/styles/global.css</code></li>
-            <li>Imports Tailwind CSS</li>
-            <li>Includes Tailwind Typography plugin for markdown styling</li>
-          </ul>
-
-          <p><strong>Configuration:</strong></p>
-          <ul>
-            <li>
-              <code>tailwind.config.mjs</code> - Tailwind configuration with Typography
-              plugin
-            </li>
-          </ul>
-
-          <h3>Sass</h3>
-          <p>
-            Sass is installed and ready to use. You can use Sass in component <code
-              >&lt;style&gt;</code
-            > blocks. See <code>src/components/SassExample.astro</code> for a complete
-            example.
-          </p>
-        </ScrollReveal>
-
-        <ScrollReveal client:load delay={0.7}>
-          <h2>Components</h2>
-
-          <h3>ScrollReveal</h3>
-          <p>
-            A React component using Framer Motion for scroll-triggered
-            animations with the following props:
-          </p>
-          <ul>
-            <li>
-              <code>delay</code> - Animation delay in seconds (default: 0)
-            </li>
-            <li>
-              <code>direction</code> - Animation direction: "up" | "down" | "left"
-              | "right" (default: "up")
-            </li>
-            <li>
-              <code>distance</code> - Distance to travel in pixels (default: 50)
-            </li>
-            <li>
-              <code>scale</code> - Enable scale animation (default: false)
-            </li>
-          </ul>
-
-          <h3>Icons</h3>
-          <p>
-            Use Tabler icons with astro-icon. Browse available icons at <a
-              href="https://tabler.io/icons"
-              target="_blank"
-              rel="noopener noreferrer">Tabler Icons</a
-            >.
-          </p>
+                Talk to Sales
+              </a>
+            </div>
+          </div>
         </ScrollReveal>
       </div>
     </section>

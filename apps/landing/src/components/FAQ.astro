@@ -1,0 +1,87 @@
+---
+import ScrollReveal from "./ScrollReveal.tsx";
+import { Icon } from "astro-icon/components";
+
+const faqs = [
+  {
+    question: "What is Satuso?",
+    answer: "Satuso is a sales CRM (Customer Relationship Management) platform built for solopreneurs and small teams. It helps you track leads, manage your sales pipeline, automate follow-ups, and close more deals — without the complexity of enterprise tools like Salesforce or HubSpot.",
+  },
+  {
+    question: "Who is Satuso for?",
+    answer: "Satuso is designed for solopreneurs, freelancers, consultants, and small sales teams (1-10 people) who want a simple, powerful CRM. If you're currently tracking deals in spreadsheets or sticky notes, Satuso is built for you.",
+  },
+  {
+    question: "How much does Satuso cost?",
+    answer: "The Standard plan is $29/month and includes up to 5 users with all core features including AI-powered insights, visual pipeline management, SPIN selling tools, and analytics. Enterprise pricing is custom for larger teams needing SSO, dedicated support, and custom integrations.",
+  },
+  {
+    question: "How is Satuso different from Salesforce or HubSpot?",
+    answer: "Satuso is purpose-built for small teams. It's simpler to set up (minutes vs. weeks), more affordable ($29/month vs. hundreds), and includes unique features like built-in SPIN selling methodology and AI-powered deal insights. We're not a stripped-down enterprise tool — we're designed from the ground up for solopreneurs.",
+  },
+  {
+    question: "What is SPIN selling and why is it built into Satuso?",
+    answer: "SPIN selling is a proven sales methodology that stands for Situation, Problem, Implication, and Need-Payoff. It helps salespeople ask better questions and understand buyer needs. Satuso is the only CRM with native SPIN support built into every deal, so you can apply this framework consistently without extra tools or spreadsheets.",
+  },
+  {
+    question: "Does Satuso have AI features?",
+    answer: "Yes. Satuso includes AI-powered deal scoring, next-action recommendations, pipeline health analysis, and intelligent task prioritization. The AI helps you focus on the right leads at the right time so you never miss a follow-up.",
+  },
+  {
+    question: "Can I import my existing contacts and deals?",
+    answer: "Yes. You can import contacts and deals from CSV files. Whether you're coming from spreadsheets or another CRM, getting your data into Satuso is straightforward.",
+  },
+  {
+    question: "Is my data secure?",
+    answer: "Yes. Satuso uses encryption for data at rest and in transit, runs on Cloudflare's global infrastructure for speed and reliability, and follows industry security best practices to keep your sales data safe.",
+  },
+];
+
+// Generate FAQPage JSON-LD schema
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqs.map((faq) => ({
+    "@type": "Question",
+    "name": faq.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": faq.answer,
+    },
+  })),
+};
+---
+
+<section id="faq" class="max-w-4xl mx-auto px-4 py-20">
+  <ScrollReveal client:idle delay={0.1}>
+    <h2 class="text-3xl font-bold text-gray-900 text-center mb-3">
+      Frequently Asked Questions
+    </h2>
+    <p class="text-lg text-gray-600 text-center mb-12 max-w-2xl mx-auto">
+      Everything you need to know about Satuso.
+    </p>
+  </ScrollReveal>
+
+  <div class="space-y-4">
+    {faqs.map((faq, index) => (
+      <ScrollReveal client:idle delay={0.1 + index * 0.05}>
+        <details class="group bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <summary class="flex items-center justify-between cursor-pointer px-6 py-5 text-left font-semibold text-gray-900 hover:bg-gray-50 transition-colors">
+            <span>{faq.question}</span>
+            <Icon
+              name="tabler:chevron-down"
+              class="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180 flex-shrink-0 ml-4"
+              aria-hidden="true"
+            />
+          </summary>
+          <div class="px-6 pb-5 text-gray-600 leading-relaxed">
+            {faq.answer}
+          </div>
+        </details>
+      </ScrollReveal>
+    ))}
+  </div>
+
+  <!-- FAQPage Schema -->
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+</section>

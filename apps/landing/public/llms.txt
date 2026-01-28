@@ -1,0 +1,47 @@
+# Satuso
+
+> Satuso is a modern sales CRM built for solopreneurs and small teams. It helps users track leads, manage their sales pipeline, automate follow-ups, and close more deals.
+
+## Product Overview
+
+Satuso is a web-based sales tracking and CRM (Customer Relationship Management) platform. It is designed specifically for solopreneurs, freelancers, consultants, and small sales teams (1-10 people) who need a simple yet powerful tool to manage their sales process without the complexity and cost of enterprise CRM software like Salesforce or HubSpot.
+
+## Core Features
+
+- **Visual Sales Pipeline**: Drag-and-drop Kanban boards for managing deals through customizable stages (Lead, Qualified, Proposal, Negotiation, Closed Won/Lost).
+- **AI-Powered Insights**: Intelligent deal scoring and recommendations that help users prioritize which leads to focus on and when to follow up.
+- **SPIN Selling Methodology**: The only CRM with built-in SPIN selling framework. Users can track Situation, Problem, Implication, and Need-Payoff notes for every deal.
+- **Contact & Company Management**: Organize contacts and companies with custom fields, tags, and relationship tracking.
+- **Deal Teams**: Collaborate on complex deals by assigning team members and resources to specific opportunities.
+- **Custom Workboards**: Create personalized views and dashboards for contacts, companies, and deals.
+- **Analytics Dashboard**: Track pipeline value, conversion rates, revenue trends, and team performance metrics.
+- **Follow-Up Reminders**: Automated task reminders to ensure no lead falls through the cracks.
+
+## Pricing
+
+- **Standard Plan**: $29/month — includes up to 5 users, unlimited deals and contacts, visual pipeline, AI insights, SPIN selling, custom workboards, analytics, and email support.
+- **Enterprise Plan**: Custom pricing — includes everything in Standard plus unlimited users, priority support, custom integrations, dedicated account manager, SSO, advanced security, and SLA guarantee.
+
+## Target Audience
+
+Satuso is built for:
+- Solopreneurs and independent consultants
+- Freelancers who sell services
+- Small sales teams (1-10 people)
+- Startups that need a simple CRM
+- Anyone currently tracking deals in spreadsheets
+
+## Company Information
+
+- **Website**: https://satuso.com
+- **Application**: https://app.satuso.com
+- **Contact Sales**: https://satuso.com/contact-sales
+- **Contact**: https://satuso.com/contact
+
+## Key Differentiators
+
+1. **Simplicity**: Set up in minutes, not weeks. No training or consultants required.
+2. **Affordable**: Starting at $29/month with no per-seat surprises for up to 5 users.
+3. **SPIN Selling Native**: Only CRM with built-in SPIN methodology support.
+4. **AI-First**: Intelligent deal scoring and next-action recommendations.
+5. **Built for Small Teams**: Not a stripped-down enterprise tool — designed from the ground up for solopreneurs and small teams.

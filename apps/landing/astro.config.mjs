@@ -17,8 +17,33 @@ export default defineConfig({
     tailwind(),
     sitemap({
       changefreq: "weekly",
-      priority: 0.7,
       lastmod: new Date(),
+      filter: (page) => !page.includes("/example"),
+      serialize: (item) => {
+        // Set custom priorities per page
+        if (item.url === `${SITE.url}/`) {
+          return { ...item, priority: 1.0, changefreq: "daily" };
+        }
+        if (item.url.includes("/features")) {
+          return { ...item, priority: 0.9, changefreq: "weekly" };
+        }
+        if (item.url.includes("/contact-sales")) {
+          return { ...item, priority: 0.8, changefreq: "monthly" };
+        }
+        if (item.url.includes("/about")) {
+          return { ...item, priority: 0.7, changefreq: "monthly" };
+        }
+        if (item.url.includes("/contact")) {
+          return { ...item, priority: 0.6, changefreq: "monthly" };
+        }
+        if (item.url.includes("/privacy") || item.url.includes("/terms")) {
+          return { ...item, priority: 0.3, changefreq: "yearly" };
+        }
+        if (item.url.includes("/waitlist")) {
+          return { ...item, priority: 0.6, changefreq: "monthly" };
+        }
+        return { ...item, priority: 0.5 };
+      },
     }),
   ],
   build: {

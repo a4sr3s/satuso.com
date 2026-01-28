@@ -1,0 +1,110 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import { SITE } from "../config/site.mjs";
+---
+
+<Layout
+  title={`Privacy Policy — Satuso`}
+  description="Satuso's privacy policy explains how we collect, use, and protect your personal data when you use our sales CRM platform."
+  canonicalURL={`${SITE.url}/privacy`}
+>
+  <Header />
+  <Breadcrumbs items={[{ label: "Privacy Policy" }]} />
+  <main id="main-content" role="main">
+    <article class="max-w-3xl mx-auto px-4 py-20">
+      <h1 class="text-4xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
+      <p class="text-sm text-gray-500 mb-10">Last updated: January 2026</p>
+
+      <div class="prose prose-gray max-w-none">
+        <h2>1. Introduction</h2>
+        <p>
+          Satuso ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at satuso.com and our application at app.satuso.com (collectively, the "Service").
+        </p>
+
+        <h2>2. Information We Collect</h2>
+        <h3>Information You Provide</h3>
+        <p>We collect information you provide directly when you:</p>
+        <ul>
+          <li>Create an account (name, email address, password)</li>
+          <li>Use the Service (contacts, companies, deals, notes, and other sales data you enter)</li>
+          <li>Contact us for support (email address, message content)</li>
+          <li>Subscribe to our waitlist or newsletter (email address)</li>
+        </ul>
+
+        <h3>Information Collected Automatically</h3>
+        <p>When you use the Service, we may automatically collect:</p>
+        <ul>
+          <li>Usage data (pages visited, features used, actions taken)</li>
+          <li>Device information (browser type, operating system, device type)</li>
+          <li>Log data (IP address, access times, referring URLs)</li>
+        </ul>
+
+        <h2>3. How We Use Your Information</h2>
+        <p>We use the information we collect to:</p>
+        <ul>
+          <li>Provide, maintain, and improve the Service</li>
+          <li>Process your transactions and manage your account</li>
+          <li>Send you technical notices, updates, and support messages</li>
+          <li>Respond to your comments, questions, and requests</li>
+          <li>Monitor and analyze trends, usage, and activities</li>
+          <li>Detect, investigate, and prevent fraudulent or unauthorized activity</li>
+        </ul>
+
+        <h2>4. Data Sharing</h2>
+        <p>
+          We do not sell your personal information. We may share your information only in the following circumstances:
+        </p>
+        <ul>
+          <li><strong>Service Providers:</strong> With third-party vendors who perform services on our behalf (hosting, analytics, email delivery)</li>
+          <li><strong>Legal Requirements:</strong> When required by law, court order, or governmental regulation</li>
+          <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
+          <li><strong>Consent:</strong> With your explicit consent</li>
+        </ul>
+
+        <h2>5. Data Security</h2>
+        <p>
+          We implement appropriate technical and organizational measures to protect your data, including encryption of data in transit and at rest, regular security assessments, and access controls. However, no method of transmission over the Internet or electronic storage is 100% secure.
+        </p>
+
+        <h2>6. Data Retention</h2>
+        <p>
+          We retain your personal information for as long as your account is active or as needed to provide you the Service. You can request deletion of your account and associated data at any time by contacting us.
+        </p>
+
+        <h2>7. Your Rights</h2>
+        <p>Depending on your location, you may have the right to:</p>
+        <ul>
+          <li>Access the personal data we hold about you</li>
+          <li>Request correction of inaccurate data</li>
+          <li>Request deletion of your data</li>
+          <li>Object to or restrict processing of your data</li>
+          <li>Data portability (receive your data in a structured format)</li>
+        </ul>
+
+        <h2>8. Cookies</h2>
+        <p>
+          We use essential cookies to operate the Service (authentication, security). We may use analytics cookies to understand how the Service is used. You can control cookie preferences through your browser settings.
+        </p>
+
+        <h2>9. Children's Privacy</h2>
+        <p>
+          The Service is not directed to children under 16. We do not knowingly collect personal information from children under 16.
+        </p>
+
+        <h2>10. Changes to This Policy</h2>
+        <p>
+          We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last updated" date.
+        </p>
+
+        <h2>11. Contact Us</h2>
+        <p>
+          If you have questions about this Privacy Policy, please contact us at <a href="/contact">our contact page</a>.
+        </p>
+      </div>
+    </article>
+  </main>
+  <Footer />
+</Layout>

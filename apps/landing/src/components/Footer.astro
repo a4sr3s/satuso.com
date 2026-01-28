@@ -1,11 +1,83 @@
 ---
+import { Icon } from "astro-icon/components";
+import { SITE } from "../config/site.mjs";
 ---
 
 <footer
-  class="w-full py-6 px-4 border-t border-gray-200 bg-white"
+  class="w-full border-t border-gray-200 bg-white"
   role="contentinfo"
 >
-  <div class="max-w-6xl mx-auto text-center text-gray-500 text-sm">
-    <p>&copy; {new Date().getFullYear()} Satuso. All rights reserved.</p>
+  <div class="max-w-6xl mx-auto px-4 py-12">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+      <!-- Brand Column -->
+      <div class="col-span-2 md:col-span-1">
+        <a href="/" class="inline-block mb-4">
+          <img src="/logo.svg" alt="Satuso" class="h-8" />
+        </a>
+        <p class="text-sm text-gray-600 mb-4">
+          Sales tracking built for solopreneurs and small teams. Ditch the spreadsheets.
+        </p>
+      </div>
+
+      <!-- Product Column -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Product</h3>
+        <ul class="space-y-3">
+          <li>
+            <a href="/features" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Features</a>
+          </li>
+          <li>
+            <a href="/#pricing" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Pricing</a>
+          </li>
+          <li>
+            <a href={`${SITE.appUrl}/login`} class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Get Started</a>
+          </li>
+          <li>
+            <a href="/waitlist" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Waitlist</a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Company Column -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Company</h3>
+        <ul class="space-y-3">
+          <li>
+            <a href="/about" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">About</a>
+          </li>
+          <li>
+            <a href="/contact" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Contact</a>
+          </li>
+          <li>
+            <a href="/contact-sales" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Contact Sales</a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Legal Column -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-900 mb-4">Legal</h3>
+        <ul class="space-y-3">
+          <li>
+            <a href="/privacy" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Privacy Policy</a>
+          </li>
+          <li>
+            <a href="/terms" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Terms of Service</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="border-t border-gray-200 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-sm text-gray-500">
+        &copy; {new Date().getFullYear()} Satuso. All rights reserved.
+      </p>
+      <div class="flex items-center gap-1">
+        <span class="text-xs text-gray-400">Built with</span>
+        <Icon name="tabler:heart-filled" class="w-3 h-3 text-red-500" aria-hidden="true" />
+        <span class="text-xs text-gray-400">for small teams</span>
+      </div>
+    </div>
   </div>
 </footer>

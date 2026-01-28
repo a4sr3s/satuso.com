@@ -2,6 +2,39 @@
 import ScrollReveal from "./ScrollReveal.tsx";
 import { Icon } from "astro-icon/components";
 import { SITE } from "../config/site.mjs";
+
+// JSON-LD Product schema for pricing
+const pricingSchema = {
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Satuso CRM",
+  "description": "Sales CRM built for solopreneurs and small teams. Track leads, manage your pipeline, automate follow-ups, and close more deals.",
+  "brand": {
+    "@type": "Brand",
+    "name": "Satuso",
+  },
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Standard",
+      "price": "29",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2026-12-31",
+      "availability": "https://schema.org/InStock",
+      "description": "Up to 5 users. Unlimited deals and contacts, visual pipeline, AI insights, SPIN selling, custom workboards, analytics, email support.",
+      "url": `${SITE.appUrl}/login`,
+    },
+    {
+      "@type": "Offer",
+      "name": "Enterprise",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "description": "Custom pricing. Unlimited users, priority support, custom integrations, dedicated account manager, SSO, advanced security, SLA guarantee.",
+      "url": `${SITE.url}/contact-sales`,
+    },
+  ],
+};
 ---
 
 <section id="pricing" class="max-w-6xl mx-auto px-4 py-20">
@@ -132,4 +165,7 @@ import { SITE } from "../config/site.mjs";
       </div>
     </ScrollReveal>
   </div>
+
+  <!-- Pricing Schema -->
+  <script type="application/ld+json" set:html={JSON.stringify(pricingSchema)} />
 </section>

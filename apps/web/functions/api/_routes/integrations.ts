@@ -262,9 +262,10 @@ integrations.post('/:provider/test', async (c) => {
 // ========================================
 
 // Schemas for enrichment
+// Note: Don't use .url() validation for linkedin_url - it may come in various formats
 const enrichContactSchema = z.object({
   email: z.string().email().optional(),
-  linkedin_url: z.string().url().optional(),
+  linkedin_url: z.string().optional(),
   name: z.string().optional(),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
@@ -278,11 +279,47 @@ const enrichContactSchema = z.object({
 const enrichCompanySchema = z.object({
   website: z.string().optional(),
   name: z.string().optional(),
-  linkedin_url: z.string().url().optional(),
+  linkedin_url: z.string().optional(),
   ticker: z.string().optional(),
 }).refine(data => data.website || data.name || data.linkedin_url, {
   message: 'Either website, name, or linkedin_url is required',
 });
+
+// Helper to normalize LinkedIn URL to full format for PDL
+function normalizeLinkedInUrl(input: string | undefined): string | undefined {
+  if (!input) return undefined;
+
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  // Already a full URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // Handle /in/username format
+  if (trimmed.startsWith('/in/')) {
+    return `https://linkedin.com${trimmed}`;
+  }
+
+  // Handle in/username format
+  if (trimmed.startsWith('in/')) {
+    return `https://linkedin.com/${trimmed}`;
+  }
+
+  // Handle linkedin.com/in/username (no protocol)
+  if (trimmed.startsWith('linkedin.com')) {
+    return `https://${trimmed}`;
+  }
+
+  // Handle just username - assume it's a LinkedIn username
+  if (/^[a-zA-Z0-9-]+$/.test(trimmed)) {
+    return `https://linkedin.com/in/${trimmed}`;
+  }
+
+  // Return as-is if we can't normalize
+  return trimmed;
+}
 
 // Helper to get PDL API key for org
 async function getPdlApiKey(db: D1Database, organizationId: string): Promise<string | null> {
@@ -524,7 +561,8 @@ integrations.post('/enrich/contact', zValidator('json', enrichContactSchema), as
 
     // Identity params
     if (params.email) queryParams.set('email', params.email);
-    if (params.linkedin_url) queryParams.set('profile', params.linkedin_url);
+    const normalizedLinkedIn = normalizeLinkedInUrl(params.linkedin_url);
+    if (normalizedLinkedIn) queryParams.set('profile', normalizedLinkedIn);
 
     // Name handling - send both full name and split names for better matching
     if (params.name) {
@@ -726,7 +764,8 @@ integrations.post('/enrich/company', zValidator('json', enrichCompanySchema), as
     if (params.name) queryParams.set('name', params.name);
 
     // LinkedIn profile
-    if (params.linkedin_url) queryParams.set('profile', params.linkedin_url);
+    const normalizedCompanyLinkedIn = normalizeLinkedInUrl(params.linkedin_url);
+    if (normalizedCompanyLinkedIn) queryParams.set('profile', normalizedCompanyLinkedIn);
 
     // Stock ticker for public companies
     if (params.ticker) queryParams.set('ticker', params.ticker);

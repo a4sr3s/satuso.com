@@ -12,6 +12,7 @@ import Avatar from '@/components/ui/Avatar';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { useState } from 'react';
+import { EnrichButton, EnrichContactModal } from '@/components/EnrichModal';
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export default function ContactDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEnrichModal, setShowEnrichModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', id],
@@ -34,12 +36,14 @@ export default function ContactDetailPage() {
     email: string;
     phone: string;
     title: string;
+    linkedin_url: string;
     company_id: string | undefined;
   }>({
     name: '',
     email: '',
     phone: '',
     title: '',
+    linkedin_url: '',
     company_id: '',
   });
 
@@ -65,6 +69,9 @@ export default function ContactDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['contacts', id] });
       setShowEditModal(false);
       toast.success('Contact updated');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update contact');
     },
   });
 
@@ -130,6 +137,7 @@ export default function ContactDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <EnrichButton onClick={() => setShowEnrichModal(true)} />
           <Button
             variant="secondary"
             onClick={() => {
@@ -138,6 +146,7 @@ export default function ContactDetailPage() {
                 email: contact.email || '',
                 phone: contact.phone || '',
                 title: contact.title || '',
+                linkedin_url: contact.linkedin_url || '',
                 company_id: contact.company_id || '',
               });
               setShowEditModal(true);
@@ -340,6 +349,12 @@ export default function ContactDetailPage() {
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           />
+          <Input
+            label="LinkedIn URL"
+            value={formData.linkedin_url}
+            onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
+            placeholder="https://linkedin.com/in/username"
+          />
           <div>
             <label className="label">Company</label>
             <select
@@ -443,6 +458,26 @@ export default function ContactDetailPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Enrich Modal */}
+      <EnrichContactModal
+        isOpen={showEnrichModal}
+        onClose={() => setShowEnrichModal(false)}
+        contact={{
+          id: contact.id,
+          name: contact.name,
+          email: contact.email,
+          phone: contact.phone,
+          title: contact.title,
+          linkedin_url: contact.linkedin_url,
+          company_id: contact.company_id,
+        }}
+        companyName={contact.company_name}
+        onApply={(updates) => {
+          updateMutation.mutate(updates);
+          toast.success('Contact enriched');
+        }}
+      />
     </div>
   );
 }

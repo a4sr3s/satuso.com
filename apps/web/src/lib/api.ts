@@ -74,7 +74,25 @@ class ApiClient {
     const data = await response.json();
 
     if (!response.ok) {
-      const error = new Error(data.error || 'An error occurred') as Error & { status?: number };
+      // Handle both string and object error formats
+      let errorMessage = 'An error occurred';
+      if (typeof data.error === 'string') {
+        errorMessage = data.error;
+      } else if (data.error?.message) {
+        errorMessage = data.error.message;
+      } else if (data.error?.issues?.[0]?.message) {
+        // Zod validation error format
+        errorMessage = data.error.issues[0].message;
+      } else if (data.message) {
+        errorMessage = data.message;
+      } else if (data.error) {
+        // Last resort: stringify the error object
+        errorMessage = JSON.stringify(data.error);
+      } else if (typeof data === 'object') {
+        // If data itself is the error, stringify it
+        errorMessage = JSON.stringify(data);
+      }
+      const error = new Error(errorMessage) as Error & { status?: number };
       error.status = response.status;
       throw error;
     }
@@ -100,8 +118,11 @@ class ApiClient {
     });
   }
 
-  delete<T>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  delete<T>(endpoint: string, body?: unknown) {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: body ? JSON.stringify(body) : undefined,
+    });
   }
 }
 
@@ -386,8 +407,8 @@ export const organizationsApi = {
   updateProfile: (data: { name?: string }) =>
     api.patch<ApiResponse<{ name: string }>>('/organizations/profile', data),
 
-  deleteAccount: () =>
-    api.delete<ApiResponse<{ message: string }>>('/organizations/account'),
+  deleteAccount: (password: string) =>
+    api.delete<ApiResponse<{ message: string }>>('/organizations/account', { password }),
 };
 
 // Billing API
@@ -452,4 +473,206 @@ export const notificationsApi = {
 
   markAllAsRead: () =>
     api.post<ApiResponse<null>>('/notifications/mark-all-read'),
+};
+
+// Integrations API
+export interface IntegrationProvider {
+  id: string;
+  name: string;
+  description: string;
+  website: string;
+  features: string[];
+}
+
+export interface Integration {
+  id: string;
+  provider: string;
+  enabled: number;
+  has_api_key: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnrichedContactData {
+  // Identity
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+
+  // Contact info
+  email?: string;
+  work_email?: string;
+  personal_email?: string;
+  phone?: string;
+  mobile_phone?: string;
+
+  // Social profiles
+  linkedin_url?: string;
+  twitter_url?: string;
+  github_url?: string;
+  facebook_url?: string;
+
+  // Current job
+  title?: string;
+  job_title_role?: string;
+  job_title_levels?: string[];
+  company_name?: string;
+  company_website?: string;
+  company_industry?: string;
+  company_size?: string;
+  company_employee_count?: number;
+  company_linkedin_url?: string;
+  job_start_date?: string;
+  inferred_salary?: string;
+
+  // Location
+  location?: string;
+  location_locality?: string;
+  location_region?: string;
+  location_country?: string;
+
+  // Demographics
+  birth_year?: number;
+
+  // Experience history
+  experience?: Array<{
+    title?: string;
+    company?: string;
+    company_website?: string;
+    company_industry?: string;
+    start_date?: string;
+    end_date?: string;
+    is_current?: boolean;
+    location?: string;
+  }>;
+
+  // Education
+  education?: Array<{
+    school?: string;
+    degrees?: string[];
+    majors?: string[];
+    start_date?: string;
+    end_date?: string;
+  }>;
+
+  // Skills & interests
+  skills?: string[];
+  interests?: string[];
+  languages?: string[];
+  industry?: string;
+
+  // Certifications
+  certifications?: Array<{
+    name?: string;
+    organization?: string;
+  }>;
+}
+
+export interface EnrichedCompanyData {
+  // Identity
+  name?: string;
+  alternative_names?: string[];
+
+  // Website
+  website?: string;
+  domain?: string;
+  alternative_domains?: string[];
+
+  // Description
+  headline?: string;
+  description?: string;
+  tags?: string[];
+
+  // Size & revenue
+  employee_count?: number;
+  size?: string;
+  inferred_revenue?: string;
+
+  // Industry
+  industry?: string;
+  naics_codes?: string[];
+  sic_codes?: string[];
+
+  // Social profiles
+  linkedin_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
+
+  // Company info
+  founded?: number;
+  type?: string;
+  ticker?: string;
+
+  // Location
+  location?: string;
+  location_locality?: string;
+  location_region?: string;
+  location_country?: string;
+  location_street_address?: string;
+  location_postal_code?: string;
+
+  // Funding
+  total_funding_raised?: number;
+  latest_funding_stage?: string;
+  last_funding_date?: string;
+  number_funding_rounds?: number;
+  funding_stages?: string[];
+
+  // Growth
+  average_employee_tenure?: number;
+  employee_growth_rate_12mo?: number;
+}
+
+export interface EnrichmentResult<T> {
+  enriched: T;
+  likelihood?: number; // 1-10 confidence score
+  matched?: string[]; // which input fields matched
+  raw: Record<string, unknown>;
+}
+
+export const integrationsApi = {
+  listProviders: () =>
+    api.get<ApiResponse<IntegrationProvider[]>>('/integrations/providers'),
+
+  list: () =>
+    api.get<ApiResponse<Integration[]>>('/integrations'),
+
+  get: (provider: string) =>
+    api.get<ApiResponse<Integration>>(`/integrations/${provider}`),
+
+  upsert: (data: { provider: string; api_key: string; enabled?: boolean }) =>
+    api.post<ApiResponse<{ id?: string; message?: string }>>('/integrations', data),
+
+  update: (provider: string, data: { api_key?: string; enabled?: boolean }) =>
+    api.patch<ApiResponse<null>>(`/integrations/${provider}`, data),
+
+  delete: (provider: string) =>
+    api.delete<ApiResponse<null>>(`/integrations/${provider}`),
+
+  test: (provider: string) =>
+    api.post<ApiResponse<{ message: string; credits_remaining?: number }>>(`/integrations/${provider}/test`),
+
+  // Enrichment endpoints
+  enrichContact: (data: {
+    email?: string;
+    linkedin_url?: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    company?: string;
+    phone?: string;
+    location?: string;
+  }) =>
+    api.post<ApiResponse<EnrichmentResult<EnrichedContactData>>>('/integrations/enrich/contact', data),
+
+  enrichCompany: (data: {
+    website?: string;
+    name?: string;
+    linkedin_url?: string;
+    ticker?: string;
+  }) =>
+    api.post<ApiResponse<EnrichmentResult<EnrichedCompanyData>>>('/integrations/enrich/company', data),
+
+  getEnrichmentStatus: () =>
+    api.get<ApiResponse<{ available: boolean; provider: string }>>('/integrations/enrich/status'),
 };

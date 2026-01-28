@@ -1019,22 +1019,26 @@ integrations.post('/search/company-contacts', zValidator('json', searchCompanyCo
     // Log enrichment - each person costs 1 credit
     await logEnrichment(c.env.DB, user.organization_id, user.id, 'peopledatalabs', 'company_search', domain, 'success', result.data.length);
 
+    // PDL can return boolean false instead of null for missing fields
+    const toStr = (v: unknown): string | null =>
+      typeof v === 'string' && v.trim() ? v.trim() : null;
+
     // Map results to our contact format
     const contacts = result.data.map(person => ({
       name: capitalizeName(person.full_name) || `${capitalizeName(person.first_name) || ''} ${capitalizeName(person.last_name) || ''}`.trim(),
-      email: person.work_email || person.personal_emails?.[0] || person.recommended_personal_email || person.emails?.[0]?.address || null,
-      phone: person.mobile_phone || person.phone_numbers?.[0] || null,
+      email: toStr(person.work_email) || toStr(person.personal_emails?.[0]) || toStr(person.recommended_personal_email) || toStr(person.emails?.[0]?.address),
+      phone: toStr(person.mobile_phone) || toStr(person.phone_numbers?.[0]),
       title: capitalizeName(person.job_title) || null,
-      linkedin_url: person.linkedin_url || null,
-      twitter_url: person.twitter_url || null,
-      github_url: person.github_url || null,
-      facebook_url: person.facebook_url || null,
-      location: person.location_name || null,
-      location_city: person.location_locality || null,
-      location_region: person.location_region || null,
-      location_country: person.location_country || null,
-      job_title_levels: person.job_title_levels || [],
-      job_title_role: person.job_title_role || null,
+      linkedin_url: toStr(person.linkedin_url),
+      twitter_url: toStr(person.twitter_url),
+      github_url: toStr(person.github_url),
+      facebook_url: toStr(person.facebook_url),
+      location: toStr(person.location_name),
+      location_city: toStr(person.location_locality),
+      location_region: toStr(person.location_region),
+      location_country: toStr(person.location_country),
+      job_title_levels: Array.isArray(person.job_title_levels) ? person.job_title_levels : [],
+      job_title_role: toStr(person.job_title_role),
     })).filter(c => c.name); // Filter out contacts without names
 
     return c.json({

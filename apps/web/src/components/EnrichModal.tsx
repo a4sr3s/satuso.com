@@ -694,6 +694,10 @@ export function FindContactsModal({ isOpen, onClose, company, onContactsAdded }:
     const toAdd = contacts.filter((_, i) => selected.has(i));
     if (toAdd.length === 0) return;
 
+    // PDL can return boolean false instead of null for missing fields
+    const str = (v: unknown): string | undefined =>
+      typeof v === 'string' && v.trim() ? v.trim() : undefined;
+
     setIsAdding(true);
     let added = 0;
 
@@ -701,18 +705,18 @@ export function FindContactsModal({ isOpen, onClose, company, onContactsAdded }:
       for (const contact of toAdd) {
         await contactsApi.create({
           name: contact.name,
-          email: contact.email || undefined,
-          phone: contact.phone || undefined,
-          title: contact.title || undefined,
+          email: str(contact.email),
+          phone: str(contact.phone),
+          title: str(contact.title),
           company_id: company.id,
-          linkedin_url: contact.linkedin_url || undefined,
-          twitter_url: contact.twitter_url || undefined,
-          github_url: contact.github_url || undefined,
-          facebook_url: contact.facebook_url || undefined,
-          location: contact.location || undefined,
-          location_city: contact.location_city || undefined,
-          location_region: contact.location_region || undefined,
-          location_country: contact.location_country || undefined,
+          linkedin_url: str(contact.linkedin_url),
+          twitter_url: str(contact.twitter_url),
+          github_url: str(contact.github_url),
+          facebook_url: str(contact.facebook_url),
+          location: str(contact.location),
+          location_city: str(contact.location_city),
+          location_region: str(contact.location_region),
+          location_country: str(contact.location_country),
         });
         added++;
       }

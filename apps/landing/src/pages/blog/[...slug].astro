@@ -1,0 +1,114 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import { getCollection, render } from "astro:content";
+import { SITE } from "../../config/site.mjs";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+  return posts.map((post) => ({
+    params: { slug: post.id.replace(/\.mdx?$/, "") },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const slug = post.id.replace(/\.mdx?$/, "");
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.pubDate.toISOString(),
+  ...(post.data.updatedDate && {
+    dateModified: post.data.updatedDate.toISOString(),
+  }),
+  author: {
+    "@type": "Organization",
+    name: post.data.author,
+  },
+  publisher: {
+    "@type": "Organization",
+    name: "Satuso",
+    url: SITE.url,
+    logo: {
+      "@type": "ImageObject",
+      url: `${SITE.url}/logo.svg`,
+    },
+  },
+  mainEntityOfPage: {
+    "@type": "WebPage",
+    "@id": `${SITE.url}/blog/${slug}`,
+  },
+};
+---
+
+<Layout
+  title={`${post.data.title} | Satuso Blog`}
+  description={post.data.description}
+  canonicalURL={`${SITE.url}/blog/${slug}`}
+  ogType="article"
+>
+  <Header />
+  <main id="main-content" role="main" class="flex-1">
+    <article class="max-w-3xl mx-auto px-4 py-16">
+      <header class="mb-10">
+        <a
+          href="/blog"
+          class="text-sm text-gray-500 hover:text-gray-900 transition-colors mb-4 inline-block"
+        >
+          &larr; Back to blog
+        </a>
+        <h1 class="text-4xl font-bold text-gray-900 mt-4 mb-4">
+          {post.data.title}
+        </h1>
+        <div class="flex items-center gap-4 text-sm text-gray-500">
+          <time datetime={post.data.pubDate.toISOString()}>
+            {post.data.pubDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
+          <span>&middot;</span>
+          <span>{post.data.author}</span>
+        </div>
+        {post.data.tags.length > 0 && (
+          <div class="flex flex-wrap gap-2 mt-4">
+            {post.data.tags.map((tag: string) => (
+              <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </header>
+
+      <div class="prose prose-gray max-w-none prose-headings:font-semibold prose-a:text-black prose-a:underline hover:prose-a:text-gray-600">
+        <Content />
+      </div>
+
+      <footer class="mt-16 pt-8 border-t border-gray-200">
+        <div class="bg-gray-50 rounded-xl p-8 text-center">
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">
+            Ready to close more deals?
+          </h3>
+          <p class="text-gray-600 mb-4">
+            Try Satuso free — the CRM built for solopreneurs and small sales teams.
+          </p>
+          <a
+            href={`${SITE.appUrl}/login`}
+            class="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+          >
+            Get Started Free
+          </a>
+        </div>
+      </footer>
+    </article>
+  </main>
+  <Footer />
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+</Layout>

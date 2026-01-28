@@ -1,0 +1,65 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import { getCollection } from "astro:content";
+import { SITE } from "../../config/site.mjs";
+
+const posts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+---
+
+<Layout
+  title="Blog — Sales Tips & CRM Insights | Satuso"
+  description="Practical sales tips, CRM strategies, and closing techniques for solopreneurs and small teams."
+  canonicalURL={`${SITE.url}/blog`}
+  ogType="website"
+>
+  <Header />
+  <main id="main-content" role="main" class="flex-1">
+    <section class="max-w-4xl mx-auto px-4 py-16">
+      <h1 class="text-4xl font-bold text-gray-900 mb-4">Blog</h1>
+      <p class="text-lg text-gray-600 mb-12">
+        Practical sales tips, CRM strategies, and closing techniques for solopreneurs and small teams.
+      </p>
+
+      <div class="space-y-8">
+        {posts.map((post) => (
+          <article class="border-b border-gray-200 pb-8">
+            <a href={`/blog/${post.id.replace(/\.mdx?$/, "")}`} class="group block">
+              <time
+                datetime={post.data.pubDate.toISOString()}
+                class="text-sm text-gray-500"
+              >
+                {post.data.pubDate.toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </time>
+              <h2 class="text-2xl font-semibold text-gray-900 mt-2 group-hover:text-gray-600 transition-colors">
+                {post.data.title}
+              </h2>
+              <p class="text-gray-600 mt-2">{post.data.description}</p>
+              {post.data.tags.length > 0 && (
+                <div class="flex flex-wrap gap-2 mt-3">
+                  {post.data.tags.map((tag: string) => (
+                    <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </a>
+          </article>
+        ))}
+      </div>
+
+      {posts.length === 0 && (
+        <p class="text-gray-500 text-center py-12">No posts yet. Check back soon!</p>
+      )}
+    </section>
+  </main>
+  <Footer />
+</Layout>

@@ -1,0 +1,46 @@
+---
+const testimonials = [
+  {
+    quote: "I was tracking deals in a spreadsheet and losing follow-ups constantly. Satuso gave me a real pipeline in minutes — no setup headaches.",
+    name: "Marcus T.",
+    role: "Freelance Consultant",
+  },
+  {
+    quote: "The SPIN selling notes changed how I run discovery calls. I close faster because I actually remember what each prospect told me.",
+    name: "Priya S.",
+    role: "Agency Owner",
+  },
+  {
+    quote: "Finally a CRM that doesn't feel like it was built for a 500-person sales floor. It's just me and two reps — Satuso fits perfectly.",
+    name: "Jake R.",
+    role: "Startup Founder",
+  },
+];
+---
+
+<section class="py-20 bg-white" aria-labelledby="testimonials-heading">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-14">
+      <h2 id="testimonials-heading" class="text-3xl font-bold text-gray-900 mb-4">
+        Loved by solopreneurs & small teams
+      </h2>
+      <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+        See why founders, freelancers, and small sales teams are switching to Satuso.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {testimonials.map((t) => (
+        <blockquote class="bg-gray-50 rounded-xl p-8 flex flex-col">
+          <p class="text-gray-700 leading-relaxed flex-1">
+            &ldquo;{t.quote}&rdquo;
+          </p>
+          <footer class="mt-6 pt-4 border-t border-gray-200">
+            <p class="font-semibold text-gray-900 text-sm">{t.name}</p>
+            <p class="text-gray-500 text-sm">{t.role}</p>
+          </footer>
+        </blockquote>
+      ))}
+    </div>
+  </div>
+</section>

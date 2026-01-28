@@ -175,11 +175,21 @@ deals.get('/:id', async (c) => {
     SELECT id, type, subject, content, spin_tags, created_at FROM activities WHERE deal_id = ? ORDER BY created_at DESC LIMIT 20
   `).bind(id).all();
 
+  // Get associated contacts via junction table
+  const contacts = await c.env.DB.prepare(`
+    SELECT c.id, c.name, c.email, c.title, c.status
+    FROM deal_contacts dc
+    JOIN contacts c ON dc.contact_id = c.id
+    WHERE dc.deal_id = ?
+    ORDER BY dc.created_at ASC
+  `).bind(id).all();
+
   return c.json({
     success: true,
     data: {
       ...deal,
       activities: activities.results,
+      contacts: contacts.results,
     },
   });
 });
@@ -356,6 +366,69 @@ deals.delete('/:id', async (c) => {
   }
 
   await c.env.DB.prepare('DELETE FROM deals WHERE id = ?').bind(id).run();
+
+  return c.json({ success: true });
+});
+
+// ==========================================
+// Deal Contacts Routes
+// ==========================================
+
+// Add contact to deal
+deals.post('/:id/contacts', async (c) => {
+  const { id: dealId } = c.req.param();
+  const user = c.get('user');
+
+  try {
+    await assertCanAccess(c.env.DB, user, 'deal', dealId);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
+
+  const body = await c.req.json();
+  const { contact_id } = body;
+  if (!contact_id) {
+    return c.json({ success: false, error: 'contact_id is required' }, 400);
+  }
+
+  // Check if already added
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM deal_contacts WHERE deal_id = ? AND contact_id = ?'
+  ).bind(dealId, contact_id).first();
+
+  if (existing) {
+    return c.json({ success: true, data: existing });
+  }
+
+  const id = nanoid();
+  await c.env.DB.prepare(`
+    INSERT INTO deal_contacts (id, deal_id, contact_id, created_at)
+    VALUES (?, ?, ?, datetime('now'))
+  `).bind(id, dealId, contact_id).run();
+
+  return c.json({ success: true, data: { id, deal_id: dealId, contact_id } }, 201);
+});
+
+// Remove contact from deal
+deals.delete('/:id/contacts/:contactId', async (c) => {
+  const { id: dealId, contactId } = c.req.param();
+  const user = c.get('user');
+
+  try {
+    await assertCanAccess(c.env.DB, user, 'deal', dealId);
+  } catch (e) {
+    if (e instanceof AccessDeniedError) {
+      return c.json({ success: false, error: e.message }, 403);
+    }
+    throw e;
+  }
+
+  await c.env.DB.prepare(
+    'DELETE FROM deal_contacts WHERE deal_id = ? AND contact_id = ?'
+  ).bind(dealId, contactId).run();
 
   return c.json({ success: true });
 });

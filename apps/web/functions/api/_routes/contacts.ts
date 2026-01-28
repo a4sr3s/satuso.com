@@ -132,19 +132,29 @@ contacts.post('/', zValidator('json', createContactSchema), async (c) => {
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source, linkedin_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source,
+      linkedin_url, twitter_url, github_url, facebook_url,
+      location, location_city, location_region, location_country,
+      created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
     body.email || null,
     body.phone || null,
     body.title || null,
-    body.companyId || null,
+    body.company_id || body.companyId || null,
     body.ownerId || userId,
     body.status || 'active',
     body.source || null,
-    body.linkedinUrl || null,
+    body.linkedin_url || body.linkedinUrl || null,
+    body.twitter_url || body.twitterUrl || null,
+    body.github_url || body.githubUrl || null,
+    body.facebook_url || body.facebookUrl || null,
+    body.location || null,
+    body.location_city || body.locationCity || null,
+    body.location_region || body.locationRegion || null,
+    body.location_country || body.locationCountry || null,
     now,
     now
   ).run();

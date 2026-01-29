@@ -17,6 +17,7 @@ import {
   EyeOff,
   ExternalLink,
   Loader2,
+  ChevronDown,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -639,7 +640,7 @@ function WorkspaceTab() {
             description="Send invitations to add people to your organization."
           />
           <div className="px-4 pb-4">
-            <form onSubmit={handleInvite} className="flex gap-3">
+            <form onSubmit={handleInvite} className="flex gap-3 items-end">
               <div className="flex-1">
                 <Input
                   type="email"
@@ -649,14 +650,17 @@ function WorkspaceTab() {
                   required
                 />
               </div>
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as 'org:admin' | 'org:member')}
-                className="text-sm border border-border rounded-lg px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="org:member">Member</option>
-                <option value="org:admin">Admin</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'org:admin' | 'org:member')}
+                  className="input appearance-none pr-8 min-w-[110px]"
+                >
+                  <option value="org:member">Member</option>
+                  <option value="org:admin">Admin</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+              </div>
               <Button type="submit" isLoading={isInviting}>
                 <UserPlus className="h-4 w-4 mr-1.5" />
                 Invite
@@ -777,21 +781,24 @@ function WorkspaceTab() {
                     <div className="sm:col-span-3">
                       <label className="text-xs text-text-muted sm:hidden mb-1 block">Org Role</label>
                       {isAdmin && !isCurrentUser ? (
-                        <select
-                          value={membership.role}
-                          onChange={(e) => handleOrgRoleChange(membership.id, e.target.value)}
-                          disabled={updatingRole === membership.id}
-                          className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
-                        >
-                          <option value="org:admin">Admin</option>
-                          <option value="org:member">Member</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={membership.role}
+                            onChange={(e) => handleOrgRoleChange(membership.id, e.target.value)}
+                            disabled={updatingRole === membership.id}
+                            className="input appearance-none pr-8 py-1.5 disabled:opacity-50"
+                          >
+                            <option value="org:admin">Admin</option>
+                            <option value="org:member">Member</option>
+                          </select>
+                          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+                        </div>
                       ) : (
                         <span className={clsx(
-                          'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium',
+                          'badge',
                           membership.role === 'org:admin'
                             ? 'bg-purple-100 text-purple-700'
-                            : 'bg-gray-100 text-gray-700'
+                            : 'badge-gray'
                         )}>
                           {membership.role === 'org:admin' ? 'Admin' : 'Member'}
                         </span>
@@ -801,17 +808,20 @@ function WorkspaceTab() {
                     {/* Job Function (Satuso) */}
                     <div className="sm:col-span-3">
                       <label className="text-xs text-text-muted sm:hidden mb-1 block">Job Function</label>
-                      <select
-                        value={memberJobFunction || ''}
-                        onChange={(e) => handleJobFunctionChange(memberEmail, e.target.value)}
-                        disabled={loadingJobFunctions}
-                        className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
-                      >
-                        <option value="">Select function</option>
-                        {JOB_FUNCTIONS.map((jf) => (
-                          <option key={jf.value} value={jf.value}>{jf.label}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <select
+                          value={memberJobFunction || ''}
+                          onChange={(e) => handleJobFunctionChange(memberEmail, e.target.value)}
+                          disabled={loadingJobFunctions}
+                          className="input appearance-none pr-8 py-1.5 disabled:opacity-50"
+                        >
+                          <option value="">Select function</option>
+                          {JOB_FUNCTIONS.map((jf) => (
+                            <option key={jf.value} value={jf.value}>{jf.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+                      </div>
                     </div>
 
                     {/* Actions */}

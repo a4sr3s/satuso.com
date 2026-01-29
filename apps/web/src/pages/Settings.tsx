@@ -186,9 +186,9 @@ function AccountTab() {
           )}
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col sm:flex-row gap-6">
           {/* Avatar */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex justify-center sm:justify-start">
             <div className="relative">
               <img
                 src={user.imageUrl}
@@ -207,7 +207,7 @@ function AccountTab() {
 
           {/* Form Fields */}
           <div className="flex-1 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="First name"
                 value={firstName}
@@ -251,7 +251,7 @@ function AccountTab() {
           <p className="text-sm text-gray-500 mt-0.5">Customize your experience</p>
         </div>
 
-        <div className="flex items-center justify-between py-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
               <Globe className="h-4 w-4 text-gray-600" />
@@ -261,7 +261,7 @@ function AccountTab() {
               <p className="text-xs text-gray-500">Choose your preferred language</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 ml-12 sm:ml-0">
             {Object.values(LANGUAGES).map((lang) => (
               <button
                 key={lang.code}
@@ -596,8 +596,8 @@ function WorkspaceTab() {
           description="Your shared workspace settings."
         />
         <div className="px-4 pb-4 space-y-5">
-          <div className="flex items-start gap-4">
-            <div className="relative flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="relative flex-shrink-0 flex justify-center sm:justify-start">
               {organization.imageUrl ? (
                 <img
                   src={organization.imageUrl}
@@ -610,7 +610,7 @@ function WorkspaceTab() {
                 </div>
               )}
             </div>
-            <div className="max-w-sm">
+            <div className="flex-1 sm:max-w-sm">
               <Input
                 label="Organization name"
                 value={orgName}
@@ -623,7 +623,7 @@ function WorkspaceTab() {
               )}
             </div>
             {hasOrgChanges && isAdmin && (
-              <Button onClick={handleSaveOrg} isLoading={isSavingOrg} className="mt-6">
+              <Button onClick={handleSaveOrg} isLoading={isSavingOrg} className="sm:mt-6">
                 Save Changes
               </Button>
             )}
@@ -639,8 +639,8 @@ function WorkspaceTab() {
             description="Send invitations to add people to your organization."
           />
           <div className="px-4 pb-4">
-            <form onSubmit={handleInvite} className="flex gap-3 items-end">
-              <div className="w-72">
+            <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="flex-1 sm:max-w-xs">
                 <Input
                   type="email"
                   value={inviteEmail}
@@ -649,21 +649,23 @@ function WorkspaceTab() {
                   required
                 />
               </div>
-              <div className="relative">
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as 'org:admin' | 'org:member')}
-                  className="input appearance-none pr-8 min-w-[110px]"
-                >
-                  <option value="org:member">Member</option>
-                  <option value="org:admin">Admin</option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+              <div className="flex gap-3">
+                <div className="relative flex-1 sm:flex-none">
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as 'org:admin' | 'org:member')}
+                    className="input appearance-none pr-8 w-full sm:min-w-[110px]"
+                  >
+                    <option value="org:member">Member</option>
+                    <option value="org:admin">Admin</option>
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
+                </div>
+                <Button type="submit" isLoading={isInviting} className="whitespace-nowrap">
+                  <UserPlus className="h-4 w-4 mr-1.5" />
+                  Invite
+                </Button>
               </div>
-              <Button type="submit" isLoading={isInviting}>
-                <UserPlus className="h-4 w-4 mr-1.5" />
-                Invite
-              </Button>
             </form>
           </div>
         </Card>
@@ -1256,7 +1258,7 @@ function IntegrationsTab() {
 
             {/* Connected State Actions */}
             {isPdlConnected && !isEditing && (
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="secondary"
@@ -1299,7 +1301,7 @@ function IntegrationsTab() {
 
             {/* Disabled State Actions */}
             {pdlIntegration?.has_api_key === 1 && pdlIntegration?.enabled === 0 && !isEditing && (
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   onClick={handleEnablePdl}
@@ -1509,8 +1511,8 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-border">
+      {/* Tab Navigation - scrollable on mobile */}
+      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isDanger = tab.id === 'danger';
@@ -1519,7 +1521,7 @@ export default function SettingsPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative',
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap',
                 activeTab === tab.id
                   ? isDanger ? 'text-red-600' : 'text-primary'
                   : isDanger ? 'text-red-400 hover:text-red-600' : 'text-text-muted hover:text-text-primary'

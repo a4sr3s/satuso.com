@@ -76,9 +76,9 @@ export default function Layout() {
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Mobile logo - shown only on mobile when sidebar is closed */}
-            <div className="md:hidden flex items-center gap-2">
-              <img src="/icon.svg" alt="Satuso" className="h-6" />
+            {/* Mobile logo - shown only on mobile */}
+            <div className="md:hidden flex items-center">
+              <img src="/logo.svg" alt="Satuso" className="h-5" />
             </div>
 
             {/* Page title - hidden on mobile to save space */}
@@ -87,9 +87,11 @@ export default function Layout() {
             </h1>
           </div>
 
-          {/* Right side - notifications + user */}
+          {/* Right side - notifications (desktop only) + user */}
           <div className="flex items-center gap-2">
-            <NotificationsDropdown />
+            <div className="hidden md:block">
+              <NotificationsDropdown />
+            </div>
             <button
               onClick={() => navigate('/settings')}
               className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-surface transition-colors"

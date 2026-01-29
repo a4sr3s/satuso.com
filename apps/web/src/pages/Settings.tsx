@@ -12,13 +12,18 @@ import {
   CreditCard,
   Puzzle,
   AlertTriangle,
+  Check,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import Card, { CardHeader } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { organizationsApi, billingApi } from '@/lib/api';
+import { organizationsApi, billingApi, integrationsApi, type Integration } from '@/lib/api';
 import { useSubscription } from '@/hooks/useSubscription';
 import { LANGUAGES, type LanguageCode } from '@/i18n/config';
 import { useLocaleStore } from '@/stores/locale';
@@ -328,17 +333,38 @@ function AccountTab() {
 }
 
 function WorkspaceTab() {
-  const { organization, isLoaded: orgLoaded } = useOrganization();
+  const { user } = useUser();
+  const { organization, isLoaded: orgLoaded, memberships, invitations } = useOrganization({
+    memberships: { infinite: true },
+    invitations: { infinite: true },
+  });
   const { userMemberships, setActive, isLoaded: orgListLoaded } = useOrganizationList({
     userMemberships: { infinite: true },
   });
-  const { openOrganizationProfile, openCreateOrganization } = useClerk();
+  const { openCreateOrganization } = useClerk();
   const [orgName, setOrgName] = useState('');
   const [isSavingOrg, setIsSavingOrg] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(true);
-  const [membersError, setMembersError] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
+
+  // Job functions from our database (Satuso-specific roles)
+  const [jobFunctions, setJobFunctions] = useState<Record<string, string | null>>({});
+  const [loadingJobFunctions, setLoadingJobFunctions] = useState(true);
+
+  // Invite form state
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'org:admin' | 'org:member'>('org:member');
+  const [isInviting, setIsInviting] = useState(false);
+
+  // Track which members are being updated
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [revokingInvite, setRevokingInvite] = useState<string | null>(null);
+
+  // Check if current user is admin
+  const currentUserMembership = memberships?.data?.find(
+    (m) => m.publicUserData?.userId === user?.id
+  );
+  const isAdmin = currentUserMembership?.role === 'org:admin';
 
   useEffect(() => {
     if (organization) {
@@ -346,11 +372,18 @@ function WorkspaceTab() {
     }
   }, [organization]);
 
+  // Load job functions from our database
   useEffect(() => {
     organizationsApi.getMembers()
-      .then((res) => setMembers(res.data))
-      .catch((err) => setMembersError(err.message || 'Failed to load team members'))
-      .finally(() => setLoadingMembers(false));
+      .then((res) => {
+        const jfMap: Record<string, string | null> = {};
+        res.data.forEach((m: Member) => {
+          jfMap[m.email] = m.job_function;
+        });
+        setJobFunctions(jfMap);
+      })
+      .catch((err) => console.error('Failed to load job functions:', err))
+      .finally(() => setLoadingJobFunctions(false));
   }, []);
 
   const handleSaveOrg = async () => {
@@ -366,16 +399,97 @@ function WorkspaceTab() {
     }
   };
 
-  const handleRoleChange = async (memberId: string, jobFunction: string) => {
-    const prev = members;
-    setMembers((m) =>
-      m.map((member) => member.id === memberId ? { ...member, job_function: jobFunction || null } : member)
-    );
+  // Update Clerk organization role (admin/member)
+  const handleOrgRoleChange = async (membershipId: string, newRole: string) => {
+    const membership = memberships?.data?.find((m) => m.id === membershipId);
+    if (!membership) return;
+
+    setUpdatingRole(membershipId);
     try {
-      await organizationsApi.updateMemberRole(memberId, jobFunction);
+      await membership.update({ role: newRole });
+      await memberships?.revalidate?.();
+      toast.success('Organization role updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update role');
+    } finally {
+      setUpdatingRole(null);
+    }
+  };
+
+  // Update Satuso job function (stored in our database)
+  const handleJobFunctionChange = async (email: string, jobFunction: string) => {
+    const prev = jobFunctions[email];
+    setJobFunctions((jf) => ({ ...jf, [email]: jobFunction || null }));
+
+    // Find the member ID from our database
+    try {
+      const res = await organizationsApi.getMembers();
+      const member = res.data.find((m: Member) => m.email === email);
+      if (member) {
+        await organizationsApi.updateMemberRole(member.id, jobFunction);
+      }
     } catch {
-      setMembers(prev);
-      toast.error('Failed to update role');
+      setJobFunctions((jf) => ({ ...jf, [email]: prev }));
+      toast.error('Failed to update job function');
+    }
+  };
+
+  // Remove member from organization
+  const handleRemoveMember = async (membershipId: string, memberName: string) => {
+    if (!confirm(`Are you sure you want to remove ${memberName} from this organization?`)) {
+      return;
+    }
+
+    const membership = memberships?.data?.find((m) => m.id === membershipId);
+    if (!membership) return;
+
+    setRemovingMember(membershipId);
+    try {
+      await membership.destroy();
+      await memberships?.revalidate?.();
+      toast.success(`${memberName} has been removed`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove member');
+    } finally {
+      setRemovingMember(null);
+    }
+  };
+
+  // Invite new member
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organization || !inviteEmail.trim()) return;
+
+    setIsInviting(true);
+    try {
+      await organization.inviteMember({
+        emailAddress: inviteEmail.trim().toLowerCase(),
+        role: inviteRole,
+      });
+      await invitations?.revalidate?.();
+      setInviteEmail('');
+      toast.success(`Invitation sent to ${inviteEmail}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send invitation');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  // Revoke invitation
+  const handleRevokeInvite = async (invitationId: string, email: string) => {
+    const invitation = invitations?.data?.find((i) => i.id === invitationId);
+    if (!invitation) return;
+
+    setRevokingInvite(invitationId);
+    try {
+      await invitation.revoke();
+      await invitations?.revalidate?.();
+      toast.success(`Invitation to ${email} revoked`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to revoke invitation');
+    } finally {
+      setRevokingInvite(null);
     }
   };
 
@@ -437,7 +551,7 @@ function WorkspaceTab() {
                         {membership.organization.name}
                       </p>
                       <p className="text-xs text-text-muted">
-                        {membership.role}
+                        {membership.role === 'org:admin' ? 'Admin' : 'Member'}
                       </p>
                     </div>
                   </div>
@@ -468,6 +582,7 @@ function WorkspaceTab() {
   }
 
   const hasOrgChanges = orgName !== (organization.name || '');
+  const pendingInvitations = invitations?.data?.filter((i) => i.status === 'pending') || [];
 
   return (
     <div className="space-y-6">
@@ -491,13 +606,6 @@ function WorkspaceTab() {
                   <Building2 className="h-7 w-7 text-primary" />
                 </div>
               )}
-              <button
-                onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
-                className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full border border-border shadow-sm hover:bg-gray-50 transition-colors"
-                title="Change logo"
-              >
-                <Camera className="h-3 w-3 text-text-muted" />
-              </button>
             </div>
             <div className="flex-1">
               <Input
@@ -505,11 +613,15 @@ function WorkspaceTab() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 placeholder="Enter organization name"
+                disabled={!isAdmin}
               />
+              {!isAdmin && (
+                <p className="text-xs text-text-muted mt-1">Only admins can change the organization name</p>
+              )}
             </div>
           </div>
 
-          {hasOrgChanges && (
+          {hasOrgChanges && isAdmin && (
             <div className="flex justify-end">
               <Button onClick={handleSaveOrg} isLoading={isSavingOrg}>
                 Save Changes
@@ -519,23 +631,86 @@ function WorkspaceTab() {
         </div>
       </Card>
 
+      {/* Invite Members */}
+      {isAdmin && (
+        <Card>
+          <CardHeader
+            title="Invite Team Members"
+            description="Send invitations to add people to your organization."
+          />
+          <div className="px-4 pb-4">
+            <form onSubmit={handleInvite} className="flex gap-3">
+              <div className="flex-1">
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  required
+                />
+              </div>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as 'org:admin' | 'org:member')}
+                className="text-sm border border-border rounded-lg px-3 py-2 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="org:member">Member</option>
+                <option value="org:admin">Admin</option>
+              </select>
+              <Button type="submit" isLoading={isInviting}>
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                Invite
+              </Button>
+            </form>
+          </div>
+        </Card>
+      )}
+
+      {/* Pending Invitations */}
+      {pendingInvitations.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Pending Invitations"
+            description="Invitations waiting to be accepted."
+          />
+          <div className="divide-y divide-border">
+            {pendingInvitations.map((invitation) => (
+              <div key={invitation.id} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-primary truncate">{invitation.emailAddress}</p>
+                    <p className="text-xs text-text-muted">
+                      {invitation.role === 'org:admin' ? 'Admin' : 'Member'} · Pending
+                    </p>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleRevokeInvite(invitation.id, invitation.emailAddress)}
+                    isLoading={revokingInvite === invitation.id}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Team Members */}
       <Card>
         <CardHeader
           title="Team Members"
-          description="People in your organization."
-          action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
-            >
-              <UserPlus className="h-4 w-4 mr-1.5" />
-              Invite
-            </Button>
-          }
+          description="Manage your organization's members, roles, and permissions."
         />
-        {loadingMembers ? (
+        {!memberships?.data ? (
           <div className="px-4 pb-4">
             <div className="animate-pulse space-y-3">
               {[1, 2, 3].map((i) => (
@@ -552,57 +727,124 @@ function WorkspaceTab() {
               ))}
             </div>
           </div>
-        ) : membersError ? (
-          <div className="px-4 pb-4">
-            <p className="text-sm text-red-600">{membersError}</p>
-          </div>
-        ) : members.length === 0 ? (
+        ) : memberships.data.length === 0 ? (
           <div className="px-4 pb-4 text-center py-8">
             <Users className="h-8 w-8 text-text-muted mx-auto mb-2" />
             <p className="text-sm text-text-muted">No team members yet</p>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-              onClick={() => openOrganizationProfile({ afterLeaveOrganizationUrl: '/settings' })}
-            >
-              Invite your first teammate
-            </Button>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {members.map((member) => (
-              <div key={member.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {member.avatar_url ? (
-                    <img
-                      src={member.avatar_url}
-                      alt={member.name}
-                      className="w-9 h-9 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium flex-shrink-0">
-                      {member.name?.charAt(0)?.toUpperCase() || '?'}
+          <>
+            {/* Header row */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-4 px-4 py-2 bg-gray-50 border-b border-border text-xs font-medium text-text-muted uppercase tracking-wide">
+              <div className="col-span-4">Member</div>
+              <div className="col-span-3">Organization Role</div>
+              <div className="col-span-3">Job Function</div>
+              <div className="col-span-2 text-right">Actions</div>
+            </div>
+            <div className="divide-y divide-border">
+              {memberships.data.map((membership) => {
+                const memberEmail = membership.publicUserData?.identifier || '';
+                const memberName = [membership.publicUserData?.firstName, membership.publicUserData?.lastName]
+                  .filter(Boolean).join(' ') || memberEmail.split('@')[0];
+                const isCurrentUser = membership.publicUserData?.userId === user?.id;
+                const memberJobFunction = jobFunctions[memberEmail];
+
+                return (
+                  <div key={membership.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 items-center px-4 py-3">
+                    {/* Member info */}
+                    <div className="sm:col-span-4 flex items-center gap-3 min-w-0">
+                      {membership.publicUserData?.imageUrl ? (
+                        <img
+                          src={membership.publicUserData.imageUrl}
+                          alt={memberName}
+                          className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-medium flex-shrink-0">
+                          {memberName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {memberName}
+                          {isCurrentUser && <span className="text-xs text-text-muted ml-1">(you)</span>}
+                        </p>
+                        <p className="text-xs text-text-muted truncate">{memberEmail}</p>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
-                    <p className="text-xs text-text-muted truncate">{member.email}</p>
+
+                    {/* Organization Role (Clerk) */}
+                    <div className="sm:col-span-3">
+                      <label className="text-xs text-text-muted sm:hidden mb-1 block">Org Role</label>
+                      {isAdmin && !isCurrentUser ? (
+                        <select
+                          value={membership.role}
+                          onChange={(e) => handleOrgRoleChange(membership.id, e.target.value)}
+                          disabled={updatingRole === membership.id}
+                          className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
+                        >
+                          <option value="org:admin">Admin</option>
+                          <option value="org:member">Member</option>
+                        </select>
+                      ) : (
+                        <span className={clsx(
+                          'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium',
+                          membership.role === 'org:admin'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-gray-100 text-gray-700'
+                        )}>
+                          {membership.role === 'org:admin' ? 'Admin' : 'Member'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Job Function (Satuso) */}
+                    <div className="sm:col-span-3">
+                      <label className="text-xs text-text-muted sm:hidden mb-1 block">Job Function</label>
+                      <select
+                        value={memberJobFunction || ''}
+                        onChange={(e) => handleJobFunctionChange(memberEmail, e.target.value)}
+                        disabled={loadingJobFunctions}
+                        className="w-full text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
+                      >
+                        <option value="">Select function</option>
+                        {JOB_FUNCTIONS.map((jf) => (
+                          <option key={jf.value} value={jf.value}>{jf.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="sm:col-span-2 flex justify-end">
+                      {isAdmin && !isCurrentUser && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRemoveMember(membership.id, memberName)}
+                          isLoading={removingMember === membership.id}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <select
-                  value={member.job_function || ''}
-                  onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                  className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                );
+              })}
+            </div>
+            {memberships?.hasNextPage && (
+              <div className="px-4 py-3 border-t border-border">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => memberships?.fetchNext?.()}
+                  className="w-full"
                 >
-                  <option value="">Select role</option>
-                  {JOB_FUNCTIONS.map((jf) => (
-                    <option key={jf.value} value={jf.value}>{jf.label}</option>
-                  ))}
-                </select>
+                  Load more members
+                </Button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </Card>
     </div>
@@ -716,43 +958,380 @@ function BillingTab() {
 }
 
 function IntegrationsTab() {
-  // Group integrations by category
-  const categories = INTEGRATIONS.reduce((acc, integration) => {
-    if (!acc[integration.category]) {
-      acc[integration.category] = [];
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // PDL Configuration state
+  const [pdlApiKey, setPdlApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Check if user is admin (only admins can manage integrations)
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Fetch integrations and check admin status
+    const fetchData = async () => {
+      try {
+        const res = await integrationsApi.list();
+        setIntegrations(res.data || []);
+        setIsAdmin(true); // If the API call succeeds, user is admin
+      } catch (err: any) {
+        if (err.status === 403) {
+          setIsAdmin(false);
+          setError(null); // Don't show error for non-admins
+        } else {
+          setError(err.message || 'Failed to load integrations');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const pdlIntegration = integrations.find(i => i.provider === 'peopledatalabs');
+  const isPdlConnected = pdlIntegration?.has_api_key === 1 && pdlIntegration?.enabled === 1;
+
+  const handleSavePdl = async () => {
+    if (!pdlApiKey.trim()) {
+      toast.error('Please enter an API key');
+      return;
     }
-    acc[integration.category].push(integration);
-    return acc;
-  }, {} as Record<string, typeof INTEGRATIONS>);
+
+    setIsSaving(true);
+    try {
+      await integrationsApi.upsert({
+        provider: 'peopledatalabs',
+        api_key: pdlApiKey,
+        enabled: true,
+      });
+      toast.success('People Data Labs integration saved');
+      // Refresh integrations
+      const res = await integrationsApi.list();
+      setIntegrations(res.data || []);
+      setIsEditing(false);
+      setPdlApiKey('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save integration');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestPdl = async () => {
+    setIsTesting(true);
+    try {
+      const res = await integrationsApi.test('peopledatalabs');
+      toast.success(res.data?.message || 'Connection successful');
+    } catch (err: any) {
+      toast.error(err.message || 'Connection test failed');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleDisablePdl = async () => {
+    try {
+      await integrationsApi.update('peopledatalabs', { enabled: false });
+      toast.success('Integration disabled');
+      const res = await integrationsApi.list();
+      setIntegrations(res.data || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to disable integration');
+    }
+  };
+
+  const handleEnablePdl = async () => {
+    try {
+      await integrationsApi.update('peopledatalabs', { enabled: true });
+      toast.success('Integration enabled');
+      const res = await integrationsApi.list();
+      setIntegrations(res.data || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to enable integration');
+    }
+  };
+
+  const handleDeletePdl = async () => {
+    if (!confirm('Are you sure you want to remove this integration? This will delete your API key.')) {
+      return;
+    }
+    try {
+      await integrationsApi.delete('peopledatalabs');
+      toast.success('Integration removed');
+      const res = await integrationsApi.list();
+      setIntegrations(res.data || []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove integration');
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <div className="p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 w-48 bg-gray-200 rounded" />
+            <div className="h-20 bg-gray-100 rounded" />
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardHeader
+          title="Integrations"
+          description="Connect third-party services to enhance your CRM."
+        />
+        <div className="px-4 pb-4">
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Admin Access Required</p>
+                <p className="text-sm text-yellow-600 mt-1">
+                  Only organization admins can manage integrations. Contact your admin to set up integrations.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader title="Integrations" />
+        <div className="px-4 pb-4">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {Object.entries(categories).map(([category, integrations]) => (
-        <Card key={category}>
-          <CardHeader
-            title={category}
-            description={`Connect your ${category.toLowerCase()} tools.`}
-          />
-          <div className="divide-y divide-border">
-            {integrations.map((integration) => (
-              <div key={integration.id} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
-                    {integration.icon}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{integration.name}</p>
-                    <p className="text-xs text-text-muted">{integration.description}</p>
-                  </div>
+      {/* Data Enrichment Category */}
+      <Card>
+        <CardHeader
+          title="Data Enrichment"
+          description="Automatically enrich contact and company data with third-party services."
+        />
+        <div className="divide-y divide-border">
+          {/* People Data Labs */}
+          <div className="px-4 py-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border p-1.5">
+                  <img src="/logos/pdl.png" alt="People Data Labs" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-xs font-medium text-text-muted bg-gray-100 px-3 py-1.5 rounded-full">
-                  Coming soon
-                </span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-text-primary">People Data Labs</p>
+                    {isPdlConnected && (
+                      <span className="flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                        <Check className="h-3 w-3" />
+                        Connected
+                      </span>
+                    )}
+                    {pdlIntegration?.has_api_key === 1 && pdlIntegration?.enabled === 0 && (
+                      <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                        Disabled
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Enrich contacts and companies with B2B data including job titles, company info, and more.
+                  </p>
+                  <a
+                    href="https://www.peopledatalabs.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                  >
+                    Learn more <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               </div>
-            ))}
+
+              {!pdlIntegration?.has_api_key && !isEditing && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+
+            {/* Configuration Form */}
+            {(isEditing || (!isPdlConnected && pdlIntegration?.has_api_key)) && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={pdlApiKey}
+                      onChange={(e) => setPdlApiKey(e.target.value)}
+                      placeholder="Enter your People Data Labs API key"
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Get your API key from the{' '}
+                    <a
+                      href="https://dashboard.peopledatalabs.com/api-keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      People Data Labs dashboard
+                    </a>
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSavePdl}
+                    isLoading={isSaving}
+                    disabled={!pdlApiKey.trim()}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setPdlApiKey('');
+                    }}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Connected State Actions */}
+            {isPdlConnected && !isEditing && (
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleTestPdl}
+                  disabled={isTesting}
+                >
+                  {isTesting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    'Test Connection'
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Update Key
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleDisablePdl}
+                >
+                  Disable
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-red-600 hover:bg-red-50"
+                  onClick={handleDeletePdl}
+                >
+                  Remove
+                </Button>
+              </div>
+            )}
+
+            {/* Disabled State Actions */}
+            {pdlIntegration?.has_api_key === 1 && pdlIntegration?.enabled === 0 && !isEditing && (
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleEnablePdl}
+                >
+                  Enable
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Update Key
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-red-600 hover:bg-red-50"
+                  onClick={handleDeletePdl}
+                >
+                  Remove
+                </Button>
+              </div>
+            )}
           </div>
-        </Card>
-      ))}
+        </div>
+      </Card>
+
+      {/* Other Integrations - Coming Soon */}
+      <Card>
+        <CardHeader
+          title="More Integrations"
+          description="Additional integrations coming soon."
+        />
+        <div className="divide-y divide-border">
+          {INTEGRATIONS.filter(i => !['clay', 'clearbit', 'apollo'].includes(i.id)).map((integration) => (
+            <div key={integration.id} className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm border border-border">
+                  {integration.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{integration.name}</p>
+                  <p className="text-xs text-text-muted">{integration.description}</p>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-text-muted bg-gray-100 px-3 py-1.5 rounded-full">
+                Coming soon
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -761,14 +1340,15 @@ function DangerZoneTab() {
   const { signOut } = useClerk();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE') return;
+    if (deleteConfirmText !== 'DELETE' || !deletePassword) return;
 
     setIsDeleting(true);
     try {
-      await organizationsApi.deleteAccount();
+      await organizationsApi.deleteAccount(deletePassword);
       toast.success('Account deleted successfully');
       // Sign out and redirect
       await signOut({ redirectUrl: '/' });
@@ -851,6 +1431,19 @@ function DangerZoneTab() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Enter your password to confirm
+                </label>
+                <Input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Your password"
+                  disabled={isDeleting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Type <span className="font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm
                 </label>
                 <Input
@@ -868,6 +1461,7 @@ function DangerZoneTab() {
                   onClick={() => {
                     setShowDeleteModal(false);
                     setDeleteConfirmText('');
+                    setDeletePassword('');
                   }}
                   disabled={isDeleting}
                 >
@@ -876,7 +1470,7 @@ function DangerZoneTab() {
                 <Button
                   className="flex-1 bg-red-600 hover:bg-red-700"
                   onClick={handleDeleteAccount}
-                  disabled={deleteConfirmText !== 'DELETE' || isDeleting}
+                  disabled={deleteConfirmText !== 'DELETE' || !deletePassword || isDeleting}
                   isLoading={isDeleting}
                 >
                   Delete Account

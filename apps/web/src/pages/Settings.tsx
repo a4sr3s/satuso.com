@@ -18,6 +18,8 @@ import {
   ExternalLink,
   Loader2,
   ChevronDown,
+  MoreHorizontal,
+  Trash2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -827,15 +829,26 @@ function WorkspaceTab() {
                     {/* Actions */}
                     <div className="sm:col-span-2 flex justify-end">
                       {isAdmin && !isCurrentUser && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleRemoveMember(membership.id, memberName)}
-                          isLoading={removingMember === membership.id}
-                          className="text-red-600 hover:bg-red-50"
-                        >
-                          Remove
-                        </Button>
+                        <div className="relative group">
+                          {removingMember === membership.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
+                          ) : (
+                            <>
+                              <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface rounded">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              <div className="absolute right-0 mt-1 w-40 bg-white border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                <button
+                                  onClick={() => handleRemoveMember(membership.id, memberName)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-error hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Remove member
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

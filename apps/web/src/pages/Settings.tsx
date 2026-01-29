@@ -1512,7 +1512,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       {/* Tab Navigation - scrollable on mobile */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-hide">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isDanger = tab.id === 'danger';

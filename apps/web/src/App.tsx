@@ -4,6 +4,7 @@ import Layout from '@/components/Layout';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import AuthProvider from '@/components/AuthProvider';
 import { useSubscription } from '@/hooks/useSubscription';
+import { OfflineIndicator, InstallPrompt, UpdatePrompt } from '@/components/pwa';
 
 // Direct imports for instant navigation
 import SignInPage from '@/pages/SignIn';
@@ -71,6 +72,11 @@ function App() {
 
   return (
     <AuthProvider>
+      {/* PWA Components */}
+      <OfflineIndicator />
+      <InstallPrompt />
+      <UpdatePrompt />
+
       <Routes>
         {/* Auth routes - using hash routing so no splat needed */}
         <Route path="/sign-in" element={<SignInPage />} />

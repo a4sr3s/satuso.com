@@ -1511,8 +1511,29 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation - scrollable on mobile */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-hide">
+      {/* Tab Navigation - Dropdown on mobile, horizontal tabs on desktop */}
+
+      {/* Mobile: Dropdown selector */}
+      <div className="md:hidden relative">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as TabId)}
+          className={clsx(
+            'w-full appearance-none px-4 py-3 pr-10 text-sm font-medium border border-border rounded-lg bg-white',
+            activeTab === 'danger' ? 'text-red-600' : 'text-text-primary'
+          )}
+        >
+          {TABS.map((tab) => (
+            <option key={tab.id} value={tab.id}>
+              {tab.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-muted pointer-events-none" />
+      </div>
+
+      {/* Desktop: Horizontal tabs */}
+      <div className="hidden md:flex gap-1 border-b border-border">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isDanger = tab.id === 'danger';

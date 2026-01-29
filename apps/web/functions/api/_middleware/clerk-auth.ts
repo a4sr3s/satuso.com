@@ -81,66 +81,226 @@ export async function clerkAuthMiddleware(c: Context<{ Bindings: Env; Variables:
       trial_ends_at: string | null;
     }>();
 
+    // If user exists, check if they need to be synced to a different organization
+    // This handles the case where a user was created before being invited to an org
+    if (user) {
+      try {
+        const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+        const memberships = await clerk.users.getOrganizationMembershipList({
+          userId: clerkUserId,
+        });
+
+        // Find the correct organization based on Clerk memberships
+        for (const membership of memberships.data) {
+          const clerkOrgId = membership.organization.id;
+
+          // Get all members of this Clerk organization
+          const orgMembers = await clerk.organizations.getOrganizationMembershipList({
+            organizationId: clerkOrgId,
+          });
+
+          for (const member of orgMembers.data) {
+            if (member.publicUserData?.userId === clerkUserId) continue;
+
+            // Check if this other member exists in our database with a different org
+            const otherMember = await c.env.DB.prepare(
+              `SELECT u.organization_id, o.subscription_status, o.trial_ends_at
+               FROM users u
+               JOIN organizations o ON u.organization_id = o.id
+               WHERE u.clerk_id = ?`
+            ).bind(member.publicUserData?.userId).first<{
+              organization_id: string;
+              subscription_status: string | null;
+              trial_ends_at: string | null;
+            }>();
+
+            // If found and different from current user's org, sync the user
+            if (otherMember?.organization_id && otherMember.organization_id !== user.organization_id) {
+              console.log('Syncing user to correct organization:', {
+                userId: user.id,
+                fromOrg: user.organization_id,
+                toOrg: otherMember.organization_id,
+              });
+
+              // Update user's organization
+              await c.env.DB.prepare(
+                `UPDATE users SET organization_id = ?, updated_at = ? WHERE id = ?`
+              ).bind(otherMember.organization_id, new Date().toISOString(), user.id).run();
+
+              // Clean up the old organization if user was the only member
+              if (user.organization_id) {
+                const oldOrgMemberCount = await c.env.DB.prepare(
+                  `SELECT COUNT(*) as count FROM users WHERE organization_id = ?`
+                ).bind(user.organization_id).first<{ count: number }>();
+
+                if (oldOrgMemberCount?.count === 0) {
+                  console.log('Deleting empty organization:', user.organization_id);
+                  await c.env.DB.prepare(`DELETE FROM organizations WHERE id = ?`).bind(user.organization_id).run();
+                }
+              }
+
+              // Update the user object with new org data
+              user = {
+                ...user,
+                organization_id: otherMember.organization_id,
+                subscription_status: otherMember.subscription_status,
+                trial_ends_at: otherMember.trial_ends_at,
+              };
+              break;
+            }
+          }
+          if (user.organization_id !== null) break;
+        }
+      } catch (syncError) {
+        console.error('Error syncing user organization:', syncError);
+        // Continue with current org if sync fails
+      }
+    }
+
     // If user doesn't exist, create them with an organization
     if (!user) {
       console.log('Creating new user:', { email, clerkUserId, name });
       try {
         const { nanoid } = await import('nanoid');
         const userId = nanoid();
-        const orgId = nanoid();
         const now = new Date().toISOString();
-        // Set trial to expire in 30 days
-        const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-        // IMPORTANT: Create user FIRST (without organization_id) because organizations.owner_id
-        // has a foreign key constraint to users.id
-        const userResult = await c.env.DB.prepare(
-          `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`
-        ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', now, now).run();
+        // Check if this user belongs to a Clerk organization that other users are already in
+        // This handles the case where a user was invited via Clerk's organization UI
+        let existingOrgId: string | null = null;
+        let existingOrgSubscriptionStatus: string | null = null;
+        let existingOrgTrialEndsAt: string | null = null;
 
-        if (!userResult.success) {
-          console.error('Failed to create user:', userResult);
-          return c.json({ success: false, error: 'Failed to create user' }, 500);
+        try {
+          const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+          const memberships = await clerk.users.getOrganizationMembershipList({
+            userId: clerkUserId,
+          });
+
+          console.log('User Clerk org memberships:', memberships.data.length);
+
+          // Check each Clerk org membership to see if we have users in our DB from that org
+          for (const membership of memberships.data) {
+            const clerkOrgId = membership.organization.id;
+            console.log('Checking Clerk org:', clerkOrgId);
+
+            // Find other users in our DB who belong to this Clerk organization
+            // We do this by getting all Clerk org members and checking if any exist in our DB
+            const orgMembers = await clerk.organizations.getOrganizationMembershipList({
+              organizationId: clerkOrgId,
+            });
+
+            for (const member of orgMembers.data) {
+              if (member.publicUserData?.userId === clerkUserId) continue; // Skip the current user
+
+              // Check if this other member exists in our database
+              const existingMember = await c.env.DB.prepare(
+                `SELECT u.organization_id, o.subscription_status, o.trial_ends_at
+                 FROM users u
+                 JOIN organizations o ON u.organization_id = o.id
+                 WHERE u.clerk_id = ?`
+              ).bind(member.publicUserData?.userId).first<{
+                organization_id: string;
+                subscription_status: string | null;
+                trial_ends_at: string | null;
+              }>();
+
+              if (existingMember?.organization_id) {
+                console.log('Found existing org member:', member.publicUserData?.userId, 'org:', existingMember.organization_id);
+                existingOrgId = existingMember.organization_id;
+                existingOrgSubscriptionStatus = existingMember.subscription_status;
+                existingOrgTrialEndsAt = existingMember.trial_ends_at;
+                break;
+              }
+            }
+
+            if (existingOrgId) break;
+          }
+        } catch (clerkOrgError) {
+          console.error('Error checking Clerk org memberships:', clerkOrgError);
+          // Continue with creating a new org if we can't check memberships
         }
-        console.log('Created user:', { userId, email });
 
-        // Now create organization with 30-day trial (owner_id can now reference the user)
-        // Set onboarding_completed = 1 since we're auto-creating the org
-        const orgResult = await c.env.DB.prepare(
-          `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, onboarding_completed, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
-        ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
+        if (existingOrgId) {
+          // User belongs to an existing organization - add them to it
+          console.log('Adding user to existing organization:', existingOrgId);
 
-        if (!orgResult.success) {
-          console.error('Failed to create organization:', orgResult);
-          // Rollback: delete the user we just created
-          await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
-          return c.json({ success: false, error: 'Failed to create organization' }, 500);
+          const userResult = await c.env.DB.prepare(
+            `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'rep', existingOrgId, now, now).run();
+
+          if (!userResult.success) {
+            console.error('Failed to create user:', userResult);
+            return c.json({ success: false, error: 'Failed to create user' }, 500);
+          }
+
+          user = {
+            id: userId,
+            email: email.toLowerCase(),
+            name,
+            role: 'rep',
+            organization_id: existingOrgId,
+            subscription_status: existingOrgSubscriptionStatus,
+            trial_ends_at: existingOrgTrialEndsAt,
+          };
+          console.log('Successfully added user to existing organization:', { userId, existingOrgId, email });
+        } else {
+          // No existing org found - create a new organization
+          const orgId = nanoid();
+          // Set trial to expire in 30 days
+          const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+          // IMPORTANT: Create user FIRST (without organization_id) because organizations.owner_id
+          // has a foreign key constraint to users.id
+          const userResult = await c.env.DB.prepare(
+            `INSERT INTO users (id, clerk_id, email, name, password_hash, role, organization_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+          ).bind(userId, clerkUserId, email.toLowerCase(), name, 'clerk_managed', 'admin', now, now).run();
+
+          if (!userResult.success) {
+            console.error('Failed to create user:', userResult);
+            return c.json({ success: false, error: 'Failed to create user' }, 500);
+          }
+          console.log('Created user:', { userId, email });
+
+          // Now create organization with 30-day trial (owner_id can now reference the user)
+          // Set onboarding_completed = 1 since we're auto-creating the org
+          const orgResult = await c.env.DB.prepare(
+            `INSERT INTO organizations (id, name, plan, user_limit, owner_id, trial_ends_at, onboarding_completed, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
+          ).bind(orgId, `${name}'s Organization`, 'standard', 5, userId, trialEndsAt, now, now).run();
+
+          if (!orgResult.success) {
+            console.error('Failed to create organization:', orgResult);
+            // Rollback: delete the user we just created
+            await c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+            return c.json({ success: false, error: 'Failed to create organization' }, 500);
+          }
+          console.log('Created organization:', { orgId, trialEndsAt });
+
+          // Update user with organization_id
+          const updateResult = await c.env.DB.prepare(
+            `UPDATE users SET organization_id = ? WHERE id = ?`
+          ).bind(orgId, userId).run();
+
+          if (!updateResult.success) {
+            console.error('Failed to update user with organization:', updateResult);
+            return c.json({ success: false, error: 'Failed to link user to organization' }, 500);
+          }
+          console.log('Linked user to organization');
+
+          user = {
+            id: userId,
+            email: email.toLowerCase(),
+            name,
+            role: 'admin',
+            organization_id: orgId,
+            subscription_status: 'inactive',
+            trial_ends_at: trialEndsAt,
+          };
+          console.log('Successfully created user and organization:', { userId, orgId, email, trialEndsAt });
         }
-        console.log('Created organization:', { orgId, trialEndsAt });
-
-        // Update user with organization_id
-        const updateResult = await c.env.DB.prepare(
-          `UPDATE users SET organization_id = ? WHERE id = ?`
-        ).bind(orgId, userId).run();
-
-        if (!updateResult.success) {
-          console.error('Failed to update user with organization:', updateResult);
-          return c.json({ success: false, error: 'Failed to link user to organization' }, 500);
-        }
-        console.log('Linked user to organization');
-
-        user = {
-          id: userId,
-          email: email.toLowerCase(),
-          name,
-          role: 'admin',
-          organization_id: orgId,
-          subscription_status: 'inactive',
-          trial_ends_at: trialEndsAt,
-        };
-        console.log('Successfully created user and organization:', { userId, orgId, email, trialEndsAt });
       } catch (dbError) {
         console.error('Database error during user creation:', dbError);
         return c.json({ success: false, error: 'Database error' }, 500);

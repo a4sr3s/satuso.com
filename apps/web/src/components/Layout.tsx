@@ -78,7 +78,7 @@ export default function Layout() {
 
             {/* Mobile logo - shown only on mobile */}
             <div className="md:hidden flex items-center">
-              <img src="/logo.svg" alt="Satuso" className="h-10" />
+              <img src="/logo.svg" alt="Satuso" className="h-7" />
             </div>
 
             {/* Page title - hidden on mobile to save space */}

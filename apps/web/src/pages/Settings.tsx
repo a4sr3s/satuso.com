@@ -837,12 +837,12 @@ function WorkspaceTab() {
                               <button className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface rounded">
                                 <MoreHorizontal className="h-4 w-4" />
                               </button>
-                              <div className="absolute right-0 mt-1 w-40 bg-white border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                              <div className="absolute right-0 mt-1 bg-white border border-border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                                 <button
                                   onClick={() => handleRemoveMember(membership.id, memberName)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-error hover:bg-red-50 transition-colors"
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50 transition-colors whitespace-nowrap"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4 flex-shrink-0" />
                                   Remove member
                                 </button>
                               </div>
@@ -1542,7 +1542,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-3xl">
+      <div className="max-w-5xl">
         {activeTab === 'account' && (
           <Card>
             <div className="p-6">

@@ -610,7 +610,7 @@ function WorkspaceTab() {
                 </div>
               )}
             </div>
-            <div className="flex-1">
+            <div className="max-w-sm">
               <Input
                 label="Organization name"
                 value={orgName}
@@ -622,15 +622,12 @@ function WorkspaceTab() {
                 <p className="text-xs text-text-muted mt-1">Only admins can change the organization name</p>
               )}
             </div>
-          </div>
-
-          {hasOrgChanges && isAdmin && (
-            <div className="flex justify-end">
-              <Button onClick={handleSaveOrg} isLoading={isSavingOrg}>
+            {hasOrgChanges && isAdmin && (
+              <Button onClick={handleSaveOrg} isLoading={isSavingOrg} className="mt-6">
                 Save Changes
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Card>
 
@@ -643,7 +640,7 @@ function WorkspaceTab() {
           />
           <div className="px-4 pb-4">
             <form onSubmit={handleInvite} className="flex gap-3 items-end">
-              <div className="flex-1">
+              <div className="w-72">
                 <Input
                   type="email"
                   value={inviteEmail}

@@ -41,11 +41,6 @@
     "filters": "Filters",
     "visit": "Visit"
   },
-  "status": {
-    "active": "Active",
-    "inactive": "Inactive",
-    "lead": "Lead"
-  },
   "priority": {
     "low": "Low",
     "medium": "Medium",

@@ -13,7 +13,7 @@ contacts.use('*', clerkAuthMiddleware);
 
 // List contacts
 contacts.get('/', async (c) => {
-  const { search, status, ownerId, company_id, ...paginationQuery } = c.req.query();
+  const { search, ownerId, company_id, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
   const orgId = c.get('orgId');
@@ -42,11 +42,6 @@ contacts.get('/', async (c) => {
   if (search) {
     query += ` AND (c.name LIKE ? OR c.email LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`);
-  }
-
-  if (status) {
-    query += ` AND c.status = ?`;
-    params.push(status);
   }
 
   if (ownerId) {
@@ -164,7 +159,7 @@ contacts.patch('/:id', zValidator('json', updateContactSchema), async (c) => {
   const fields: string[] = [];
   const params: any[] = [];
 
-  const allowedFields = ['name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'status', 'source', 'linkedin_url', 'last_contacted_at'];
+  const allowedFields = ['name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'source', 'linkedin_url', 'last_contacted_at'];
   const fieldMap: Record<string, string> = {
     companyId: 'company_id',
     ownerId: 'owner_id',

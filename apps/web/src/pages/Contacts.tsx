@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Search, Filter, Mail, Phone, Building2, Trash2, Edit, Check, Users } from 'lucide-react';
+import { Plus, Search, Mail, Phone, Building2, Trash2, Edit, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { contactsApi, companiesApi } from '@/lib/api';
 import type { CreateContactData } from '@/types';
@@ -10,7 +10,6 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Table, { ActionMenu } from '@/components/ui/Table';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
-import { StatusBadge } from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useLocale } from '@/hooks/useLocale';
@@ -26,9 +25,6 @@ export default function ContactsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
   const companyIdFromUrl = searchParams.get('companyId');
 
   const [formData, setFormData] = useState<CreateContactData>({
@@ -37,7 +33,6 @@ export default function ContactsPage() {
     phone: '',
     title: '',
     company_id: companyIdFromUrl || '',
-    status: 'active',
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -45,22 +40,6 @@ export default function ContactsPage() {
     queryKey: ['companies'],
     queryFn: () => companiesApi.list({ limit: '100' }),
   });
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
-        setShowFilterDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const toggleStatusFilter = (status: string) => {
-    setSelectedStatuses((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
-    );
-  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['contacts', { search }],
@@ -72,7 +51,7 @@ export default function ContactsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setShowNewModal(false);
-      setFormData({ name: '', email: '', phone: '', title: '', company_id: '', status: 'active' } as CreateContactData);
+      setFormData({ name: '', email: '', phone: '', title: '', company_id: '' });
       toast.success(t('contacts:toast.created'));
     },
     onError: (error: Error) => {
@@ -92,10 +71,7 @@ export default function ContactsPage() {
     },
   });
 
-  const allContacts = data?.data?.items || [];
-  const contacts = selectedStatuses.length > 0
-    ? allContacts.filter((c: any) => selectedStatuses.includes(c.status))
-    : allContacts;
+  const contacts = data?.data?.items || [];
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -121,10 +97,6 @@ export default function ContactsPage() {
       case 'email':
         aVal = a.email?.toLowerCase() || '';
         bVal = b.email?.toLowerCase() || '';
-        break;
-      case 'status':
-        aVal = a.status?.toLowerCase() || '';
-        bVal = b.status?.toLowerCase() || '';
         break;
       case 'last_contacted':
         aVal = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0;
@@ -236,12 +208,6 @@ export default function ContactsPage() {
       ),
     },
     {
-      key: 'status',
-      header: t('contacts:table.status'),
-      sortable: true,
-      render: (contact: any) => <StatusBadge status={contact.status} />,
-    },
-    {
       key: 'last_contacted',
       header: t('contacts:table.lastContact'),
       sortable: true,
@@ -283,56 +249,6 @@ export default function ContactsPage() {
               className="input pl-10"
             />
           </div>
-        </div>
-        <div className="relative" ref={filterRef}>
-          <Button
-            variant="secondary"
-            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-          >
-            <Filter className="h-4 w-4" />
-            {t('common:buttons.filters')}
-            {selectedStatuses.length > 0 && (
-              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full">
-                {selectedStatuses.length}
-              </span>
-            )}
-          </Button>
-          {showFilterDropdown && (
-            <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 py-2">
-              <div className="px-3 py-2 border-b border-gray-100">
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Filter by Status</p>
-              </div>
-              {[
-                { id: 'active', label: 'Active' },
-                { id: 'inactive', label: 'Inactive' },
-                { id: 'lead', label: 'Lead' },
-              ].map((status) => {
-                const isSelected = selectedStatuses.includes(status.id);
-                return (
-                  <button
-                    key={status.id}
-                    onClick={() => toggleStatusFilter(status.id)}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-gray-300'}`}>
-                      {isSelected && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                    <span className="text-text-primary">{status.label}</span>
-                  </button>
-                );
-              })}
-              {selectedStatuses.length > 0 && (
-                <div className="px-3 pt-2 mt-1 border-t border-gray-100">
-                  <button
-                    onClick={() => setSelectedStatuses([])}
-                    className="text-xs text-primary hover:text-primary/80 font-medium"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

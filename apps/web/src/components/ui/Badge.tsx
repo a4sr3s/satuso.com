@@ -61,18 +61,3 @@ export function PriorityBadge({ priority }: { priority: string }) {
   return <Badge variant={config.variant}>{label}</Badge>;
 }
 
-// Status badge for contacts
-export function StatusBadge({ status }: { status: string }) {
-  const { t } = useTranslation();
-
-  const statusConfig: Record<string, { labelKey: string; variant: BadgeVariant }> = {
-    active: { labelKey: 'common:status.active', variant: 'success' },
-    inactive: { labelKey: 'common:status.inactive', variant: 'default' },
-    lead: { labelKey: 'common:status.lead', variant: 'primary' },
-  };
-
-  const config = statusConfig[status] || { labelKey: status, variant: 'default' as BadgeVariant };
-  const label = statusConfig[status] ? t(config.labelKey) : status;
-
-  return <Badge variant={config.variant}>{label}</Badge>;
-}

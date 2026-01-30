@@ -7,7 +7,7 @@ import { contactsApi, activitiesApi, companiesApi } from '@/lib/api';
 import type { ActivityType } from '@/types';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
-import { StatusBadge, StageBadge } from '@/components/ui/Badge';
+import { StageBadge } from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
@@ -184,10 +184,6 @@ export default function ContactDetailPage() {
         <Card>
           <CardHeader title="Contact Information" />
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-text-secondary">Status</span>
-              <StatusBadge status={contact.status} />
-            </div>
             {contact.email && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">Email</span>

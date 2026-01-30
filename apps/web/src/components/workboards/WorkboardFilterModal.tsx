@@ -41,11 +41,6 @@ const contactFields: FieldOption[] = [
   { value: 'name', label: 'Contact Name', type: 'text' },
   { value: 'email', label: 'Email', type: 'text' },
   { value: 'company_name', label: 'Company', type: 'text' },
-  { value: 'status', label: 'Status', type: 'select', options: [
-    { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
-    { value: 'lead', label: 'Lead' },
-  ]},
   { value: 'owner_name', label: 'Owner', type: 'text' },
 ];
 

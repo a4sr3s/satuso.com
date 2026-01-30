@@ -9,7 +9,6 @@
     "company": "Company",
     "email": "Email",
     "phone": "Phone",
-    "status": "Status",
     "lastContact": "Last Contact"
   },
   "empty": {

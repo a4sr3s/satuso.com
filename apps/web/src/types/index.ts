@@ -19,7 +19,6 @@ export interface Contact {
   title: string | null;
   company_id: string | null;
   company_name: string | null;
-  status: 'active' | 'inactive' | 'lead';
   owner_id: string;
   owner_name: string | null;
   last_contacted_at: string | null;
@@ -117,7 +116,6 @@ export interface Deal {
     name: string;
     email: string | null;
     title: string | null;
-    status: string | null;
   }>;
 }
 
@@ -320,7 +318,6 @@ export interface CreateContactData {
   phone?: string;
   title?: string;
   company_id?: string;
-  status?: Contact['status'];
   // Social profiles
   linkedin_url?: string;
   twitter_url?: string;

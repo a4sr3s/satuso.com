@@ -20,7 +20,6 @@ export interface Contact {
   company?: Company;
   ownerId: string;
   owner?: User;
-  status: 'active' | 'inactive' | 'lead';
   source?: string;
   linkedinUrl?: string;
   lastContactedAt?: string;

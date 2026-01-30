@@ -30,7 +30,6 @@ export const createContactSchema = z.object({
   title: z.string().max(100, 'Title is too long').optional(),
   companyId: z.string().optional(),
   ownerId: z.string().optional(),
-  status: z.enum(['active', 'inactive', 'lead']).optional(),
   source: z.string().max(50, 'Source is too long').optional(),
   linkedinUrl: z.string().url('Invalid LinkedIn URL').optional().or(z.literal('')),
 });
@@ -120,7 +119,7 @@ const allowedColumnFields = [
   'contact_id', 'company_id', 'contact_name', 'company_name',
   'spin_situation', 'spin_problem', 'spin_implication', 'spin_need_payoff',
   // Contact fields
-  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  'email', 'phone', 'title', 'source', 'last_contacted_at',
   // Company fields
   'domain', 'industry', 'employee_count', 'website', 'annual_revenue', 'description',
   'contact_count', 'deal_count', 'total_revenue',
@@ -161,7 +160,7 @@ const allowedFilterFields = [
   'value', 'stage', 'close_date', 'probability', 'spin_progress', 'stage_changed_at',
   'contact_id', 'company_id', 'spin_score', 'days_in_stage', 'sla_breach', 'last_activity_days',
   // Contact fields
-  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  'email', 'phone', 'title', 'source', 'last_contacted_at',
   // Company fields
   'domain', 'industry', 'employee_count', 'website', 'annual_revenue',
 ] as const;
@@ -192,7 +191,7 @@ const allowedSortColumns = [
   // Deals
   'value', 'stage', 'close_date', 'probability', 'spin_progress', 'stage_changed_at', 'contact_id', 'company_id',
   // Contacts
-  'email', 'phone', 'title', 'status', 'source', 'last_contacted_at',
+  'email', 'phone', 'title', 'source', 'last_contacted_at',
   // Companies
   'domain', 'industry', 'employee_count',
   // Formulas (computed)

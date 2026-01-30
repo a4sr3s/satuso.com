@@ -41,11 +41,6 @@
     "filters": "Filtros",
     "visit": "Visitar"
   },
-  "status": {
-    "active": "Activo",
-    "inactive": "Inactivo",
-    "lead": "Prospecto"
-  },
   "priority": {
     "low": "Baja",
     "medium": "Media",

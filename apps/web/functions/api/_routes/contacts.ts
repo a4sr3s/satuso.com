@@ -15,7 +15,7 @@ contacts.use('*', standardRateLimiter);
 
 // List contacts
 contacts.get('/', async (c) => {
-  const { search, status, ownerId, ...paginationQuery } = c.req.query();
+  const { search, ownerId, ...paginationQuery } = c.req.query();
   const { page, limit, offset } = parsePagination(paginationQuery);
   const user = c.get('user');
 
@@ -35,13 +35,8 @@ contacts.get('/', async (c) => {
   const params: any[] = [...accessFilter.params];
 
   if (search) {
-    query += ` AND (c.name LIKE ? OR c.email LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`);
-  }
-
-  if (status) {
-    query += ` AND c.status = ?`;
-    params.push(status);
+    query += ` AND (c.name LIKE ? OR c.email LIKE ? OR co.name LIKE ?)`;
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
   if (ownerId) {
@@ -132,11 +127,11 @@ contacts.post('/', zValidator('json', createContactSchema), async (c) => {
   const now = new Date().toISOString();
 
   await c.env.DB.prepare(`
-    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, status, source,
+    INSERT INTO contacts (id, name, email, phone, title, company_id, owner_id, source,
       linkedin_url, twitter_url, github_url, facebook_url,
       location, location_city, location_region, location_country,
       created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.name,
@@ -145,7 +140,6 @@ contacts.post('/', zValidator('json', createContactSchema), async (c) => {
     body.title || null,
     body.company_id || body.companyId || null,
     body.ownerId || userId,
-    body.status || 'active',
     body.source || null,
     body.linkedin_url || body.linkedinUrl || null,
     body.twitter_url || body.twitterUrl || null,
@@ -185,7 +179,7 @@ contacts.patch('/:id', zValidator('json', updateContactSchema), async (c) => {
   const params: any[] = [];
 
   const allowedFields = [
-    'name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'status', 'source',
+    'name', 'email', 'phone', 'title', 'company_id', 'owner_id', 'source',
     'linkedin_url', 'twitter_url', 'github_url', 'facebook_url',
     'location', 'location_city', 'location_region', 'location_country',
     'last_contacted_at'

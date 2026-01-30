@@ -9,7 +9,6 @@
     "company": "Empresa",
     "email": "Correo",
     "phone": "Teléfono",
-    "status": "Estado",
     "lastContact": "Último Contacto"
   },
   "empty": {

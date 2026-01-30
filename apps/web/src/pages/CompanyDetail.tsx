@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { companiesApi, contactsApi } from '@/lib/api';
 import Button from '@/components/ui/Button';
 import Card, { CardHeader } from '@/components/ui/Card';
-import { StageBadge, StatusBadge } from '@/components/ui/Badge';
+import { StageBadge } from '@/components/ui/Badge';
 import Avatar from '@/components/ui/Avatar';
 import SpinProgress from '@/components/ui/SpinProgress';
 import Modal, { ConfirmDialog } from '@/components/ui/Modal';
@@ -260,7 +260,6 @@ export default function CompanyDetailPage() {
                       {contact.title || contact.email}
                     </p>
                   </div>
-                  <StatusBadge status={contact.status} />
                 </button>
               ))}
             </div>
